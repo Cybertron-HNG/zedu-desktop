@@ -24,8 +24,14 @@ on:
 permissions:
   contents: read
 
+# Only real relays (PR events, /fork-build) share a per-PR group. Any other comment gets a unique group,
+# so an unrelated comment (bots included) can't cancel a relay that's waiting on the fork build.
 concurrency:
-  group: fork-build-${{ github.event.pull_request.number || github.event.issue.number }}
+  group: >-
+    fork-build-${{ github.event.pull_request.number
+    || ((github.event.comment.body == '/fork-build' || startsWith(github.event.comment.body, '/fork-build '))
+        && github.event.issue.number)
+    || github.run_id }}
   cancel-in-progress: true
 
 jobs:
@@ -33,7 +39,8 @@ jobs:
     name: Relay fork build
     if: >-
       github.event_name == 'pull_request_target' ||
-      (github.event.issue.pull_request && startsWith(github.event.comment.body, '/fork-build'))
+      (github.event.issue.pull_request &&
+       (github.event.comment.body == '/fork-build' || startsWith(github.event.comment.body, '/fork-build ')))
     runs-on: ubuntu-latest
     timeout-minutes: 80
     permissions:
@@ -108,6 +115,17 @@ jobs:
               continue
             fi
             conclusion=$(echo "$run" | jq -r .conclusion)
+            # A run whose build jobs were all skipped (pushed before the PR existed) is not a build.
+            if [ "$conclusion" = "success" ]; then
+              run_id=$(echo "$run" | jq -r .id)
+              built=$(gh api "repos/$HEAD_REPO/actions/runs/$run_id/jobs" \
+                --jq '[.jobs[] | select(.name != "Open PR check" and .conclusion != "skipped")] | length')
+              if [ "$built" -eq 0 ]; then
+                echo "found=false" >> "$GITHUB_OUTPUT"
+                status pending "No build yet for ${SHA:0:7}. In your fork: Actions > PR build > Run workflow." "$url"
+                exit 0
+              fi
+            fi
             {
               echo "found=true"
               echo "url=$url"
