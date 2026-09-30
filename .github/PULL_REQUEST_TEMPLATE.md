@@ -1,26 +1,53 @@
-## Summary
+## Ticket
 
-<!-- One or two sentences. What changes after this merges? -->
+<!-- Link to the approved ClickUp/Linear ticket. -->
 
-## Related issue
+## Team lead
 
-<!-- Link to the ticket, or "chore" if there isn't one. -->
+<!-- @handle of your team lead. They review and approve this PR before Zedu reviewers pick it up. -->
+
+@
+
+## What changed
+
+<!-- Short summary of the change. -->
+
+## Why
+
+<!-- The problem or reason this ticket exists. -->
 
 ## How to test
 
-<!-- Steps a reviewer can follow to verify. Include OS if relevant. -->
+<!-- Numbered steps a reviewer can follow to verify the change themselves. -->
 
-## Screenshots
+1.
 
-<!-- For any UI change. Show each state if there's more than one. Delete this section if not applicable. -->
+## What to expect
 
-## Notes for the reviewer
+<!-- The expected behaviour after following the steps above. -->
 
-<!-- Optional. Anything you're unsure about, want extra eyes on, or want the reviewer to know upfront. -->
+## Test evidence
 
----
+<!-- The Fork build check posts your build links automatically. Say which backend you tested against.
+     Say whether unit/widget/integration tests were added or updated for what this ticket changed, and why if not. -->
 
-- [ ] Runs locally, no errors or warnings
-- [ ] Formatted and linted
-- [ ] Flutter analyze shows no errors
-- [ ] Tests added or updated (or noted why not)
+- Tested against:
+- Tests:
+
+## Screenshots / recording
+
+<!-- Required for visible or interactive changes. Otherwise write "N/A, non-visual change". -->
+
+## AI usage
+
+<!-- One line on how AI was used, if significant (see CONTRIBUTING.md, "AI usage"). -->
+
+## Checklist
+
+- [ ] Linked to an approved ticket
+- [ ] Only intended files changed; no protected files without reviewer agreement
+- [ ] No secrets or debug code committed
+- [ ] Tests added/updated for what this ticket changed (not retroactive coverage of unrelated code)
+- [ ] Fork build triggered (first run: fork → Actions → PR build → Run workflow)
+- [ ] Team lead approved this PR
+- [ ] Self-reviewed (`git status` / `git diff`)
