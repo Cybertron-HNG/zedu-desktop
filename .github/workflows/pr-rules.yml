@@ -55,7 +55,17 @@ jobs:
           else
             echo "internal=false" >> "$GITHUB_OUTPUT"
           fi
-          perm=$(gh api "repos/$REPO/collaborators/$AUTHOR/permission" --jq .permission 2>/dev/null || echo none)
+          case "$AUTHOR" in
+            dependabot\[bot\]|renovate\[bot\]|github-actions\[bot\])
+              echo "reviewer=true" >> "$GITHUB_OUTPUT"
+              echo "Author $AUTHOR is a bot; branch-name and single-author checks are waived."
+              exit 0 ;;
+          esac
+          # Retry once: a transient API error would otherwise treat a reviewer as a contributor.
+          if ! perm=$(gh api "repos/$REPO/collaborators/$AUTHOR/permission" --jq .permission); then
+            sleep 5
+            perm=$(gh api "repos/$REPO/collaborators/$AUTHOR/permission" --jq .permission || echo none)
+          fi
           case "$perm" in
             admin|maintain|write) echo "reviewer=true" >> "$GITHUB_OUTPUT" ;;
             *) echo "reviewer=false" >> "$GITHUB_OUTPUT" ;;
@@ -111,10 +121,18 @@ jobs:
     runs-on: ubuntu-latest
     env:
       APPROVED: ${{ contains(github.event.pull_request.labels.*.name, 'config-change-approved') }}
+      DEPENDABOT: ${{ github.event.pull_request.user.login == 'dependabot[bot]' }}
     steps:
       - run: |
           protected='^(\.github/|AGENTS\.md$|CONTRIBUTING\.md$|analysis_options\.yaml$|scripts/)'
-          hits=$(gh api --paginate "repos/$REPO/pulls/$PR_NUMBER/files" --jq '.[].filename' | grep -E "$protected" || true)
+          files=$(gh api --paginate "repos/$REPO/pulls/$PR_NUMBER/files" --jq '.[].filename')
+          hits=$(grep -E "$protected" <<< "$files" || true)
+          # Dependabot bumps GitHub Actions only (.github/dependabot.yml). Waive it only while every
+          # changed file is under .github/, so a wider Dependabot config can't ride this exemption.
+          if [ "$DEPENDABOT" = true ] && ! grep -qv '^\.github/' <<< "$files"; then
+            echo "::notice::Dependabot PR changing only .github/; protected-files check waived."
+            exit 0
+          fi
           if [ -z "$hits" ]; then
             echo "OK: no protected files changed"
           elif [ "$APPROVED" = true ]; then
