@@ -27,12 +27,13 @@ class AppConfig {
     final envClientId = dotenv.maybeGet('GOOGLE_CLIENT_ID')?.trim();
     final envClientSecret = dotenv.maybeGet('GOOGLE_CLIENT_SECRET')?.trim();
 
-    // Teams point the app at their own backend via --dart-define or .env; Zedu staging is the default.
+    // Teams point the app at their own backend via --dart-define or .env; the
+    // dev backend is the default (bootcamp work never touches Zedu staging).
     String apiBaseUrl = defineApiBaseUrl.isNotEmpty
         ? defineApiBaseUrl
         : (envApiBaseUrl?.isNotEmpty ?? false)
         ? envApiBaseUrl!
-        : 'https://api.staging.zedu.chat/api/v1/';
+        : 'https://api.hng.groups.zedu.chat/api/v1/';
 
     apiBaseUrl = apiBaseUrl.replaceAll('"', '').replaceAll("'", "");
 

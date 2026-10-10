@@ -21,6 +21,34 @@ void main() {
       expect(token, 'abc123');
     });
 
+    test('extracts token from correctly-spelled magic-link https link', () {
+      final uri = Uri.parse(
+        'https://api.hng.groups.zedu.chat/auth/magic-link/verify?token=abc123',
+      );
+
+      final token = MagicLinkDeepLinkParser.extractToken(uri);
+
+      expect(token, 'abc123');
+    });
+
+    test('extracts token from emailed login/magic-link https link', () {
+      final uri = Uri.parse(
+        'https://api.hng.groups.zedu.chat/auth/login/magic-link?token=abc123',
+      );
+
+      final token = MagicLinkDeepLinkParser.extractToken(uri);
+
+      expect(token, 'abc123');
+    });
+
+    test('extracts token from correctly-spelled custom scheme link', () {
+      final uri = Uri.parse('zedu://auth/magic-link/verify?token=abc123');
+
+      final token = MagicLinkDeepLinkParser.extractToken(uri);
+
+      expect(token, 'abc123');
+    });
+
     test('returns null for missing token query parameter', () {
       final uri = Uri.parse('zedu://auth/magick-link/verify');
 
