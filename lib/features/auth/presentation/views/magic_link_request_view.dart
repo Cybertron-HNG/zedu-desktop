@@ -35,6 +35,13 @@ class _MagicLinkRequestViewState extends ConsumerState<MagicLinkRequestView> {
 
     final error = ref.read(magicLinkNotifierProvider).error;
     final message = switch (error) {
+      // The backend signals "no account for this email" with a 404 whose JSON
+      // body carries the reason (e.g. "user not found"). Surface that reason
+      // instead of the generic "The resource was not found." so the user knows
+      // the link was never sent (zeduchat#44).
+      ApiFailure(kind: ApiFailureKind.notFound, message: final serverReason)
+          when serverReason.isNotEmpty =>
+        serverReason,
       ApiFailure() => error.friendlyMessage,
       Object() => error.toString(),
       null => 'Could not send magic link. Please try again.',
