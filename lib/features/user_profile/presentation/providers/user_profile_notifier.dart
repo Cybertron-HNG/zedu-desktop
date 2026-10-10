@@ -9,7 +9,9 @@ class UserProfileNotifier extends Notifier<UserProfileState> {
   @override
   UserProfileState build() {
     _repository = ref.read(userProfileRepositoryProvider);
-    load();
+    // load() reads and writes `state`, which does not exist until build()
+    // has returned. Start it after the initial state is set.
+    Future.microtask(load);
     return const UserProfileState(isLoading: true);
   }
 
