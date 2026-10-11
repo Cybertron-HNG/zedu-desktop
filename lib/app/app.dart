@@ -6,6 +6,7 @@ class App extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // TODO: enforce message deletion time limit (CYBERTRON-032)
     return MaterialApp.router(
       debugShowCheckedModeBanner: false,
       title: 'Zedu',
