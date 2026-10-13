@@ -188,7 +188,9 @@ class _AnchoredWorkspaceMenu extends StatelessWidget {
               child: Stack(
                 clipBehavior: Clip.none,
                 children: [
-                  const WorkspaceSwitcherList(),
+                  // In a short window the cap can be smaller than the menu,
+                  // so the whole menu scrolls instead of overflowing.
+                  const SingleChildScrollView(child: WorkspaceSwitcherList()),
                   Positioned(
                     top: -6,
                     left: arrowX - 6,

@@ -102,5 +102,42 @@ void main() {
         0,
       );
     });
+
+    testWidgets(
+      'scrolls the whole menu in a short window instead of overflowing',
+      (tester) async {
+        await useTestWindow(tester);
+        // A short window: MediaQuery reads the view size, which sets the cap.
+        await tester.binding.setSurfaceSize(const Size(1440, 260));
+        tester.view.physicalSize = const Size(1440, 260);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+
+        await tester.pumpWidget(buildHeaderUnderTest());
+        await tester.pump();
+
+        await tester.tap(find.text('commabuster'));
+        await tester.pumpAndSettle();
+
+        expect(tester.takeException(), isNull);
+        final footer = find.text('Add a new organization');
+        await tester.scrollUntilVisible(
+          footer,
+          50,
+          scrollable: find
+              .descendant(
+                of: find.byType(SingleChildScrollView),
+                matching: find.byType(Scrollable),
+              )
+              .first,
+        );
+        // The footer is now inside the visible, height-capped menu.
+        final menuRect = tester.getRect(find.byType(SingleChildScrollView));
+        final footerRect = tester.getRect(footer);
+        expect(footerRect.top, greaterThanOrEqualTo(menuRect.top));
+        expect(footerRect.bottom, lessThanOrEqualTo(menuRect.bottom));
+        expect(menuRect.bottom, lessThanOrEqualTo(260));
+      },
+    );
   });
 }
