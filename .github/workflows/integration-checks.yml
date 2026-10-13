@@ -101,7 +101,7 @@ jobs:
           types='feat|fix|hotfix|test|docs|refactor|chore|perf|security'
 
           # Branch name: <type>/<ticket-id>-<short-description>
-          branch_re="^($types)/([A-Za-z]+-)?[0-9]+-[a-z0-9][a-z0-9-]*\$"
+          printf -v branch_re %s "^($types)/([A-Za-z]+-)?[0-9]+-[a-z0-9][a-z0-9-]*\$"
           if [[ "$HEAD_REF" =~ $branch_re ]]; then
             echo "Branch name OK: $HEAD_REF"
           else
@@ -109,7 +109,7 @@ jobs:
           fi
 
           # PR title: <type>(<ticket-id>): <summary>, matching the branch
-          title_re="^($types)\(([A-Za-z]+-)?([0-9]+)\):[[:space:]]+.+\$"
+          printf -v title_re %s "^($types)\(([A-Za-z]+-)?([0-9]+)\):[[:space:]]+.+\$"
           if [[ "$TITLE" =~ $title_re ]]; then
             ttype="${BASH_REMATCH[1]}"
             tnum="${BASH_REMATCH[3]}"
@@ -131,7 +131,7 @@ jobs:
 
           # Single author: one person per PR (bot commits and Co-authored-by trailers do not count)
           if raw=$(gh api --paginate "repos/$REPO/pulls/$PR_NUMBER/commits" --jq '.[] | (.author.login // .commit.author.email)'); then
-            bot='^[0-9]*\+?(dependabot|github-actions|renovate|codecov)\[bot\](@users\.noreply\.github\.com)?$'
+            printf -v bot %s '^[0-9]*\+?(dependabot|github-actions|renovate|codecov)\[bot\](@users\.noreply\.github\.com)?$'
             authors=$(printf '%s\n' "$raw" | grep -vE "$bot" | sort -u)
             count=$(grep -c . <<< "$authors" || true)
             echo "Commit authors: $(tr '\n' ' ' <<< "$authors")"
