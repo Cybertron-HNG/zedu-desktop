@@ -17,7 +17,8 @@ class AppSidebarRail extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final colors = context.colors;
+    final dmsTargetKey = GlobalKey();
+    final peopleTargetKey = GlobalKey();
 
     void select(HomeSidebarType type) {
       if (onTypeSelected != null) {
@@ -27,6 +28,22 @@ class AppSidebarRail extends ConsumerWidget {
       ref.read(homeSidebarProvider.notifier).setType(type);
     }
 
+    return SidebarPopoutHost(
+      dmsTargetKey: dmsTargetKey,
+      peopleTargetKey: peopleTargetKey,
+      onTypeSelected: select,
+      child: _buildRail(context, ref, dmsTargetKey, peopleTargetKey, select),
+    );
+  }
+
+  Widget _buildRail(
+    BuildContext context,
+    WidgetRef ref,
+    GlobalKey dmsTargetKey,
+    GlobalKey peopleTargetKey,
+    ValueChanged<HomeSidebarType> select,
+  ) {
+    final colors = context.colors;
     return Container(
       width: width,
       decoration: BoxDecoration(
@@ -47,12 +64,16 @@ class AppSidebarRail extends ConsumerWidget {
           _RailNavItem(
             icon: Icons.chat_bubble_outline,
             label: 'DMs',
+            popoutType: HomeSidebarType.dms,
+            positionKey: dmsTargetKey,
             isActive: activeType == HomeSidebarType.dms,
             onTap: () => select(HomeSidebarType.dms),
           ),
           _RailNavItem(
             icon: Icons.people_outline,
             label: 'People',
+            popoutType: HomeSidebarType.people,
+            positionKey: peopleTargetKey,
             isActive: activeType == HomeSidebarType.people,
             onTap: () => select(HomeSidebarType.people),
           ),
@@ -150,26 +171,35 @@ class _RailNavItem extends StatelessWidget {
   const _RailNavItem({
     required this.icon,
     required this.label,
+    this.popoutType,
     this.isActive = false,
+    this.positionKey,
     this.onTap,
   });
 
   final IconData icon;
   final String label;
+  final HomeSidebarType? popoutType;
   final bool isActive;
+  final GlobalKey? positionKey;
   final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final popouts = popoutType == null ? null : SidebarPopoutHost.of(context);
 
     return InkWell(
       onTap: onTap,
+      onHover: popouts == null
+          ? null
+          : (hovered) => popouts.onRailHover(popoutType!, hovered),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 6),
         child: Column(
           children: [
             Container(
+              key: positionKey,
               width: 32,
               height: 32,
               decoration: BoxDecoration(
