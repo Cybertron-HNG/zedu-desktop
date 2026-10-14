@@ -68,7 +68,10 @@ class ChannelNotifier extends AsyncNotifier<List<Channel>> {
 
     switch (result) {
       case Success<Channel>(:final value):
-        state = AsyncData([...channels.where((c) => c.id != value.id), value]);
+        state = AsyncData([
+          ...channels.where((c) => c.id.isEmpty || c.id != value.id),
+          value,
+        ]);
         return true;
       case Failure<Channel>(:final error):
         state = AsyncError<List<Channel>>(error, StackTrace.current);

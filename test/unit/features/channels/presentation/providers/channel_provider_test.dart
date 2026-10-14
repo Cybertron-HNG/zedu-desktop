@@ -100,6 +100,37 @@ void main() {
       expect(state.hasError, isFalse);
     });
 
+    test(
+      'keeps every channel when the server sends channels without ids',
+      () async {
+        Channel noId(String name) => Channel(
+          id: '',
+          name: name,
+          description: '',
+          organisationId: 'org-1',
+          ownerId: 'user-1',
+        );
+        when(() => repository.fetchChannels(any())).thenAnswer(
+          (_) async =>
+              Success<List<Channel>>([noId('general'), noId('team-heron')]),
+        );
+        stubCreateChannel(Success<Channel>(noId('plan')));
+        final notifier = await loadNotifier();
+
+        final created = await notifier.createChannel(
+          name: 'plan',
+          description: '',
+          isPrivate: false,
+        );
+
+        expect(created, isTrue);
+        expect(
+          container.read(channelProvider).requireValue.map((c) => c.name),
+          ['general', 'team-heron', 'plan'],
+        );
+      },
+    );
+
     test('keeps the list and saves the server message on failure', () async {
       stubCreateChannel(
         const Failure<Channel>(
