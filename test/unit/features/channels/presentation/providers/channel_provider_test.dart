@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import '../../../../../helpers/helpers.dart';
 import 'package:zedu/core/core.dart';
 import 'package:zedu/features/features.dart';
@@ -77,9 +79,8 @@ void main() {
 
     // Reads the notifier and waits for the first channel fetch to finish.
     Future<ChannelNotifier> loadNotifier() async {
-      final notifier = container.read(channelProvider.notifier);
-      await pumpEventQueue();
-      return notifier;
+      await container.read(channelProvider.future);
+      return container.read(channelProvider.notifier);
     }
 
     test('adds the new channel to the list and returns true', () async {
@@ -94,10 +95,41 @@ void main() {
 
       final state = container.read(channelProvider);
       expect(created, isTrue);
-      expect(state.channels.map((c) => c.name), ['general', 'team-heron']);
+      expect(state.requireValue.map((c) => c.name), ['general', 'team-heron']);
       expect(state.isLoading, isFalse);
-      expect(state.errorMessage, isNull);
+      expect(state.hasError, isFalse);
     });
+
+    test(
+      'keeps every channel when the server sends channels without ids',
+      () async {
+        Channel noId(String name) => Channel(
+          id: '',
+          name: name,
+          description: '',
+          organisationId: 'org-1',
+          ownerId: 'user-1',
+        );
+        when(() => repository.fetchChannels(any())).thenAnswer(
+          (_) async =>
+              Success<List<Channel>>([noId('general'), noId('team-heron')]),
+        );
+        stubCreateChannel(Success<Channel>(noId('plan')));
+        final notifier = await loadNotifier();
+
+        final created = await notifier.createChannel(
+          name: 'plan',
+          description: '',
+          isPrivate: false,
+        );
+
+        expect(created, isTrue);
+        expect(
+          container.read(channelProvider).requireValue.map((c) => c.name),
+          ['general', 'team-heron', 'plan'],
+        );
+      },
+    );
 
     test('keeps the list and saves the server message on failure', () async {
       stubCreateChannel(
@@ -115,9 +147,52 @@ void main() {
 
       final state = container.read(channelProvider);
       expect(created, isFalse);
-      expect(state.channels.map((c) => c.name), ['general']);
+      expect(state.requireValue.map((c) => c.name), ['general']);
       expect(state.isLoading, isFalse);
-      expect(state.errorMessage, 'Channel name already exists');
+      expect(
+        (state.error as ApiFailure).message,
+        'Channel name already exists',
+      );
+    });
+
+    test('ignores a second create while one is still running', () async {
+      final pending = Completer<Result<Channel>>();
+      when(
+        () => repository.createChannel(
+          name: any(named: 'name'),
+          description: any(named: 'description'),
+          orgId: any(named: 'orgId'),
+          username: any(named: 'username'),
+          isPrivate: any(named: 'isPrivate'),
+          topic: any(named: 'topic'),
+        ),
+      ).thenAnswer((_) => pending.future);
+      final notifier = await loadNotifier();
+
+      final first = notifier.createChannel(
+        name: 'team-heron',
+        description: '',
+        isPrivate: false,
+      );
+      final second = await notifier.createChannel(
+        name: 'team-heron-2',
+        description: '',
+        isPrivate: false,
+      );
+      pending.complete(Success<Channel>(_channel('team-heron')));
+
+      expect(second, isFalse);
+      expect(await first, isTrue);
+      verify(
+        () => repository.createChannel(
+          name: any(named: 'name'),
+          description: any(named: 'description'),
+          orgId: any(named: 'orgId'),
+          username: any(named: 'username'),
+          isPrivate: any(named: 'isPrivate'),
+          topic: any(named: 'topic'),
+        ),
+      ).called(1);
     });
   });
 }
