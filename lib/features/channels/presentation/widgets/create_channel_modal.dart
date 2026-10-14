@@ -22,10 +22,12 @@ class _CreateChannelModalState extends ConsumerState<CreateChannelModal> {
     super.dispose();
   }
 
-  void _createChannel() {
+  Future<void> _createChannel() async {
     if (_nameController.text.trim().isEmpty) return;
+    // A second tap before the screen rebuilds must not start a second create.
+    if (ref.read(channelProvider).isLoading) return;
 
-    ref
+    final created = await ref
         .read(channelProvider.notifier)
         .createChannel(
           name: _nameController.text.trim(),
@@ -33,24 +35,32 @@ class _CreateChannelModalState extends ConsumerState<CreateChannelModal> {
           topic: _topicController.text.trim(),
           isPrivate: _isPrivate,
         );
-    Navigator.of(context).pop();
+    if (!mounted) return;
+    if (created) Navigator.of(context).pop();
   }
 
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
     final textTheme = context.textTheme;
-    final isLoading = ref.watch(channelProvider).isLoading;
+    final channelState = ref.watch(channelProvider);
+    final isLoading = channelState.isLoading;
+    final error = channelState.error;
+    final errorMessage = !isLoading && channelState.hasError
+        ? (error is ApiFailure
+              ? error.message
+              : 'Could not create the channel. Please try again.')
+        : null;
 
     return Dialog(
       backgroundColor: colors.background,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Container(
+      child: SizedBox(
         width: 400,
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: ListView(
+          shrinkWrap: true,
+          physics: const ClampingScrollPhysics(),
+          padding: const EdgeInsets.all(24),
           children: [
             Text(
               'Create a channel',
@@ -163,6 +173,13 @@ class _CreateChannelModalState extends ConsumerState<CreateChannelModal> {
                 ),
               ],
             ),
+            if (errorMessage != null) ...[
+              const SizedBox(height: 16),
+              Text(
+                errorMessage,
+                style: textTheme.bodySmall?.copyWith(color: colors.error),
+              ),
+            ],
             const SizedBox(height: 32),
             Row(
               mainAxisAlignment: MainAxisAlignment.end,

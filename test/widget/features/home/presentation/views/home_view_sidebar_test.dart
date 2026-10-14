@@ -14,6 +14,20 @@ class _FakeWorkspaceNotifier extends WorkspaceNotifier {
   WorkspaceState build() => const WorkspaceState();
 }
 
+// The sidebar now lists real channels, so the test supplies one.
+class _FakeChannelNotifier extends ChannelNotifier {
+  @override
+  Future<List<Channel>> build() async => [
+    Channel(
+      id: 'channel-general',
+      name: 'general',
+      description: '',
+      organisationId: 'org-1',
+      ownerId: 'user-1',
+    ),
+  ];
+}
+
 class _FakeCreditsNotifier extends CreditsNotifier {
   @override
   CreditsState build() => const CreditsState();
@@ -24,6 +38,7 @@ ProviderContainer _container() => ProviderContainer(
     authNotifierProvider.overrideWith(_FakeAuthNotifier.new),
     workspaceProvider.overrideWith(_FakeWorkspaceNotifier.new),
     creditsNotifierProvider.overrideWith(_FakeCreditsNotifier.new),
+    channelProvider.overrideWith(_FakeChannelNotifier.new),
   ],
 );
 
@@ -39,6 +54,7 @@ Future<void> _pumpHome(WidgetTester tester, ProviderContainer container) async {
   addTearDown(tester.view.reset);
   await tester.pumpWidget(_app(container));
   await tester.pump();
+  await tester.pump(const Duration(milliseconds: 50));
 }
 
 // The icon rail also has a "People" label, so scope finders to the header.
@@ -116,6 +132,7 @@ void main() {
     await tester.pumpWidget(_app(container, home: const SizedBox()));
     await tester.pumpWidget(_app(container));
     await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
 
     expect(find.text('general'), findsNothing);
     expect(_turnsOf(tester, 'Channels'), -0.25);

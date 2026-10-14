@@ -1,0 +1,195 @@
+name: Integration checks
+
+# zedu-hng's own PR checks and scans, run on PRs into our team branch (cybertron-integration),
+# so whatever we bundle and send to zedu-hng has already passed the same checks there.
+# Calls zedu-ci's reusable workflows at the same commit zedu-hng/zedu-desktop pins in its
+# .github/workflows/pr-checks.yml and pr-scans.yml. To follow a zedu-ci update, change the SHA in
+# both "uses:" lines to the one zedu-hng/zedu-desktop uses.
+#
+# Backend dependency: fails while the PR description has a "Backend URL:" line, meaning the PR
+# needs backend work that isn't on dev yet. Don't merge it into cybertron-integration until that
+# backend is on dev and the line is removed.
+#
+# PR rules (moved here from cybertron-checks.yml, which this file replaces): branch name, title and
+# ticket, single author, size (~400 lines), protected files, and leftover debug output. zedu-hng runs
+# these in a workflow that only works inside zedu-hng, so they're written out here.
+#
+# Safe for member PRs: runs PR code only with a read-only token and no secrets.
+# Delete this file (with any other team-only workflow) before opening the bundle PR to zedu-hng,
+# or zedu-hng's "Protected files" check fails on the .github/ change.
+
+on:
+  pull_request:
+    branches:
+      - cybertron-integration
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
+      - edited
+      - labeled
+      - unlabeled
+
+permissions: {}
+
+jobs:
+  checks:
+    name: PR checks
+    if: github.event.action != 'edited'
+    concurrency:
+      group: integration-checks-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
+    permissions:
+      contents: read
+    uses: zedu-hng/zedu-ci/.github/workflows/pr-checks-flutter.yml@181371c60af0e32605794c6f0c4520f1ef739271
+
+  scans:
+    name: PR scans
+    if: github.event.action != 'edited'
+    concurrency:
+      group: integration-scans-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
+    permissions:
+      contents: read
+    uses: zedu-hng/zedu-ci/.github/workflows/pr-scans.yml@181371c60af0e32605794c6f0c4520f1ef739271
+    with:
+      clamav_exclude_dirs: build .dart_tool android/.gradle ios/Pods macos/Pods
+
+  backend-dependency:
+    name: Backend dependency
+    runs-on: ubuntu-latest
+    permissions: {}
+    env:
+      BODY: ${{ github.event.pull_request.body }}
+    steps:
+      - name: Check for a Backend URL line
+        run: |
+          line=$(printf '%s\n' "$BODY" | tr -d '\r' | grep -iE '^[[:space:]]*backend url:' | head -1 || true)
+          if [ -n "$line" ]; then
+            echo "::error::This PR depends on backend work that isn't on dev yet ($line). Don't merge it into cybertron-integration until that backend is on dev and the line is removed from the description."
+            exit 1
+          fi
+          echo "No Backend URL line: the PR uses the dev backend."
+
+  pr-rules:
+    name: Branch, title, single author, size, protected files
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+      PR_NUMBER: ${{ github.event.pull_request.number }}
+      HEAD_REF: ${{ github.event.pull_request.head.ref }}
+      TITLE: ${{ github.event.pull_request.title }}
+      BODY: ${{ github.event.pull_request.body }}
+      LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}
+      SIZE_LIMIT: "400"
+      SIZE_EXCLUDE: '(^|/)pubspec\.lock$'
+      PROTECTED: '^(\.github/|AGENTS\.md$|CONTRIBUTING\.md$|analysis_options\.yaml$|scripts/)'
+    steps:
+      - name: Check the rules
+        run: |
+          set -o pipefail
+          failed=0
+          fail() { echo "::error::$1"; failed=1; }
+          labels=",${LABELS},"
+          has() { case "$labels" in *,"$1",*) return 0 ;; esac; return 1; }
+
+          types='feat|fix|hotfix|test|docs|refactor|chore|perf|security'
+
+          # Branch name: <type>/<ticket-id>-<short-description>
+          printf -v branch_re %s "^($types)/([A-Za-z]+-)?[0-9]+-[a-z0-9][a-z0-9-]*\$"
+          if [[ "$HEAD_REF" =~ $branch_re ]]; then
+            echo "Branch name OK: $HEAD_REF"
+          else
+            fail "Branch '$HEAD_REF' must look like <type>/<ticket-id>-<short-description>, for example fix/245-login-redirect (lowercase words, hyphens)."
+          fi
+
+          # PR title: <type>(<ticket-id>): <summary>, matching the branch
+          printf -v title_re %s "^($types)\(([A-Za-z]+-)?([0-9]+)\):[[:space:]]+.+\$"
+          if [[ "$TITLE" =~ $title_re ]]; then
+            ttype="${BASH_REMATCH[1]}"
+            tnum="${BASH_REMATCH[3]}"
+            bnum=$(printf '%s' "$HEAD_REF" | grep -oE '[0-9]+' | head -1 || true)
+            btype="${HEAD_REF%%/*}"
+            case "$btype" in
+              feat|fix|test|docs|refactor|chore|perf)
+                [ "$ttype" = "$btype" ] || fail "PR title type '$ttype' does not match the branch type '$btype'." ;;
+            esac
+            if [ -n "$bnum" ] && [ "$bnum" != "$tnum" ]; then
+              fail "Ticket in the title ($tnum) does not match the ticket in the branch ($bnum)."
+            fi
+            if ! printf '%s' "$BODY" | grep -Eq "(^|[^0-9])$tnum([^0-9]|\$)"; then
+              fail "Ticket $tnum is not written in the PR description (Ticket section)."
+            fi
+          else
+            fail "PR title must look like fix(CYBERTRON-321): lowercase summary. Got: $TITLE"
+          fi
+
+          # Single author: one person per PR (bot commits and Co-authored-by trailers do not count)
+          if raw=$(gh api --paginate "repos/$REPO/pulls/$PR_NUMBER/commits" --jq '.[] | (.author.login // .commit.author.email)'); then
+            printf -v bot %s '^[0-9]*\+?(dependabot|github-actions|renovate|codecov)\[bot\](@users\.noreply\.github\.com)?$'
+            authors=$(printf '%s\n' "$raw" | grep -vE "$bot" | sort -u)
+            count=$(grep -c . <<< "$authors" || true)
+            echo "Commit authors: $(tr '\n' ' ' <<< "$authors")"
+            if [ "$count" -gt 1 ]; then
+              fail "This PR has commits from $count authors. One person per PR; credit others with Co-authored-by."
+            fi
+          else
+            fail "Could not read the PR's commits (API error). Re-run this job."
+          fi
+
+          # Size and protected files share one file list: "<changed lines>\t<status>\t<path>"
+          if files=$(gh api --paginate "repos/$REPO/pulls/$PR_NUMBER/files" \
+              --jq '.[] | "\(.additions + .deletions)\t\(.status)\t\(.filename)", (select(.status == "renamed") | "0\tprevious\t\(.previous_filename)")'); then
+            if has hotfix; then
+              echo "Hotfix label: size check skipped."
+            elif has size-override; then
+              echo "size-override label: size check skipped."
+            else
+              n=$(awk -F'\t' '$2 != "previous" && $3 !~ ENVIRON["SIZE_EXCLUDE"] { s += $1 } END { print s + 0 }' <<< "$files")
+              echo "Changed lines (lockfiles and tsbuildinfo excluded): $n (limit about $SIZE_LIMIT)"
+              if [ "$n" -gt "$SIZE_LIMIT" ]; then
+                fail "This PR changes $n lines, over the about-$SIZE_LIMIT limit. Split it, or add the size-override label."
+              fi
+            fi
+
+            secret='(^|/)\.env|\.(keystore|jks|p[[:digit:]]+|pfx|pem|mobileprovision)$|(^|/)(credentials|secrets|service-account[^/]*)\.json$'
+            hits=$( {
+              cut -f3 <<< "$files" | grep -E "$PROTECTED" || true
+              awk -F'\t' '$2 != "removed" { print $3 }' <<< "$files" | grep -Ei "$secret" | grep -Ev '(^|/)\.env\.example$' || true
+            } | grep . | sort -u || true)
+            if [ -n "$hits" ]; then
+              if has config-change-approved; then
+                echo "::notice::Protected files changed, approved by the config-change-approved label."
+              else
+                fail "This PR changes protected files (add the config-change-approved label if intended): $(paste -sd' ' - <<< "$hits")"
+              fi
+            fi
+          else
+            fail "Could not read the PR's files (API error). Re-run this job."
+          fi
+
+          exit $failed
+
+  console-log:
+    name: Leftover print
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Leftover print
+        run: |
+          git diff -U0 "origin/${{ github.base_ref }}...HEAD" -- 'lib/**/*.dart' \
+            | grep -E '^\+' | grep -vE '^\+\+\+' | grep -E '(^|[^A-Za-z_.])print\(' > /tmp/print-lines.txt || true
+          if [ -s /tmp/print-lines.txt ]; then
+            echo "::error::Leftover print() added in this PR (use debugPrint or remove it):"
+            cat /tmp/print-lines.txt
+            exit 1
+          fi

@@ -9,56 +9,24 @@ final channelRepositoryProvider = Provider<ChannelRepository>((ref) {
   return ChannelRepositoryImpl(remoteDataSource: remoteDataSource);
 });
 
-class ChannelState {
-  final List<Channel> channels;
-  final bool isLoading;
-  final String? errorMessage;
-
-  const ChannelState({
-    this.channels = const [],
-    this.isLoading = false,
-    this.errorMessage,
-  });
-
-  ChannelState copyWith({
-    List<Channel>? channels,
-    bool? isLoading,
-    String? errorMessage,
-  }) {
-    return ChannelState(
-      channels: channels ?? this.channels,
-      isLoading: isLoading ?? this.isLoading,
-      errorMessage: errorMessage,
-    );
-  }
-}
-
-class ChannelNotifier extends Notifier<ChannelState> {
+class ChannelNotifier extends AsyncNotifier<List<Channel>> {
   @override
-  ChannelState build() {
-    // Schedule fetch after build
-    Future.microtask(fetchChannels);
-    return const ChannelState();
-  }
+  Future<List<Channel>> build() async {
+    // Watching the workspace id rebuilds this provider when the workspace
+    // changes, and Riverpod drops the result of the older request.
+    final orgId = ref.watch(
+      workspaceProvider.select((s) => s.selectedWorkspace?.id),
+    );
+    if (orgId == null) return const [];
 
-  Future<void> fetchChannels() async {
-    final workspaceState = ref.read(workspaceProvider);
-    final String? orgId = workspaceState.selectedWorkspace?.id;
-    if (orgId == null) return;
+    final result = await ref
+        .read(channelRepositoryProvider)
+        .fetchChannels(orgId);
 
-    state = state.copyWith(isLoading: true, errorMessage: null);
-
-    final repository = ref.read(channelRepositoryProvider);
-    final result = await repository.fetchChannels(orgId);
-
-    if (result is Success<List<Channel>>) {
-      state = state.copyWith(isLoading: false, channels: result.value);
-    } else if (result is Failure<List<Channel>>) {
-      state = state.copyWith(
-        isLoading: false,
-        errorMessage: result.error.message,
-      );
-    }
+    return switch (result) {
+      Success<List<Channel>>(:final value) => value,
+      Failure<List<Channel>>(:final error) => throw error,
+    };
   }
 
   Future<bool> createChannel({
@@ -67,29 +35,47 @@ class ChannelNotifier extends Notifier<ChannelState> {
     required bool isPrivate,
     String? topic,
   }) async {
-    final workspaceState = ref.read(workspaceProvider);
+    // A second tap before the screen rebuilds must not start a second create.
+    if (state.isLoading) return false;
+
+    final String? orgId = ref.read(workspaceProvider).selectedWorkspace?.id;
     final authState = ref.read(authNotifierProvider);
-    final String? orgId = workspaceState.selectedWorkspace?.id;
     final String? username =
         authState.user?.username ?? authState.user?.email.split('@').first;
 
     if (orgId == null || username == null) return false;
 
-    final repository = ref.read(channelRepositoryProvider);
-    final result = await repository.createChannel(
-      name: name,
-      description: description,
-      orgId: orgId,
-      username: username,
-      isPrivate: isPrivate,
-      topic: topic,
-    );
+    // Loading and error states keep the channels that are already listed
+    final channels = state.value ?? const <Channel>[];
+    state = const AsyncLoading<List<Channel>>();
 
-    if (result is Success<Channel>) {
-      state = state.copyWith(channels: [...state.channels, result.value]);
-      return true;
-    } else {
-      return false;
+    final result = await ref
+        .read(channelRepositoryProvider)
+        .createChannel(
+          name: name,
+          description: description,
+          orgId: orgId,
+          username: username,
+          isPrivate: isPrivate,
+          topic: topic,
+        );
+
+    // The workspace changed while creating, and build() has already reloaded
+    // the list for the new one, so leave the state alone.
+    if (ref.read(workspaceProvider).selectedWorkspace?.id != orgId) {
+      return result is Success<Channel>;
+    }
+
+    switch (result) {
+      case Success<Channel>(:final value):
+        state = AsyncData([
+          ...channels.where((c) => c.id.isEmpty || c.id != value.id),
+          value,
+        ]);
+        return true;
+      case Failure<Channel>(:final error):
+        state = AsyncError<List<Channel>>(error, StackTrace.current);
+        return false;
     }
   }
 
@@ -107,7 +93,7 @@ class ChannelNotifier extends Notifier<ChannelState> {
 
     if (result is Success<void>) {
       // Update local state
-      final updatedChannels = state.channels.map((c) {
+      final updatedChannels = (state.value ?? const <Channel>[]).map((c) {
         if (c.id == channelId) {
           return Channel(
             id: c.id,
@@ -124,13 +110,15 @@ class ChannelNotifier extends Notifier<ChannelState> {
         }
         return c;
       }).toList();
-      state = state.copyWith(channels: updatedChannels);
+      state = AsyncData(updatedChannels);
       return true;
     }
     return false;
   }
 }
 
-final channelProvider = NotifierProvider<ChannelNotifier, ChannelState>(
+final channelProvider = AsyncNotifierProvider<ChannelNotifier, List<Channel>>(
   ChannelNotifier.new,
+  // A failed load is shown once instead of being retried in the background.
+  retry: (_, _) => null,
 );

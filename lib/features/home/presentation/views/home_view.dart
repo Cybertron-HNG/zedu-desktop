@@ -145,15 +145,7 @@ class _ChatAreaSwitcher extends ConsumerWidget {
       if (selectedDm != null) {
         return DmChatArea(conversation: selectedDm);
       } else {
-        return Container(
-          color: context.colors.background,
-          child: Center(
-            child: Text(
-              'Select a conversation to start messaging',
-              style: TextStyle(color: context.colors.textHint, fontSize: 16),
-            ),
-          ),
-        );
+        return const DmEmptyState();
       }
     }
     return const _ChatArea();
@@ -237,7 +229,7 @@ class _MainSidebar extends ConsumerWidget {
             onToggle: () => notifier.toggle(SidebarSection.channels),
           ),
           if (expanded.contains(SidebarSection.channels)) ...[
-            const _ChannelItem(label: 'general'),
+            const SidebarChannelList(),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: Container(
@@ -286,34 +278,6 @@ class _MainSidebar extends ConsumerWidget {
   }
 }
 
-class _ChannelItem extends StatelessWidget {
-  final String label;
-
-  const _ChannelItem({required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.colors;
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      child: Row(
-        children: [
-          Text(
-            '#',
-            style: TextStyle(
-              color: colors.onPrimary.withValues(alpha: 0.54),
-              fontSize: 18,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Text(label, style: TextStyle(color: colors.onPrimary, fontSize: 15)),
-        ],
-      ),
-    );
-  }
-}
-
 class _AddChannelButton extends StatelessWidget {
   const _AddChannelButton();
 
@@ -321,26 +285,32 @@ class _AddChannelButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.colors;
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(4),
-            decoration: BoxDecoration(
-              border: Border.all(
-                color: colors.onPrimary.withValues(alpha: 0.38),
+    return InkWell(
+      onTap: () => showDialog<void>(
+        context: context,
+        builder: (_) => const CreateChannelModal(),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                border: Border.all(
+                  color: colors.onPrimary.withValues(alpha: 0.38),
+                ),
+                borderRadius: BorderRadius.circular(4),
               ),
-              borderRadius: BorderRadius.circular(4),
+              child: Icon(Icons.add, color: colors.onPrimary, size: 14),
             ),
-            child: Icon(Icons.add, color: colors.onPrimary, size: 14),
-          ),
-          const SizedBox(width: 12),
-          Text(
-            'Add channel',
-            style: TextStyle(color: colors.onPrimary, fontSize: 14),
-          ),
-        ],
+            const SizedBox(width: 12),
+            Text(
+              'Add channel',
+              style: TextStyle(color: colors.onPrimary, fontSize: 14),
+            ),
+          ],
+        ),
       ),
     );
   }
