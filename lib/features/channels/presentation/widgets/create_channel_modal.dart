@@ -13,7 +13,6 @@ class _CreateChannelModalState extends ConsumerState<CreateChannelModal> {
   final _descController = TextEditingController();
   final _topicController = TextEditingController();
   bool _isPrivate = false;
-  String? _errorMessage;
 
   @override
   void dispose() {
@@ -25,8 +24,9 @@ class _CreateChannelModalState extends ConsumerState<CreateChannelModal> {
 
   Future<void> _createChannel() async {
     if (_nameController.text.trim().isEmpty) return;
+    // A second tap before the screen rebuilds must not start a second create.
+    if (ref.read(channelProvider).isLoading) return;
 
-    setState(() => _errorMessage = null);
     final created = await ref
         .read(channelProvider.notifier)
         .createChannel(
@@ -36,22 +36,21 @@ class _CreateChannelModalState extends ConsumerState<CreateChannelModal> {
           isPrivate: _isPrivate,
         );
     if (!mounted) return;
-    if (created) {
-      Navigator.of(context).pop();
-    } else {
-      final serverMessage = ref.read(channelProvider).errorMessage;
-      setState(
-        () => _errorMessage =
-            serverMessage ?? 'Could not create the channel. Please try again.',
-      );
-    }
+    if (created) Navigator.of(context).pop();
   }
 
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
     final textTheme = context.textTheme;
-    final isLoading = ref.watch(channelProvider).isLoading;
+    final channelState = ref.watch(channelProvider);
+    final isLoading = channelState.isLoading;
+    final error = channelState.error;
+    final errorMessage = !isLoading && channelState.hasError
+        ? (error is ApiFailure
+              ? error.message
+              : 'Could not create the channel. Please try again.')
+        : null;
 
     return Dialog(
       backgroundColor: colors.background,
@@ -174,10 +173,10 @@ class _CreateChannelModalState extends ConsumerState<CreateChannelModal> {
                 ),
               ],
             ),
-            if (_errorMessage != null) ...[
+            if (errorMessage != null) ...[
               const SizedBox(height: 16),
               Text(
-                _errorMessage!,
+                errorMessage,
                 style: textTheme.bodySmall?.copyWith(color: colors.error),
               ),
             ],
