@@ -9,12 +9,7 @@ class UserProfileNotifier extends Notifier<UserProfileState> {
   @override
   UserProfileState build() {
     _repository = ref.read(userProfileRepositoryProvider);
-    // load() reads and writes `state`, which does not exist until build()
-    // has returned. Start it after the initial state is set, and only if the
-    // provider has not been disposed in the meantime.
-    Future.microtask(() {
-      if (ref.mounted) load();
-    });
+    load();
     return const UserProfileState(isLoading: true);
   }
 
@@ -447,7 +442,6 @@ class UserProfileNotifier extends Notifier<UserProfileState> {
       _repository.getRolesAndPermissions(),
       _repository.getBillingInfo(),
     ]);
-    if (!ref.mounted) return;
 
     final accountResult = results[0] as Result<ProfileAccount>;
     final notificationResult = results[1] as Result<NotificationPreferences>;
@@ -464,13 +458,7 @@ class UserProfileNotifier extends Notifier<UserProfileState> {
     // Load persisted mock members if they exist
     if (orgId != null) {
       final storage = locator<SecureStorageService>();
-      String? data;
-      try {
-        data = await storage.readData('mock_team_members_$orgId');
-      } catch (_) {
-        // The saved members are optional; carry on without them.
-      }
-      if (!ref.mounted) return;
+      final data = await storage.readData('mock_team_members_$orgId');
       if (data != null) {
         try {
           final List<dynamic> decoded = jsonDecode(data) as List<dynamic>;
