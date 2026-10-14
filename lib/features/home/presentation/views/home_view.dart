@@ -158,11 +158,6 @@ class _MainSidebar extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final colors = context.colors;
-    final channels = ref
-        .watch(channelProvider)
-        .channels
-        .where((c) => !c.archived)
-        .toList();
 
     return Container(
       width: 320,
@@ -188,17 +183,7 @@ class _MainSidebar extends ConsumerWidget {
               ],
             ),
           ),
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxHeight: 240),
-            child: ListView(
-              shrinkWrap: true,
-              padding: EdgeInsets.zero,
-              children: [
-                for (final channel in channels)
-                  _ChannelItem(label: channel.name),
-              ],
-            ),
-          ),
+          const SidebarChannelList(),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Container(
@@ -249,34 +234,6 @@ class _MainSidebar extends ConsumerWidget {
               ],
             ),
           ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ChannelItem extends StatelessWidget {
-  final String label;
-
-  const _ChannelItem({required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.colors;
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      child: Row(
-        children: [
-          Text(
-            '#',
-            style: TextStyle(
-              color: colors.onPrimary.withValues(alpha: 0.54),
-              fontSize: 18,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Text(label, style: TextStyle(color: colors.onPrimary, fontSize: 15)),
         ],
       ),
     );
