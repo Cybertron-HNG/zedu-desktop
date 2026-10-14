@@ -7,9 +7,7 @@ class SidebarChannelList extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final channels = ref
-        .watch(channelProvider)
-        .channels
+    final channels = (ref.watch(channelProvider).value ?? const <Channel>[])
         .where((c) => !c.archived)
         .toList();
 
@@ -20,7 +18,7 @@ class SidebarChannelList extends ConsumerWidget {
         padding: EdgeInsets.zero,
         children: [
           for (final channel in channels)
-            SidebarChannelItem(
+            _SidebarChannelItem(
               label: channel.name,
               onTap: () => ref
                   .read(activeChatProvider.notifier)
@@ -32,15 +30,11 @@ class SidebarChannelList extends ConsumerWidget {
   }
 }
 
-class SidebarChannelItem extends StatelessWidget {
+class _SidebarChannelItem extends StatelessWidget {
   final String label;
   final VoidCallback onTap;
 
-  const SidebarChannelItem({
-    super.key,
-    required this.label,
-    required this.onTap,
-  });
+  const _SidebarChannelItem({required this.label, required this.onTap});
 
   @override
   Widget build(BuildContext context) {

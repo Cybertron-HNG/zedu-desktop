@@ -57,7 +57,7 @@ class _WorkspaceSwitcherHeaderState
                     key: _arrowKey,
                     turns: _isOpen ? 0.5 : 0,
                     duration: _openDuration,
-                    curve: WorkspaceMenuCurves.open,
+                    curve: _WorkspaceMenuCurves.open,
                     child: Icon(
                       Icons.keyboard_arrow_down,
                       color: colors.onPrimary.withValues(alpha: 0.7),
@@ -128,8 +128,8 @@ class _WorkspaceSwitcherHeaderState
   }
 }
 
-class WorkspaceMenuCurves {
-  const WorkspaceMenuCurves._();
+class _WorkspaceMenuCurves {
+  const _WorkspaceMenuCurves._();
 
   static const open = Cubic(0.16, 1, 0.3, 1);
 
@@ -171,8 +171,8 @@ class _AnchoredWorkspaceMenu extends StatelessWidget {
               animation: animation,
               builder: (context, child) {
                 final t = animation.status == AnimationStatus.reverse
-                    ? WorkspaceMenuCurves.close.transform(animation.value)
-                    : WorkspaceMenuCurves.open.transform(animation.value);
+                    ? _WorkspaceMenuCurves.close.transform(animation.value)
+                    : _WorkspaceMenuCurves.open.transform(animation.value);
                 return Opacity(
                   opacity: t,
                   child: Transform.translate(

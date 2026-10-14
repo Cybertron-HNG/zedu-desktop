@@ -13,13 +13,11 @@ Channel _channel(String name, {bool archived = false}) => Channel(
 
 class FakeChannelNotifier extends ChannelNotifier {
   @override
-  ChannelState build() => ChannelState(
-    channels: [
-      _channel('general'),
-      _channel('random'),
-      _channel('old', archived: true),
-    ],
-  );
+  Future<List<Channel>> build() async => [
+    _channel('general'),
+    _channel('random'),
+    _channel('old', archived: true),
+  ];
 }
 
 void main() {
@@ -40,6 +38,7 @@ void main() {
           ),
         ),
       );
+      await tester.pumpAndSettle();
     }
 
     testWidgets('lists the active channels and hides archived ones', (
