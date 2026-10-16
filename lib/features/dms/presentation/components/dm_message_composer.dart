@@ -177,6 +177,20 @@ class DmMessageComposerState extends ConsumerState<DmMessageComposer> {
       return KeyEventResult.handled;
     }
 
+    if (key == LogicalKeyboardKey.keyB &&
+        (HardwareKeyboard.instance.isControlPressed ||
+            HardwareKeyboard.instance.isMetaPressed)) {
+      _insertBold();
+      return KeyEventResult.handled;
+    }
+
+    if (key == LogicalKeyboardKey.keyI &&
+        (HardwareKeyboard.instance.isControlPressed ||
+            HardwareKeyboard.instance.isMetaPressed)) {
+      _insertItalic();
+      return KeyEventResult.handled;
+    }
+
     if (key == LogicalKeyboardKey.escape) {
       if (_mentionSuggestions.isNotEmpty) {
         setState(() => _mentionSuggestions = []);
