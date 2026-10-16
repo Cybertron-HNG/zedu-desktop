@@ -19,7 +19,7 @@ class _BillingSectionState extends ConsumerState<BillingSection> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Your Organisation Billing Information',
+          'Your Organization Billing Information',
           style: context.textTheme.titleMedium?.copyWith(
             fontWeight: FontWeight.w700,
             color: colors.textPrimary,
@@ -56,7 +56,7 @@ class _BillingSectionState extends ConsumerState<BillingSection> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'You are enjoying the full Zedu experience with ability to add as many users to your organisation.',
+                      'You are enjoying the full Zedu experience with ability to add as many users to your organization.',
                       style: context.textTheme.bodySmall?.copyWith(
                         color: colors.textSecondary.withValues(alpha: 0.6),
                         height: 1.4,
