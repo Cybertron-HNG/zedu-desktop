@@ -1,3 +1,5 @@
+import 'dart:io' show File;
+
 import 'package:zedu/core/core.dart';
 import 'package:zedu/features/features.dart';
 
@@ -141,6 +143,11 @@ class ChatHistoryNotifier extends ChangeNotifier {
   @override
   void dispose() {
     (_pollingTimer as dynamic)?.cancel();
+    // Recordings kept for messages that never sent are no longer needed.
+    for (final options in _sendOptions.values) {
+      _deleteRecordings(options.media);
+    }
+    _sendOptions.clear();
     super.dispose();
   }
 
@@ -168,10 +175,26 @@ class ChatHistoryNotifier extends ChangeNotifier {
     }
   }
 
+  // What each message was sent with, so a retry sends it the same way.
+  final Map<String, ({List<XFile>? media, bool isChannel})> _sendOptions = {};
+
+  /// Deletes voice recordings this app made once their message is sent. Files
+  /// the user picked are never deleted.
+  Future<void> _deleteRecordings(List<XFile>? files) async {
+    for (final file in files ?? const <XFile>[]) {
+      if (appRecordedPaths.remove(file.path)) {
+        try {
+          await File(file.path).delete();
+        } catch (_) {}
+      }
+    }
+  }
+
   Future<void> sendMessage(
     String content, {
     List<XFile>? media,
     List<dynamic>? mentions,
+    bool isChannel = false,
   }) async {
     final tempId = DateTime.now().millisecondsSinceEpoch.toString();
     final optimisticMessage = {
@@ -183,8 +206,13 @@ class ChatHistoryNotifier extends ChangeNotifier {
       "type": "user",
       "created_at": DateTime.now().toIso8601String(),
       "status": "sending",
+      if (media != null && media.isNotEmpty)
+        "media": [
+          for (final file in media) {"file_name": file.name},
+        ],
     };
 
+    _sendOptions[tempId] = (media: media, isChannel: isChannel);
     messages = [optimisticMessage, ...messages];
     notifyListeners();
 
@@ -195,7 +223,10 @@ class ChatHistoryNotifier extends ChangeNotifier {
         content,
         media: media,
         mentions: mentions,
+        isChannel: isChannel,
       );
+      _sendOptions.remove(tempId);
+      _deleteRecordings(media);
 
       messages = messages.map((m) {
         if (m['id'] == tempId) {
@@ -233,7 +264,15 @@ class ChatHistoryNotifier extends ChangeNotifier {
 
     try {
       final repository = ref.read(dmRepositoryProvider);
-      await repository.sendMessage(channelId, content);
+      final options = _sendOptions[messageId];
+      await repository.sendMessage(
+        channelId,
+        content,
+        media: options?.media,
+        isChannel: options?.isChannel ?? false,
+      );
+      _sendOptions.remove(messageId);
+      _deleteRecordings(options?.media);
 
       messages = messages.map((m) {
         if (m['id'] == messageId) {
