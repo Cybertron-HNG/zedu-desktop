@@ -248,29 +248,43 @@ class _MainSidebar extends StatelessWidget {
   }
 }
 
-class _ChannelItem extends StatelessWidget {
+class _ChannelItem extends ConsumerWidget {
   final String label;
 
   const _ChannelItem({required this.label});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final colors = context.colors;
+    final active = ref.watch(activeChatProvider);
+    final selected =
+        active.type == ActiveChatType.channel &&
+        active.id?.toLowerCase() == label.toLowerCase();
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      child: Row(
-        children: [
-          Text(
-            '#',
-            style: TextStyle(
-              color: colors.onPrimary.withValues(alpha: 0.54),
-              fontSize: 18,
+    return InkWell(
+      onTap: () {
+        ref.read(homeSidebarProvider.notifier).setType(HomeSidebarType.home);
+        ref.read(activeChatProvider.notifier).selectChannel(label);
+      },
+      child: Container(
+        color: selected ? colors.onPrimary.withValues(alpha: 0.12) : null,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        child: Row(
+          children: [
+            Text(
+              '#',
+              style: TextStyle(
+                color: colors.onPrimary.withValues(alpha: 0.54),
+                fontSize: 18,
+              ),
             ),
-          ),
-          const SizedBox(width: 12),
-          Text(label, style: TextStyle(color: colors.onPrimary, fontSize: 15)),
-        ],
+            const SizedBox(width: 12),
+            Text(
+              label,
+              style: TextStyle(color: colors.onPrimary, fontSize: 15),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -308,16 +322,30 @@ class _AddChannelButton extends StatelessWidget {
   }
 }
 
-class _ChatArea extends StatelessWidget {
+class _ChatArea extends ConsumerWidget {
   const _ChatArea();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final channels = ref.watch(channelProvider).channels;
+    Channel? general;
+    for (final item in channels) {
+      if (item.name.toLowerCase() == 'general') {
+        general = item;
+        break;
+      }
+    }
+
     return Column(
       children: [
         _buildChatHeader(context),
         Expanded(child: _buildWelcomeScreen(context)),
-        _buildMessageInput(context),
+        DmMessageComposer(
+          key: ValueKey(general?.id ?? 'general'),
+          recipientName: '#general',
+          channelId: general?.id ?? '',
+          isChannel: true,
+        ),
       ],
     );
   }
@@ -382,77 +410,6 @@ class _ChatArea extends StatelessWidget {
           const SizedBox(height: 32),
           const _InviteCard(),
         ],
-      ),
-    );
-  }
-
-  Widget _buildMessageInput(BuildContext context) {
-    final colors = context.colors;
-
-    return Container(
-      padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          border: Border.all(color: colors.divider),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          children: [
-            Row(
-              children: [
-                Icon(Icons.format_bold, size: 20, color: colors.textHint),
-                const SizedBox(width: 16),
-                Icon(Icons.format_italic, size: 20, color: colors.textHint),
-                const SizedBox(width: 16),
-                Icon(Icons.link, size: 20, color: colors.textHint),
-                const SizedBox(width: 16),
-                Icon(Icons.list, size: 20, color: colors.textHint),
-                const SizedBox(width: 16),
-                Icon(Icons.code, size: 20, color: colors.textHint),
-              ],
-            ),
-            Divider(height: 24, color: colors.divider),
-            const TextField(
-              decoration: InputDecoration(
-                hintText: 'Message Ruby - Social Media Handler',
-                border: InputBorder.none,
-                isDense: true,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Icon(Icons.add, color: colors.textHint.withValues(alpha: 0.75)),
-                const SizedBox(width: 12),
-                Icon(
-                  Icons.emoji_emotions_outlined,
-                  color: colors.textHint.withValues(alpha: 0.75),
-                ),
-                const SizedBox(width: 12),
-                Icon(
-                  Icons.alternate_email,
-                  color: colors.textHint.withValues(alpha: 0.75),
-                ),
-                const SizedBox(width: 12),
-                Icon(
-                  Icons.videocam_outlined,
-                  color: colors.textHint.withValues(alpha: 0.75),
-                ),
-                const SizedBox(width: 12),
-                Icon(
-                  Icons.mic_none_outlined,
-                  color: colors.textHint.withValues(alpha: 0.75),
-                ),
-                const Spacer(),
-                Icon(
-                  Icons.send_rounded,
-                  color: colors.textHint.withValues(alpha: 0.5),
-                ),
-              ],
-            ),
-          ],
-        ),
       ),
     );
   }

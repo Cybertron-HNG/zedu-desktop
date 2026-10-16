@@ -1,3 +1,9 @@
+import 'dart:async' show Timer;
+import 'dart:io' show Directory;
+
+import 'package:audioplayers/audioplayers.dart'
+    show AudioPlayer, DeviceFileSource;
+
 import 'package:zedu/core/core.dart';
 import 'package:zedu/features/features.dart';
 
@@ -8,6 +14,7 @@ class DmMessageComposer extends ConsumerStatefulWidget {
   final String channelId;
   final List<DmParticipant> participants;
   final ValueChanged<String>? onSend;
+  final bool isChannel;
 
   const DmMessageComposer({
     super.key,
@@ -15,6 +22,7 @@ class DmMessageComposer extends ConsumerStatefulWidget {
     required this.channelId,
     this.participants = const [],
     this.onSend,
+    this.isChannel = false,
   });
 
   @override
@@ -28,6 +36,13 @@ class DmMessageComposerState extends ConsumerState<DmMessageComposer> {
 
   bool _showEmojiPicker = false;
   bool _isEditMode = false;
+  final AudioRecorder _audioRecorder = AudioRecorder();
+  bool _isRecording = false;
+  int _recordSeconds = 0;
+  Timer? _recordTimer;
+  XFile? _voiceNote;
+  AudioPlayer? _previewPlayer;
+  bool _isPreviewPlaying = false;
   String? _editingMessageId;
 
   bool _isBold = false;
@@ -53,6 +68,9 @@ class DmMessageComposerState extends ConsumerState<DmMessageComposer> {
     _controller.dispose();
     _focusNode.dispose();
     _scrollController.dispose();
+    _recordTimer?.cancel();
+    _previewPlayer?.dispose();
+    _audioRecorder.dispose();
     super.dispose();
   }
 
@@ -127,7 +145,11 @@ class DmMessageComposerState extends ConsumerState<DmMessageComposer> {
 
   void _handleSend() {
     final text = _controller.text.trim();
-    if (text.isEmpty && _pendingFiles.isEmpty) return;
+    if (text.isEmpty && _pendingFiles.isEmpty && _voiceNote == null) return;
+    if (widget.channelId.isEmpty) {
+      _showVoiceError('Channel not loaded yet.');
+      return;
+    }
 
     if (_isEditMode && _editingMessageId != null) {
       ref
@@ -137,12 +159,21 @@ class DmMessageComposerState extends ConsumerState<DmMessageComposer> {
     } else {
       ref
           .read(chatHistoryProvider(widget.channelId))
-          .sendMessage(text, media: List<XFile>.of(_pendingFiles));
+          .sendMessage(
+            text,
+            media: [..._pendingFiles, ?_voiceNote],
+            isChannel: widget.isChannel,
+          );
       widget.onSend?.call(text);
     }
 
     _controller.clear();
-    setState(() => _pendingFiles = []);
+    _previewPlayer?.stop();
+    setState(() {
+      _pendingFiles = [];
+      _voiceNote = null;
+      _isPreviewPlaying = false;
+    });
     _focusNode.requestFocus();
   }
 
@@ -280,6 +311,202 @@ class DmMessageComposerState extends ConsumerState<DmMessageComposer> {
 
   bool _isDragging = false;
 
+  Future<void> _toggleVoiceRecording() async {
+    if (_isRecording) {
+      await _finishVoiceRecording();
+    } else if (_voiceNote == null) {
+      await _startVoiceRecording();
+    }
+  }
+
+  void _showVoiceError(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(content: Text(message), duration: const Duration(seconds: 2)),
+      );
+  }
+
+  Future<void> _startVoiceRecording() async {
+    try {
+      // Nothing shows as "recording" until the microphone is allowed.
+      if (!await _audioRecorder.hasPermission()) {
+        _showVoiceError('Allow microphone access to record a voice message.');
+        return;
+      }
+      if (!mounted) return;
+      setState(() {
+        _isRecording = true;
+        _recordSeconds = 0;
+      });
+      final path =
+          '${Directory.systemTemp.path}/zedu-voice-${DateTime.now().millisecondsSinceEpoch}.m4a';
+      await _audioRecorder.start(const RecordConfig(), path: path);
+      _recordTimer?.cancel();
+      _recordTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+        if (mounted) setState(() => _recordSeconds++);
+      });
+    } catch (error) {
+      if (mounted) setState(() => _isRecording = false);
+      _showVoiceError('Could not start recording: $error');
+    }
+  }
+
+  Future<void> _finishVoiceRecording() async {
+    _recordTimer?.cancel();
+    try {
+      final recordedPath = await _audioRecorder.stop();
+      if (!mounted) return;
+      setState(() {
+        _isRecording = false;
+        if (recordedPath != null) {
+          _voiceNote = XFile(
+            recordedPath,
+            name: 'voice-message-${DateTime.now().millisecondsSinceEpoch}.m4a',
+            mimeType: 'audio/mp4',
+          );
+        }
+      });
+    } catch (error) {
+      if (mounted) setState(() => _isRecording = false);
+      _showVoiceError('Could not save the recording: $error');
+    }
+  }
+
+  Future<void> _cancelVoiceRecording() async {
+    _recordTimer?.cancel();
+    try {
+      await _audioRecorder.stop();
+    } catch (_) {}
+    if (mounted) setState(() => _isRecording = false);
+  }
+
+  Future<void> _togglePreviewPlayback() async {
+    final note = _voiceNote;
+    if (note == null) return;
+    try {
+      final player = _previewPlayer ??= AudioPlayer()
+        ..onPlayerComplete.listen((_) {
+          if (mounted) setState(() => _isPreviewPlaying = false);
+        });
+      if (_isPreviewPlaying) {
+        await player.pause();
+        if (mounted) setState(() => _isPreviewPlaying = false);
+      } else {
+        await player.play(DeviceFileSource(note.path));
+        if (mounted) setState(() => _isPreviewPlaying = true);
+      }
+    } catch (error) {
+      _showVoiceError('Could not play the recording: $error');
+    }
+  }
+
+  Future<void> _removeVoiceNote() async {
+    await _previewPlayer?.stop();
+    if (mounted) {
+      setState(() {
+        _voiceNote = null;
+        _isPreviewPlaying = false;
+      });
+    }
+  }
+
+  String _formatSeconds(int total) {
+    final minutes = total ~/ 60;
+    final seconds = (total % 60).toString().padLeft(2, '0');
+    return '$minutes:$seconds';
+  }
+
+  Widget _buildRecordingBar(AppPalette colors) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+      child: Row(
+        children: [
+          Icon(Icons.fiber_manual_record, color: colors.error, size: 14),
+          const SizedBox(width: 6),
+          Text(
+            _formatSeconds(_recordSeconds),
+            style: TextStyle(
+              color: colors.error,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'Recording...',
+              style: TextStyle(color: colors.textHint, fontSize: 12),
+            ),
+          ),
+          IconButton(
+            tooltip: 'Cancel',
+            visualDensity: VisualDensity.compact,
+            iconSize: 20,
+            onPressed: _cancelVoiceRecording,
+            icon: Icon(Icons.close_rounded, color: colors.textHint),
+          ),
+          IconButton(
+            tooltip: 'Stop recording',
+            visualDensity: VisualDensity.compact,
+            iconSize: 22,
+            onPressed: _finishVoiceRecording,
+            icon: Icon(Icons.stop_circle_rounded, color: colors.primary),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildVoicePreviewBar(AppPalette colors) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Container(
+          height: 32,
+          padding: const EdgeInsets.only(left: 4, right: 4),
+          decoration: BoxDecoration(
+            color: colors.primary.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              InkWell(
+                onTap: _togglePreviewPlayback,
+                borderRadius: BorderRadius.circular(16),
+                child: Icon(
+                  _isPreviewPlaying
+                      ? Icons.pause_circle_filled_rounded
+                      : Icons.play_circle_fill_rounded,
+                  color: colors.primary,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                _formatSeconds(_recordSeconds),
+                style: TextStyle(color: colors.textPrimary, fontSize: 12),
+              ),
+              const SizedBox(width: 6),
+              InkWell(
+                onTap: _removeVoiceNote,
+                borderRadius: BorderRadius.circular(16),
+                child: Icon(
+                  Icons.close_rounded,
+                  color: colors.textHint,
+                  size: 16,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Future<void> addFiles(List<XFile> newFiles) async {
     final validFiles = <XFile>[];
     for (final file in newFiles) {
@@ -375,13 +602,6 @@ class DmMessageComposerState extends ConsumerState<DmMessageComposer> {
             ),
           ),
 
-        if (_pendingFiles.isNotEmpty)
-          AttachmentPreviewBar(
-            files: _pendingFiles,
-            onRemove: _removeFile,
-            colors: colors,
-          ),
-
         if (_isEditMode)
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 6),
@@ -471,6 +691,15 @@ class DmMessageComposerState extends ConsumerState<DmMessageComposer> {
                   ),
                 ),
                 Divider(height: 12, color: colors.divider),
+                if (_isRecording) _buildRecordingBar(colors),
+                if (_voiceNote != null && !_isRecording)
+                  _buildVoicePreviewBar(colors),
+                if (_pendingFiles.isNotEmpty)
+                  AttachmentPreviewBar(
+                    files: _pendingFiles,
+                    onRemove: _removeFile,
+                    colors: colors,
+                  ),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 12),
                   child: Focus(
@@ -565,10 +794,15 @@ class DmMessageComposerState extends ConsumerState<DmMessageComposer> {
                       ),
                       const SizedBox(width: 4),
                       ToolbarButton(
-                        icon: Icons.mic_none_rounded,
-                        tooltip: 'Voice message',
-                        onTap: () {},
+                        icon: _isRecording
+                            ? Icons.stop_rounded
+                            : Icons.mic_none_rounded,
+                        tooltip: _isRecording
+                            ? 'Stop recording'
+                            : 'Voice message',
+                        onTap: _toggleVoiceRecording,
                         colors: colors,
+                        isActive: _isRecording || _voiceNote != null,
                       ),
                       const Spacer(),
                       GestureDetector(

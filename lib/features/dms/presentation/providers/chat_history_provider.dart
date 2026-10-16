@@ -172,6 +172,7 @@ class ChatHistoryNotifier extends ChangeNotifier {
     String content, {
     List<XFile>? media,
     List<dynamic>? mentions,
+    bool isChannel = false,
   }) async {
     final tempId = DateTime.now().millisecondsSinceEpoch.toString();
     final optimisticMessage = {
@@ -195,6 +196,7 @@ class ChatHistoryNotifier extends ChangeNotifier {
         content,
         media: media,
         mentions: mentions,
+        isChannel: isChannel,
       );
 
       messages = messages.map((m) {
