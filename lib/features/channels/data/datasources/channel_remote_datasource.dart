@@ -128,13 +128,18 @@ class ChannelRemoteDataSourceImpl implements ChannelRemoteDataSource {
         queryParameters: {'page': page, 'limit': memberPageSize},
       );
       final data = response.data['data'] as List?;
-      if (data == null || data.isEmpty) break;
+      if (data == null || data.isEmpty) return ids;
       for (final item in data) {
         final id = (item as Map<String, dynamic>)['id'] as String?;
         if (id != null && id.isNotEmpty) ids.add(id);
       }
-      if (data.length < memberPageSize) break;
+      if (data.length < memberPageSize) return ids;
     }
-    return ids;
+    // Every page was full, so the list may go on. Fail rather than act on
+    // part of it.
+    throw ApiFailure(
+      message: 'Too many members to load. Please try again later.',
+      path: path,
+    );
   }
 }

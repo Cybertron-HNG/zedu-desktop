@@ -52,6 +52,24 @@ void main() {
       );
     });
 
+    test(
+      'throws instead of returning part of a list that fills every page',
+      () {
+        const pageSize = ChannelRemoteDataSourceImpl.memberPageSize;
+        when(
+          () => mockApi.get<Map<String, dynamic>>(
+            path: '/channels/ch-1/users',
+            queryParameters: any(named: 'queryParameters'),
+          ),
+        ).thenAnswer((_) async => _page(List.generate(pageSize, (i) => 'u$i')));
+
+        expect(
+          datasource.fetchChannelMemberIds('ch-1'),
+          throwsA(isA<ApiFailure>()),
+        );
+      },
+    );
+
     test('fetchChannelMemberIds skips entries without an id', () async {
       when(
         () => mockApi.get<Map<String, dynamic>>(
