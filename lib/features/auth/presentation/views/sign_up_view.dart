@@ -167,6 +167,7 @@ class _SignUpViewState extends ConsumerState<SignUpView> {
                         label: 'Password',
                         hint: 'Password',
                         textInputAction: TextInputAction.done,
+                        onFieldSubmitted: (_) => _onCreateAccountPressed(),
                         validator: (value) {
                           if (value == null || value.length < 8) {
                             return 'Password must be at least 8 characters long';
