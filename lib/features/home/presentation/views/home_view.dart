@@ -148,7 +148,7 @@ class _ChatAreaSwitcher extends ConsumerWidget {
         return const DmEmptyState();
       }
     }
-    return const _ChatArea();
+    return const HomeChatArea();
   }
 }
 
@@ -278,19 +278,22 @@ class _AddChannelButton extends StatelessWidget {
   }
 }
 
-class _ChatArea extends ConsumerWidget {
-  const _ChatArea();
+/// The Home pane for the channel picked in the sidebar.
+class HomeChatArea extends ConsumerWidget {
+  const HomeChatArea({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Shows the channel picked in the sidebar. Its messages are not listed
+    // yet, so the header and welcome text carry the name.
+    final chat = ref.watch(activeChatProvider);
     final channels = ref.watch(channelProvider).value ?? const <Channel>[];
-    final active = ref.watch(activeChatProvider);
-    final name = active.type == ActiveChatType.channel
-        ? (active.id ?? 'general')
+    final channelName = chat.type == ActiveChatType.channel
+        ? (chat.id ?? 'general')
         : 'general';
     Channel? selected;
     for (final item in channels) {
-      if (item.name.toLowerCase() == name.toLowerCase()) {
+      if (item.name.toLowerCase() == channelName.toLowerCase()) {
         selected = item;
         break;
       }
@@ -298,11 +301,11 @@ class _ChatArea extends ConsumerWidget {
 
     return Column(
       children: [
-        _buildChatHeader(context),
-        Expanded(child: _buildWelcomeScreen(context)),
+        _buildChatHeader(context, channelName),
+        Expanded(child: _buildWelcomeScreen(context, channelName)),
         DmMessageComposer(
-          key: ValueKey(selected?.id ?? name),
-          recipientName: '#$name',
+          key: ValueKey(selected?.id ?? channelName),
+          recipientName: '#$channelName',
           channelId: selected?.id ?? '',
           isChannel: true,
         ),
@@ -310,7 +313,7 @@ class _ChatArea extends ConsumerWidget {
     );
   }
 
-  Widget _buildChatHeader(BuildContext context) {
+  Widget _buildChatHeader(BuildContext context, String channelName) {
     final colors = context.colors;
 
     return Container(
@@ -321,15 +324,18 @@ class _ChatArea extends ConsumerWidget {
       ),
       child: Row(
         children: [
-          Text(
-            '# general',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: colors.textPrimary,
+          Expanded(
+            child: Text(
+              '# $channelName',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: colors.textPrimary,
+              ),
             ),
           ),
-          const Spacer(),
           _HeaderAction(icon: Icons.headphones_outlined, label: 'Start Buzz'),
           const SizedBox(width: 12),
           CircleAvatar(
@@ -344,7 +350,7 @@ class _ChatArea extends ConsumerWidget {
     );
   }
 
-  Widget _buildWelcomeScreen(BuildContext context) {
+  Widget _buildWelcomeScreen(BuildContext context, String channelName) {
     final colors = context.colors;
 
     return SingleChildScrollView(
@@ -355,7 +361,7 @@ class _ChatArea extends ConsumerWidget {
           Icon(Icons.celebration, size: 60, color: colors.primary),
           const SizedBox(height: 24),
           Text(
-            'Welcome to #general',
+            'Welcome to #$channelName',
             style: TextStyle(
               fontSize: 32,
               fontWeight: FontWeight.bold,
@@ -364,7 +370,7 @@ class _ChatArea extends ConsumerWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            'Share all information relating to general here. All team members await you! 😉',
+            'Share all information relating to $channelName here. All team members await you! 😉',
             style: TextStyle(fontSize: 16, color: colors.textPrimary),
           ),
           const SizedBox(height: 32),
