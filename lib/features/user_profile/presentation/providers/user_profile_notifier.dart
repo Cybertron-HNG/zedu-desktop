@@ -27,11 +27,11 @@ class UserProfileNotifier extends Notifier<UserProfileState> {
       clearError: true,
       clearSuccess: true,
     );
-    final result = await _repository.updateAccount(account);
+    final result = await _repository.updateAccount(_changedFields(account));
     switch (result) {
       case Success<ProfileAccount>():
         state = state.copyWith(
-          account: result.value,
+          account: account,
           isSaving: false,
           successMessage: 'Account information saved successfully.',
         );
@@ -41,6 +41,28 @@ class UserProfileNotifier extends Notifier<UserProfileState> {
           error: result.error.friendlyMessage,
         );
     }
+  }
+
+  /// Keeps only the fields the user edited (others become empty), so the
+  /// placeholder values shown before the profile loads are never saved.
+  ProfileAccount _changedFields(ProfileAccount updated) {
+    final current = state.account ?? ProfileAccount.empty();
+    String changed(String now, String was) => now == was ? '' : now;
+    return ProfileAccount(
+      name: changed(updated.name, current.name),
+      email: changed(updated.email, current.email),
+      timezone: changed(updated.timezone, current.timezone),
+      avatarUrl: updated.avatarUrl,
+      displayName: changed(updated.displayName, current.displayName),
+      username: changed(updated.username, current.username),
+      phoneNumber: changed(updated.phoneNumber, current.phoneNumber),
+      title: changed(updated.title, current.title),
+      namePronunciation: changed(
+        updated.namePronunciation,
+        current.namePronunciation,
+      ),
+      country: changed(updated.country, current.country),
+    );
   }
 
   Future<void> deleteAccount() async {
