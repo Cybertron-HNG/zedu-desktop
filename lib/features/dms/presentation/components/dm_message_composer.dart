@@ -1,5 +1,5 @@
 import 'dart:async' show Timer;
-import 'dart:io' show Directory, File;
+import 'dart:io' show Directory, File, Platform;
 
 import 'package:audioplayers/audioplayers.dart'
     show AudioPlayer, DeviceFileSource;
@@ -376,7 +376,7 @@ class DmMessageComposerState extends ConsumerState<DmMessageComposer> {
         return;
       }
       final path =
-          '${Directory.systemTemp.path}/zedu-voice-${DateTime.now().millisecondsSinceEpoch}.m4a';
+          '${Directory.systemTemp.path}${Platform.pathSeparator}zedu-voice-${DateTime.now().millisecondsSinceEpoch}.m4a';
       _activeRecordingPath = path;
       await _audioRecorder.start(const RecordConfig(), path: path);
       // Only remember the file once recording really started.

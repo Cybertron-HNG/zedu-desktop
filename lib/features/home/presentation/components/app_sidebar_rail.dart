@@ -1,7 +1,7 @@
 import 'package:zedu/core/core.dart';
 import 'package:zedu/features/features.dart';
 
-class AppSidebarRail extends ConsumerWidget {
+class AppSidebarRail extends ConsumerStatefulWidget {
   const AppSidebarRail({
     super.key,
     required this.activeType,
@@ -16,9 +16,22 @@ class AppSidebarRail extends ConsumerWidget {
   final bool settingsSelected;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final dmsTargetKey = GlobalKey();
-    final peopleTargetKey = GlobalKey();
+  ConsumerState<AppSidebarRail> createState() => _AppSidebarRailState();
+}
+
+class _AppSidebarRailState extends ConsumerState<AppSidebarRail> {
+  // Held in state so a rebuild keeps the icons the pop-outs anchor to mounted.
+  final _dmsTargetKey = GlobalKey();
+  final _peopleTargetKey = GlobalKey();
+
+  HomeSidebarType? get activeType => widget.activeType;
+  ValueChanged<HomeSidebarType>? get onTypeSelected => widget.onTypeSelected;
+  bool get settingsSelected => widget.settingsSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final dmsTargetKey = _dmsTargetKey;
+    final peopleTargetKey = _peopleTargetKey;
 
     void select(HomeSidebarType type) {
       if (onTypeSelected != null) {
@@ -45,7 +58,7 @@ class AppSidebarRail extends ConsumerWidget {
   ) {
     final colors = context.colors;
     return Container(
-      width: width,
+      width: AppSidebarRail.width,
       decoration: BoxDecoration(
         color: colors.sidebar,
         border: Border(

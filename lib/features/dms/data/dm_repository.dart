@@ -67,6 +67,24 @@ class DmRepository {
         .toList();
   }
 
+  /// Opens (or creates) the direct message with [participantId].
+  Future<({String channelId, String participantId})> openConversation({
+    required String orgId,
+    required String participantId,
+  }) async {
+    final response = await _apiClient.post<Map<String, dynamic>>(
+      path: '/organisations/$orgId/dms',
+      data: {'chat_type': 'user', 'participant_id': participantId},
+    );
+    final data = response.data['data'] as Map<String, dynamic>;
+    final channelId = data['channel_id'] as String;
+    final openedParticipantId = data['participant_id'] as String;
+    if (channelId.isEmpty || openedParticipantId.isEmpty) {
+      throw const FormatException('Invalid direct message response.');
+    }
+    return (channelId: channelId, participantId: openedParticipantId);
+  }
+
   Future<void> sendMessage(
     String channelId,
     String content, {
@@ -83,7 +101,9 @@ class DmRepository {
     await _apiClient.post<Map<String, dynamic>>(
       path: isChannel ? '/threads/$channelId' : '/channels/$channelId/messages',
       data: {
-        "content": content,
+        // The server rejects an empty content, so a voice note or file sent
+        // without text carries an empty paragraph, like the web composer.
+        "content": content.isEmpty && uploaded.isNotEmpty ? '<p></p>' : content,
         // The server requires a thread_id; like the web app, a new message
         // starts its own thread with a fresh UUID v7.
         "thread_id": _newUuidV7(),
