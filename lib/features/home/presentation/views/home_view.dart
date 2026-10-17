@@ -148,7 +148,7 @@ class _ChatAreaSwitcher extends ConsumerWidget {
         return const DmEmptyState();
       }
     }
-    return const _ChatArea();
+    return const HomeChatArea();
   }
 }
 
@@ -278,21 +278,29 @@ class _AddChannelButton extends StatelessWidget {
   }
 }
 
-class _ChatArea extends StatelessWidget {
-  const _ChatArea();
+/// The Home pane for the channel picked in the sidebar.
+class HomeChatArea extends ConsumerWidget {
+  const HomeChatArea({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Shows the channel picked in the sidebar. Its messages are not listed
+    // yet, so the header, welcome text and input hint carry the name.
+    final chat = ref.watch(activeChatProvider);
+    final channelName = chat.type == ActiveChatType.channel
+        ? (chat.id ?? 'general')
+        : 'general';
+
     return Column(
       children: [
-        _buildChatHeader(context),
-        Expanded(child: _buildWelcomeScreen(context)),
-        _buildMessageInput(context),
+        _buildChatHeader(context, channelName),
+        Expanded(child: _buildWelcomeScreen(context, channelName)),
+        _buildMessageInput(context, channelName),
       ],
     );
   }
 
-  Widget _buildChatHeader(BuildContext context) {
+  Widget _buildChatHeader(BuildContext context, String channelName) {
     final colors = context.colors;
 
     return Container(
@@ -304,7 +312,7 @@ class _ChatArea extends StatelessWidget {
       child: Row(
         children: [
           Text(
-            '# general',
+            '# $channelName',
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
@@ -326,7 +334,7 @@ class _ChatArea extends StatelessWidget {
     );
   }
 
-  Widget _buildWelcomeScreen(BuildContext context) {
+  Widget _buildWelcomeScreen(BuildContext context, String channelName) {
     final colors = context.colors;
 
     return SingleChildScrollView(
@@ -337,7 +345,7 @@ class _ChatArea extends StatelessWidget {
           Icon(Icons.celebration, size: 60, color: colors.primary),
           const SizedBox(height: 24),
           Text(
-            'Welcome to #general',
+            'Welcome to #$channelName',
             style: TextStyle(
               fontSize: 32,
               fontWeight: FontWeight.bold,
@@ -346,7 +354,7 @@ class _ChatArea extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            'Share all information relating to general here. All team members await you! 😉',
+            'Share all information relating to $channelName here. All team members await you! 😉',
             style: TextStyle(fontSize: 16, color: colors.textPrimary),
           ),
           const SizedBox(height: 32),
@@ -356,7 +364,7 @@ class _ChatArea extends StatelessWidget {
     );
   }
 
-  Widget _buildMessageInput(BuildContext context) {
+  Widget _buildMessageInput(BuildContext context, String channelName) {
     final colors = context.colors;
 
     return Container(
@@ -383,9 +391,9 @@ class _ChatArea extends StatelessWidget {
               ],
             ),
             Divider(height: 24, color: colors.divider),
-            const TextField(
+            TextField(
               decoration: InputDecoration(
-                hintText: 'Message Ruby - Social Media Handler',
+                hintText: 'Message #$channelName',
                 border: InputBorder.none,
                 isDense: true,
               ),
