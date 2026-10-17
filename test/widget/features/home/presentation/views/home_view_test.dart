@@ -19,17 +19,34 @@ class _FakeChannelNotifier extends ChannelNotifier {
   ];
 }
 
+final _longName = List.filled(61, 'a').join();
+
+class _LongNameChannelNotifier extends ChannelNotifier {
+  @override
+  Future<List<Channel>> build() async => [_channel(_longName)];
+}
+
 class _FakeWorkspaceNotifier extends WorkspaceNotifier {
   @override
   WorkspaceState build() => const WorkspaceState(
     selectedWorkspace: Workspace(id: 'org-1', name: 'Workspace A', avatar: ''),
   );
+
+  void switchTo(String id) {
+    state = WorkspaceState(
+      selectedWorkspace: Workspace(id: id, name: 'Workspace $id', avatar: ''),
+    );
+  }
 }
 
 void main() {
   group('HomeChatArea', () {
-    Future<void> pumpSidebarAndChat(WidgetTester tester) async {
-      tester.view.physicalSize = const Size(1600, 1000);
+    Future<void> pumpSidebarAndChat(
+      WidgetTester tester, {
+      ChannelNotifier Function() channels = _FakeChannelNotifier.new,
+      double width = 1600,
+    }) async {
+      tester.view.physicalSize = Size(width, 1000);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
@@ -37,7 +54,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
-            channelProvider.overrideWith(_FakeChannelNotifier.new),
+            channelProvider.overrideWith(channels),
             workspaceProvider.overrideWith(_FakeWorkspaceNotifier.new),
           ],
           child: buildTestMaterialApp(
@@ -75,6 +92,40 @@ void main() {
       expect(find.text('# random'), findsOneWidget);
       expect(find.text('Welcome to #random'), findsOneWidget);
       expect(find.text('# general'), findsNothing);
+    });
+
+    testWidgets('goes back to #general when the workspace changes', (
+      tester,
+    ) async {
+      await pumpSidebarAndChat(tester);
+      await tester.tap(find.text('random'));
+      await tester.pumpAndSettle();
+      expect(find.text('# random'), findsOneWidget);
+
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(HomeChatArea)),
+      );
+      (container.read(workspaceProvider.notifier) as _FakeWorkspaceNotifier)
+          .switchTo('org-2');
+      await tester.pumpAndSettle();
+
+      expect(find.text('# general'), findsOneWidget);
+      expect(find.text('# random'), findsNothing);
+    });
+
+    testWidgets('a very long channel name does not overflow', (tester) async {
+      await pumpSidebarAndChat(
+        tester,
+        channels: _LongNameChannelNotifier.new,
+        width: 1000,
+      );
+
+      await tester.tap(find.text(_longName));
+      await tester.pumpAndSettle();
+
+      // The name shows in the sidebar row and in the chat header.
+      expect(find.text('# $_longName'), findsOneWidget);
+      expect(tester.takeException(), isNull);
     });
   });
 }
