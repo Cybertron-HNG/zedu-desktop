@@ -18,7 +18,7 @@ void main() {
     Map<String, dynamic> sentBody() {
       final captured = verify(
         () => api.post<Map<String, dynamic>>(
-          path: '/channels/ch-1/messages',
+          path: '/dms/channels/ch-1/threads',
           data: captureAny(named: 'data'),
         ),
       ).captured;
@@ -43,7 +43,7 @@ void main() {
       );
       when(
         () => api.post<Map<String, dynamic>>(
-          path: '/channels/ch-1/messages',
+          path: '/dms/channels/ch-1/threads',
           data: any(named: 'data'),
         ),
       ).thenAnswer(

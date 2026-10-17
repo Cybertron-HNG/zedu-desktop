@@ -99,7 +99,11 @@ class DmRepository {
         : const <Map<String, dynamic>>[];
 
     await _apiClient.post<Map<String, dynamic>>(
-      path: isChannel ? '/threads/$channelId' : '/channels/$channelId/messages',
+      // A direct message is not an ordinary channel on the server: like the
+      // web app, it is posted to the DM route, not /channels/:id/messages.
+      path: isChannel
+          ? '/threads/$channelId'
+          : '/dms/channels/$channelId/threads',
       data: {
         // The server rejects an empty content, so a voice note or file sent
         // without text carries an empty paragraph, like the web composer.
