@@ -227,7 +227,9 @@ class SidebarPopoutCard extends ConsumerWidget {
         person.name?.isNotEmpty == true ? person.name! : 'Organisation member',
         person.role.isNotEmpty ? person.role : 'Organisation member',
         person.avatarUrl,
-        '${person.status.name[0].toUpperCase()}${person.status.name.substring(1)}',
+        // No status label: the API has no presence, and every member would
+        // read "Active", which looks like being online.
+        null,
         () => onPersonTap(person),
       );
     }).toList();

@@ -64,6 +64,8 @@ void main() {
 
       expect(find.text('Ada Lovelace'), findsOneWidget);
       expect(find.text('Could not load billing info.'), findsNothing);
+      // No fake presence label next to each person.
+      expect(find.text('Active'), findsNothing);
     });
 
     testWidgets('shows the error when there are no people to list', (
