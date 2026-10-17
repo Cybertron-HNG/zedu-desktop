@@ -83,18 +83,18 @@ void main() {
       return container.read(channelProvider.notifier);
     }
 
-    test('adds the new channel to the list and returns true', () async {
+    test('adds the new channel to the list and returns the channel', () async {
       stubCreateChannel(Success<Channel>(_channel('team-heron')));
       final notifier = await loadNotifier();
 
-      final created = await notifier.createChannel(
+      final result = await notifier.createChannel(
         name: 'team-heron',
         description: '',
         isPrivate: false,
       );
 
       final state = container.read(channelProvider);
-      expect(created, isTrue);
+      expect(result, isA<Success<Channel>>());
       expect(state.requireValue.map((c) => c.name), ['general', 'team-heron']);
       expect(state.isLoading, isFalse);
       expect(state.hasError, isFalse);
@@ -117,13 +117,13 @@ void main() {
         stubCreateChannel(Success<Channel>(noId('plan')));
         final notifier = await loadNotifier();
 
-        final created = await notifier.createChannel(
+        final result = await notifier.createChannel(
           name: 'plan',
           description: '',
           isPrivate: false,
         );
 
-        expect(created, isTrue);
+        expect(result, isA<Success<Channel>>());
         expect(
           container.read(channelProvider).requireValue.map((c) => c.name),
           ['general', 'team-heron', 'plan'],
@@ -131,29 +131,33 @@ void main() {
       },
     );
 
-    test('keeps the list and saves the server message on failure', () async {
-      stubCreateChannel(
-        const Failure<Channel>(
-          ApiFailure(message: 'Channel name already exists'),
-        ),
-      );
-      final notifier = await loadNotifier();
+    test(
+      'returns the server message and leaves the list state alone',
+      () async {
+        stubCreateChannel(
+          const Failure<Channel>(
+            ApiFailure(message: 'Channel name already exists'),
+          ),
+        );
+        final notifier = await loadNotifier();
 
-      final created = await notifier.createChannel(
-        name: 'general',
-        description: '',
-        isPrivate: false,
-      );
+        final result = await notifier.createChannel(
+          name: 'general',
+          description: '',
+          isPrivate: false,
+        );
 
-      final state = container.read(channelProvider);
-      expect(created, isFalse);
-      expect(state.requireValue.map((c) => c.name), ['general']);
-      expect(state.isLoading, isFalse);
-      expect(
-        (state.error as ApiFailure).message,
-        'Channel name already exists',
-      );
-    });
+        final state = container.read(channelProvider);
+        expect(
+          (result as Failure<Channel>).error.message,
+          'Channel name already exists',
+        );
+        expect(state.requireValue.map((c) => c.name), ['general']);
+        expect(state.isLoading, isFalse);
+        // A create error must not look like a failed channel load.
+        expect(state.hasError, isFalse);
+      },
+    );
 
     test('ignores a second create while one is still running', () async {
       final pending = Completer<Result<Channel>>();
@@ -181,8 +185,8 @@ void main() {
       );
       pending.complete(Success<Channel>(_channel('team-heron')));
 
-      expect(second, isFalse);
-      expect(await first, isTrue);
+      expect(second, isA<Failure<Channel>>());
+      expect(await first, isA<Success<Channel>>());
       verify(
         () => repository.createChannel(
           name: any(named: 'name'),
