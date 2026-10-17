@@ -106,11 +106,10 @@ class _BillingSectionState extends ConsumerState<BillingSection> {
         Center(
           child: Column(
             children: [
-              Image.asset(
-                'assets/pngs/empty_box.png',
-                width: 140,
-                height: 140,
-                fit: BoxFit.contain,
+              Icon(
+                Icons.receipt_long_outlined,
+                size: 64,
+                color: colors.textSecondary.withValues(alpha: 0.6),
               ),
               const SizedBox(height: 16),
               Text(
