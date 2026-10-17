@@ -33,7 +33,7 @@ class UserProfileNotifier extends Notifier<UserProfileState> {
     switch (result) {
       case Success<ProfileAccount>():
         state = state.copyWith(
-          account: _savedAccount(current, changes),
+          account: _savedAccount(state.account ?? current, changes),
           isSaving: false,
           successMessage: 'Account information saved successfully.',
         );
