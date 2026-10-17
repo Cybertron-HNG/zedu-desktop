@@ -171,7 +171,8 @@ class DmMessageComposerState extends ConsumerState<DmMessageComposer> {
 
     final key = event.logicalKey;
 
-    if (key == LogicalKeyboardKey.enter) {
+    if (key == LogicalKeyboardKey.enter ||
+        key == LogicalKeyboardKey.numpadEnter) {
       final hasModifier =
           HardwareKeyboard.instance.isControlPressed ||
           HardwareKeyboard.instance.isMetaPressed;
@@ -496,7 +497,8 @@ class DmMessageComposerState extends ConsumerState<DmMessageComposer> {
                       decoration: InputDecoration(
                         hintText: _isEditMode
                             ? 'Editing message…'
-                            : 'Message ${widget.recipientName}',
+                            : 'Message ${widget.recipientName} · '
+                                  'Enter to send, Shift+Enter for a new line',
                         hintStyle: TextStyle(
                           color: colors.textHint.withValues(alpha: 0.75),
                           fontSize: 12,
