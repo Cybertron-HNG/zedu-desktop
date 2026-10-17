@@ -49,7 +49,106 @@ Future<_FakeProfileNotifier> _pumpPeopleCard(
   return notifier;
 }
 
+class _FakeAuthNotifier extends AuthNotifier {
+  @override
+  AuthState build() => AuthState(
+    status: AuthStatus.authenticated,
+    user: User(
+      id: 'user-1',
+      firstName: 'Test',
+      lastName: 'User',
+      email: 'test@example.com',
+      phone: '',
+      username: 'testuser',
+      isVerified: true,
+      isOnboarded: true,
+      createdAt: DateTime(2026),
+      currentOrg: 'org-1',
+      currentOrganisationSlug: 'test-org',
+      avatarUrl: '',
+      defaultAvatarUrl: '',
+    ),
+  );
+}
+
+/// Hovers People in the real rail and returns how many times the profile was
+/// reloaded.
+Future<int> _hoverPeopleAndCountLoads(
+  WidgetTester tester,
+  UserProfileState state,
+) async {
+  tester.view.physicalSize = const Size(900, 700);
+  tester.view.devicePixelRatio = 1;
+  addTearDown(tester.view.resetPhysicalSize);
+  addTearDown(tester.view.resetDevicePixelRatio);
+
+  final notifier = _FakeProfileNotifier(state);
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: [
+        userProfileNotifierProvider.overrideWith(() => notifier),
+        authNotifierProvider.overrideWith(_FakeAuthNotifier.new),
+      ],
+      child: buildTestMaterialApp(
+        const Scaffold(
+          body: Row(
+            children: [
+              AppSidebarRail(activeType: HomeSidebarType.home),
+              Expanded(child: SizedBox()),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
+  await tester.pumpAndSettle();
+
+  final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+  await mouse.addPointer(location: Offset.zero);
+  addTearDown(mouse.removePointer);
+  await mouse.moveTo(tester.getCenter(find.text('People')));
+  await tester.pumpAndSettle();
+  return notifier.loadCalls;
+}
+
 void main() {
+  group('hovering People in the rail', () {
+    testWidgets('does not reload the profile when people are loaded', (
+      tester,
+    ) async {
+      final loads = await _hoverPeopleAndCountLoads(
+        tester,
+        const UserProfileState(
+          teamMembers: [_ada],
+          error: 'Could not load billing info.',
+        ),
+      );
+
+      expect(loads, 0);
+      expect(find.text('Ada Lovelace'), findsOneWidget);
+    });
+
+    testWidgets('reloads once when there are no people and an error', (
+      tester,
+    ) async {
+      final loads = await _hoverPeopleAndCountLoads(
+        tester,
+        const UserProfileState(error: 'Could not load team members.'),
+      );
+
+      expect(loads, 1);
+    });
+
+    testWidgets('does not reload when there is no error', (tester) async {
+      final loads = await _hoverPeopleAndCountLoads(
+        tester,
+        const UserProfileState(),
+      );
+
+      expect(loads, 0);
+    });
+  });
+
   group('People pop-out card', () {
     testWidgets('lists loaded people even when another request failed', (
       tester,
