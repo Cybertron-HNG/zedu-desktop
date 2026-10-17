@@ -208,6 +208,7 @@ class DmMessageComposerState extends ConsumerState<DmMessageComposer> {
       _controller.selection = TextSelection.collapsed(offset: content.length);
     });
     _focusNode.requestFocus();
+    ref.read(chatHistoryProvider(widget.channelId)).startEditing(messageId);
   }
 
   void _exitEditMode() {
