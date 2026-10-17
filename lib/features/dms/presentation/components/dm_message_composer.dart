@@ -332,9 +332,11 @@ class DmMessageComposerState extends ConsumerState<DmMessageComposer> {
     final text = _controller.text;
     final sel = _controller.selection;
     if (!sel.isValid) return;
-    final insert = sel.isCollapsed
-        ? '> '
-        : '> ${text.substring(sel.start, sel.end)}';
+    final insert = text
+        .substring(sel.start, sel.end)
+        .split('\n')
+        .map((line) => '> $line')
+        .join('\n');
     final newText =
         text.substring(0, sel.start) + insert + text.substring(sel.end);
     _controller.value = TextEditingValue(
