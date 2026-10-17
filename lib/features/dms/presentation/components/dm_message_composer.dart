@@ -171,9 +171,21 @@ class DmMessageComposerState extends ConsumerState<DmMessageComposer> {
 
     final key = event.logicalKey;
 
-    if (key == LogicalKeyboardKey.enter &&
-        (HardwareKeyboard.instance.isControlPressed ||
-            HardwareKeyboard.instance.isMetaPressed)) {
+    if (key == LogicalKeyboardKey.enter) {
+      final hasModifier =
+          HardwareKeyboard.instance.isControlPressed ||
+          HardwareKeyboard.instance.isMetaPressed;
+      // Shift+Enter must fall through so the default newline is inserted.
+      if (!hasModifier && HardwareKeyboard.instance.isShiftPressed) {
+        return KeyEventResult.ignored;
+      }
+      // Never send while an IME (Chinese, Japanese…) is still composing.
+      if (_controller.value.composing.isValid &&
+          !_controller.value.composing.isCollapsed) {
+        return KeyEventResult.ignored;
+      }
+      // Plain Enter, Ctrl+Enter and Cmd+Enter all share the send path, which
+      // no-ops on an empty box. Handled either way, so no newline is added.
       _handleSend();
       return KeyEventResult.handled;
     }
