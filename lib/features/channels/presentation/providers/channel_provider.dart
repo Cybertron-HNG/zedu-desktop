@@ -29,54 +29,72 @@ class ChannelNotifier extends AsyncNotifier<List<Channel>> {
     };
   }
 
-  Future<bool> createChannel({
+  bool _isCreating = false;
+
+  /// Creates a channel and returns the outcome to the caller. The list state
+  /// is only touched on success, so a create error never shows up as a load
+  /// error and the dialog keeps its own error.
+  Future<Result<Channel>> createChannel({
     required String name,
     required String description,
     required bool isPrivate,
     String? topic,
   }) async {
     // A second tap before the screen rebuilds must not start a second create.
-    if (state.isLoading) return false;
+    if (_isCreating) {
+      return const Failure<Channel>(
+        ApiFailure(
+          message: 'A channel is already being created.',
+          kind: ApiFailureKind.client,
+        ),
+      );
+    }
 
     final String? orgId = ref.read(workspaceProvider).selectedWorkspace?.id;
     final authState = ref.read(authNotifierProvider);
     final String? username =
         authState.user?.username ?? authState.user?.email.split('@').first;
 
-    if (orgId == null || username == null) return false;
+    if (orgId == null || username == null) {
+      return const Failure<Channel>(
+        ApiFailure(
+          message: 'Could not create the channel. Please try again.',
+          kind: ApiFailureKind.client,
+        ),
+      );
+    }
 
-    // Loading and error states keep the channels that are already listed
-    final channels = state.value ?? const <Channel>[];
-    state = const AsyncLoading<List<Channel>>();
-
-    final result = await ref
-        .read(channelRepositoryProvider)
-        .createChannel(
-          name: name,
-          description: description,
-          orgId: orgId,
-          username: username,
-          isPrivate: isPrivate,
-          topic: topic,
-        );
+    _isCreating = true;
+    final Result<Channel> result;
+    try {
+      result = await ref
+          .read(channelRepositoryProvider)
+          .createChannel(
+            name: name,
+            description: description,
+            orgId: orgId,
+            username: username,
+            isPrivate: isPrivate,
+            topic: topic,
+          );
+    } finally {
+      _isCreating = false;
+    }
 
     // The workspace changed while creating, and build() has already reloaded
     // the list for the new one, so leave the state alone.
     if (ref.read(workspaceProvider).selectedWorkspace?.id != orgId) {
-      return result is Success<Channel>;
+      return result;
     }
 
-    switch (result) {
-      case Success<Channel>(:final value):
-        state = AsyncData([
-          ...channels.where((c) => c.id.isEmpty || c.id != value.id),
-          value,
-        ]);
-        return true;
-      case Failure<Channel>(:final error):
-        state = AsyncError<List<Channel>>(error, StackTrace.current);
-        return false;
+    if (result case Success<Channel>(:final value)) {
+      final channels = state.value ?? const <Channel>[];
+      state = AsyncData([
+        ...channels.where((c) => c.id.isEmpty || c.id != value.id),
+        value,
+      ]);
     }
+    return result;
   }
 
   Future<bool> updateChannelTopicOrDescription({

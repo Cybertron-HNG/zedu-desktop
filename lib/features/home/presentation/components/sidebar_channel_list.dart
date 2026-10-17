@@ -7,9 +7,24 @@ class SidebarChannelList extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final channels = (ref.watch(channelProvider).value ?? const <Channel>[])
-        .where((c) => !c.archived)
-        .toList();
+    final channelState = ref.watch(channelProvider);
+    final orgId = ref.watch(
+      workspaceProvider.select((s) => s.selectedWorkspace?.id),
+    );
+    // Right after a workspace switch, and when the new workspace's load
+    // failed, the state still holds the previous workspace's channels. Show
+    // only channels of the selected workspace, and none after a failed load.
+    // A channel without an organisation id is kept, since we can't tell.
+    final channels =
+        (channelState.hasError
+                ? const <Channel>[]
+                : channelState.value ?? const <Channel>[])
+            .where(
+              (c) =>
+                  !c.archived &&
+                  (c.organisationId.isEmpty || c.organisationId == orgId),
+            )
+            .toList();
 
     return ConstrainedBox(
       constraints: const BoxConstraints(maxHeight: 240),
@@ -54,9 +69,13 @@ class _SidebarChannelItem extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 12),
-            Text(
-              label,
-              style: TextStyle(color: colors.onPrimary, fontSize: 15),
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(color: colors.onPrimary, fontSize: 15),
+              ),
             ),
           ],
         ),
