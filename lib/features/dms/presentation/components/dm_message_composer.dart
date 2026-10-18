@@ -239,6 +239,12 @@ class DmMessageComposerState extends ConsumerState<DmMessageComposer> {
           !_controller.value.composing.isCollapsed) {
         return KeyEventResult.ignored;
       }
+      // An open @mention list owns Enter: insert the suggestion instead of
+      // sending the half-typed mention. Same path as tapping a suggestion row.
+      if (_mentionSuggestions.isNotEmpty) {
+        _insertMention(_mentionSuggestions.first);
+        return KeyEventResult.handled;
+      }
       // Plain Enter, Ctrl+Enter and Cmd+Enter all share the send path, which
       // no-ops on an empty box. Handled either way, so no newline is added.
       _handleSend();
@@ -268,6 +274,13 @@ class DmMessageComposerState extends ConsumerState<DmMessageComposer> {
         _exitEditMode();
         return KeyEventResult.handled;
       }
+    }
+
+    // Tab only picks a suggestion while the list is open; anywhere else it is
+    // left to the default focus traversal.
+    if (key == LogicalKeyboardKey.tab && _mentionSuggestions.isNotEmpty) {
+      _insertMention(_mentionSuggestions.first);
+      return KeyEventResult.handled;
     }
 
     if (key == LogicalKeyboardKey.arrowUp && _controller.text.isEmpty) {
