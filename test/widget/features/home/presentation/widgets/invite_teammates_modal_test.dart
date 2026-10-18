@@ -197,6 +197,23 @@ void main() {
       expect(find.text('Added 2 people to #design.'), findsOneWidget);
     });
 
+    testWidgets('keeps a very long channel name inside the title', (
+      tester,
+    ) async {
+      final longName = 'a-very-long-channel-name-' * 8;
+      await tester.pumpWidget(
+        buildModalUnderTest(
+          () async => AddEveryoneNobodyToAdd(longName),
+          chat: ActiveChatState(type: ActiveChatType.channel, id: longName),
+        ),
+      );
+      await openModal(tester);
+
+      // A RenderFlex overflow would be reported as an exception here.
+      expect(tester.takeException(), isNull);
+      expect(find.textContaining('Add people to #a-very-long'), findsOneWidget);
+    });
+
     testWidgets('leaves Copy Invite Link and Add in place', (tester) async {
       await tester.pumpWidget(
         buildModalUnderTest(

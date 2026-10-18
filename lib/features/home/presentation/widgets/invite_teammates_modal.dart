@@ -192,14 +192,19 @@ class _InviteTeammatesModalState extends ConsumerState<InviteTeammatesModal> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  'Add people to #$channelName',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: colors.textPrimary,
+                Expanded(
+                  child: Text(
+                    'Add people to #$channelName',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: colors.textPrimary,
+                    ),
                   ),
                 ),
+                const SizedBox(width: 12),
                 IconButton(
                   icon: Icon(Icons.close, color: colors.textHint),
                   onPressed: () => Navigator.pop(context),
