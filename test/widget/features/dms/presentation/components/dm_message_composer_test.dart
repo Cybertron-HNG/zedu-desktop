@@ -71,6 +71,21 @@ void main() {
         cursor: 21,
       ),
       (
+        name:
+            'does not quote the next line when the selection ends in a newline',
+        text: 'first\nsecond\nthird',
+        selection: TextSelection(baseOffset: 0, extentOffset: 13),
+        expected: '> first\n> second\nthird',
+        cursor: 17,
+      ),
+      (
+        name: 'quotes one selected line that ends in a newline',
+        text: 'one\ntwo',
+        selection: TextSelection(baseOffset: 0, extentOffset: 4),
+        expected: '> one\ntwo',
+        cursor: 6,
+      ),
+      (
         name: 'continues to quote a single line',
         text: 'hello',
         selection: null,
