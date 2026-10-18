@@ -11,7 +11,20 @@ class AuthInterceptor extends Interceptor {
     RequestOptions options,
     RequestInterceptorHandler handler,
   ) async {
-    final token = await _storage.getAccessToken();
+    final String? token;
+    try {
+      token = await _storage.getAccessToken();
+    } catch (error) {
+      // Fail the request instead of leaving it hanging.
+      handler.reject(
+        DioException(
+          requestOptions: options,
+          error: error,
+          message: 'Couldn\'t access your saved login.',
+        ),
+      );
+      return;
+    }
     if (token != null) {
       options.headers['Authorization'] = 'Bearer $token';
     }
