@@ -512,7 +512,7 @@ class _EditProfileDialogState extends State<_EditProfileDialog> {
                             title: titleCtrl.text.trim(),
                             namePronunciation: pronunciationCtrl.text.trim(),
                             timezone: selectedTimezone,
-                            country: selectedCountry,
+                            country: _canonicalCountryName(selectedCountry),
                           ),
                         );
                         Navigator.pop(context);
