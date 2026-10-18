@@ -6,6 +6,7 @@ class ProfileAccountModel extends ProfileAccount {
     required super.email,
     required super.timezone,
     super.avatarUrl,
+    super.country,
   });
 
   factory ProfileAccountModel.fromJson(Map<String, dynamic> json) {
@@ -14,6 +15,7 @@ class ProfileAccountModel extends ProfileAccount {
       email: json['email'] as String? ?? 'anonymoususer@email.com',
       timezone: json['timezone'] as String? ?? 'Africa/Lagos',
       avatarUrl: json['avatar_url'] as String?,
+      country: json['country'] as String? ?? '',
     );
   }
 
@@ -22,6 +24,7 @@ class ProfileAccountModel extends ProfileAccount {
     'email': email,
     'timezone': timezone,
     'avatar_url': avatarUrl,
+    'country': country,
   };
 }
 

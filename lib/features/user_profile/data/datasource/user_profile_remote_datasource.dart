@@ -70,6 +70,7 @@ class UserProfileRemoteDataSourceImpl implements UserProfileRemoteDataSource {
         email: account.email,
         timezone: account.timezone,
         avatarUrl: account.avatarUrl,
+        country: account.country,
       );
     }
     final response = await _apiBaseService.patch<Map<String, dynamic>>(
@@ -79,6 +80,7 @@ class UserProfileRemoteDataSourceImpl implements UserProfileRemoteDataSource {
         'email': account.email,
         'timezone': account.timezone,
         'avatar_url': account.avatarUrl,
+        'country': account.country,
       },
     );
     return ProfileAccountModel.fromJson(

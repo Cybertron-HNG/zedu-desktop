@@ -9,6 +9,7 @@ void main() {
         'email': 'anonymoususer@email.com',
         'timezone': 'Africa/Lagos',
         'avatar_url': 'https://example.com/avatar.png',
+        'country': 'Nigeria',
       });
 
       expect(account.name, 'Anonymous user');
@@ -16,6 +17,8 @@ void main() {
       expect(account.timezone, 'Africa/Lagos');
       expect(account.initials, 'AU');
       expect(account.avatarUrl, 'https://example.com/avatar.png');
+      expect(account.country, 'Nigeria');
+      expect(account.toJson()['country'], 'Nigeria');
     });
   });
 
