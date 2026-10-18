@@ -296,6 +296,16 @@ class _EditProfileDialogState extends State<_EditProfileDialog> {
                                     return TextFormField(
                                       controller: controller,
                                       focusNode: focusNode,
+                                      onChanged: (value) =>
+                                          selectedCountry = value.trim(),
+                                      validator: (value) {
+                                        final country = (value ?? '').trim();
+                                        if (country.isEmpty ||
+                                            kCountries.contains(country)) {
+                                          return null;
+                                        }
+                                        return 'Select a country from the list';
+                                      },
                                       decoration: InputDecoration(
                                         hintText: 'Search or select a country',
                                         hintStyle: context.textTheme.bodySmall
