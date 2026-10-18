@@ -7,5 +7,5 @@ Future<void> main() async {
   await loadAppEnv();
   setupLocator();
 
-  runApp(const ProviderScope(child: App()));
+  runApp(const ProviderScope(child: DesktopManager(child: App())));
 }
