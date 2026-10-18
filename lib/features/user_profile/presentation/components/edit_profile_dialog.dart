@@ -31,6 +31,14 @@ const List<String> _kTimezones = [
   '(UTC+12:00) Auckland, Wellington, Fiji',
 ];
 
+String _canonicalCountryName(String value) {
+  final trimmedValue = value.trim();
+  return kCountries.firstWhere(
+    (country) => country.toLowerCase() == trimmedValue.toLowerCase(),
+    orElse: () => trimmedValue,
+  );
+}
+
 Future<void> showEditProfileDialog(
   BuildContext context,
   ProfileAccount account,
@@ -296,10 +304,12 @@ class _EditProfileDialogState extends State<_EditProfileDialog> {
                                     return TextFormField(
                                       controller: controller,
                                       focusNode: focusNode,
-                                      onChanged: (value) =>
-                                          selectedCountry = value.trim(),
+                                      onChanged: (value) => selectedCountry =
+                                          _canonicalCountryName(value),
                                       validator: (value) {
-                                        final country = (value ?? '').trim();
+                                        final country = _canonicalCountryName(
+                                          value ?? '',
+                                        );
                                         if (country.isEmpty ||
                                             kCountries.contains(country)) {
                                           return null;

@@ -64,4 +64,18 @@ void main() {
 
     expect(saved?.country, 'Nigeria');
   });
+
+  testWidgets('accepts and normalizes a typed country without selecting it', (
+    tester,
+  ) async {
+    ProfileAccount? saved;
+    await openDialog(tester, (account) => saved = account);
+
+    await tester.enterText(find.byType(TextFormField).last, 'nigeria');
+    await tester.tap(find.text('Save Changes'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Select a country from the list'), findsNothing);
+    expect(saved?.country, 'Nigeria');
+  });
 }
