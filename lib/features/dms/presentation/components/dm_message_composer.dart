@@ -185,6 +185,12 @@ class DmMessageComposerState extends ConsumerState<DmMessageComposer> {
           !_controller.value.composing.isCollapsed) {
         return KeyEventResult.ignored;
       }
+      // With the @mention list open, plain Enter picks the first suggestion
+      // instead of sending the half-typed mention.
+      if (!hasModifier && _mentionSuggestions.isNotEmpty) {
+        _insertMention(_mentionSuggestions.first);
+        return KeyEventResult.handled;
+      }
       // Plain Enter, Ctrl+Enter and Cmd+Enter all share the send path, which
       // no-ops on an empty box. Handled either way, so no newline is added.
       _handleSend();
