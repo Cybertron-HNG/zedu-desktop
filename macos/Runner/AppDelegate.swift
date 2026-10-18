@@ -15,8 +15,11 @@ class AppDelegate: FlutterAppDelegate {
     // Re-show the window when clicking the Dock icon, e.g. after the window
     // was hidden to the tray (windowManager.hide() orderOut).
     if !hasVisibleWindows {
-      windowManager.show()
-      windowManager.focus()
+      sender.activate(ignoringOtherApps: true)
+      for window in sender.windows where window.canBecomeMain {
+        window.setIsVisible(true)
+        window.makeKeyAndOrderFront(nil)
+      }
     }
     return true
   }
