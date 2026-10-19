@@ -31,6 +31,17 @@ Future<void> typeAndSelect(
   await tester.pump();
 }
 
+Future<void> pressShortcut(
+  WidgetTester tester,
+  LogicalKeyboardKey key, {
+  LogicalKeyboardKey modifier = LogicalKeyboardKey.controlLeft,
+}) async {
+  await tester.sendKeyDownEvent(modifier);
+  await tester.sendKeyEvent(key);
+  await tester.sendKeyUpEvent(modifier);
+  await tester.pump();
+}
+
 void main() {
   group('DmMessageComposer block quotes', () {
     const cases = [
@@ -122,5 +133,59 @@ void main() {
         );
       });
     }
+  });
+
+  group('DmMessageComposer formatting shortcuts', () {
+    testWidgets('Ctrl+B wraps the selected text in bold markers', (
+      tester,
+    ) async {
+      await tester.pumpWidget(buildComposerUnderTest());
+      await typeAndSelect(tester, 'hello');
+
+      await pressShortcut(tester, LogicalKeyboardKey.keyB);
+
+      expect(composerController(tester).text, '**hello**');
+    });
+
+    testWidgets('Ctrl+I wraps the selected text in italic markers', (
+      tester,
+    ) async {
+      await tester.pumpWidget(buildComposerUnderTest());
+      await typeAndSelect(tester, 'hello');
+
+      await pressShortcut(tester, LogicalKeyboardKey.keyI);
+
+      expect(composerController(tester).text, '*hello*');
+    });
+
+    testWidgets('Cmd+B works the same as Ctrl+B', (tester) async {
+      await tester.pumpWidget(buildComposerUnderTest());
+      await typeAndSelect(tester, 'hello');
+
+      await pressShortcut(
+        tester,
+        LogicalKeyboardKey.keyB,
+        modifier: LogicalKeyboardKey.metaLeft,
+      );
+
+      expect(composerController(tester).text, '**hello**');
+    });
+
+    testWidgets('with no selection, inserts markers with cursor between', (
+      tester,
+    ) async {
+      await tester.pumpWidget(buildComposerUnderTest());
+      await typeAndSelect(
+        tester,
+        'hi ',
+        selection: const TextSelection.collapsed(offset: 3),
+      );
+
+      await pressShortcut(tester, LogicalKeyboardKey.keyB);
+
+      final controller = composerController(tester);
+      expect(controller.text, 'hi ****');
+      expect(controller.selection, const TextSelection.collapsed(offset: 5));
+    });
   });
 }
