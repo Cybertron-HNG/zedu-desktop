@@ -16,7 +16,11 @@ class AppConfig {
   ///
   /// Precedence: `--dart-define` wins, then dotenv keys from those files, then
   /// defaults. See [String.fromEnvironment](https://api.flutter.dev/flutter/dart-ui/String/String.fromEnvironment.html).
-  factory AppConfig.fromEnvironment() {
+  ///
+  /// When no API URL is configured, debug builds default to Zedu staging but
+  /// release builds (`isRelease`) throw a [StateError], so a release can never
+  /// silently talk to staging.
+  factory AppConfig.fromEnvironment({bool isRelease = kReleaseMode}) {
     const defineApiBaseUrl = String.fromEnvironment('API_BASE_URL');
     const defineUsesMock = String.fromEnvironment('USE_MOCK_DATA');
     const defineClientId = String.fromEnvironment('GOOGLE_CLIENT_ID');
@@ -27,12 +31,23 @@ class AppConfig {
     final envClientId = dotenv.maybeGet('GOOGLE_CLIENT_ID')?.trim();
     final envClientSecret = dotenv.maybeGet('GOOGLE_CLIENT_SECRET')?.trim();
 
-    // Teams point the app at their own backend via --dart-define or .env; Zedu staging is the default.
-    String apiBaseUrl = defineApiBaseUrl.isNotEmpty
+    // Teams point the app at their own backend via --dart-define or .env.
+    final configuredApiBaseUrl = defineApiBaseUrl.isNotEmpty
         ? defineApiBaseUrl
         : (envApiBaseUrl?.isNotEmpty ?? false)
-        ? envApiBaseUrl!
-        : 'https://api.staging.zedu.chat/api/v1/';
+        ? envApiBaseUrl
+        : null;
+
+    if (configuredApiBaseUrl == null && isRelease) {
+      throw StateError(
+        'API_BASE_URL is not set. Release builds must pass '
+        '--dart-define=API_BASE_URL=<url> or set it in .env.',
+      );
+    }
+
+    // Debug builds fall back to Zedu staging.
+    String apiBaseUrl =
+        configuredApiBaseUrl ?? 'https://api.staging.zedu.chat/api/v1/';
 
     apiBaseUrl = apiBaseUrl.replaceAll('"', '').replaceAll("'", "");
 
