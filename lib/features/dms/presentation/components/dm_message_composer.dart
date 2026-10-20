@@ -30,6 +30,8 @@ class DmMessageComposer extends ConsumerStatefulWidget {
 }
 
 class DmMessageComposerState extends ConsumerState<DmMessageComposer> {
+  static const _tag = 'DmMessageComposer';
+
   late final RichTextController _controller;
   final _focusNode = FocusNode();
   final _scrollController = ScrollController();
@@ -417,7 +419,8 @@ class DmMessageComposerState extends ConsumerState<DmMessageComposer> {
     } catch (error) {
       _activeRecordingPath = null;
       if (mounted) setState(() => _isRecording = false);
-      _showVoiceError('Could not start recording: $error');
+      AppLogger.e('Failed to start voice recording', tag: _tag, error: error);
+      _showVoiceError('Could not start recording. Please try again.');
     } finally {
       _isStarting = false;
     }
@@ -445,7 +448,8 @@ class DmMessageComposerState extends ConsumerState<DmMessageComposer> {
       });
     } catch (error) {
       if (mounted) setState(() => _isRecording = false);
-      _showVoiceError('Could not save the recording: $error');
+      AppLogger.e('Failed to save voice recording', tag: _tag, error: error);
+      _showVoiceError('Could not save the recording. Please try again.');
     }
   }
 
