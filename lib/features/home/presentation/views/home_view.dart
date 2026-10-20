@@ -507,9 +507,25 @@ class _ChannelHeaderMenu extends ConsumerWidget {
       position: PopupMenuPosition.under,
       icon: Icon(Icons.more_vert, color: colors.textHint),
       onSelected: (value) {
+        if (value == 'edit') {
+          showDialog<void>(
+            context: context,
+            builder: (_) => EditChannelModal(channel: channel),
+          );
+        }
         if (value == 'leave') _confirmLeave(context, ref);
       },
       itemBuilder: (_) => [
+        PopupMenuItem(
+          value: 'edit',
+          child: Row(
+            children: [
+              Icon(Icons.edit_outlined, size: 18, color: colors.textPrimary),
+              const SizedBox(width: 12),
+              const Text('Edit channel'),
+            ],
+          ),
+        ),
         PopupMenuItem(
           value: 'leave',
           child: Row(

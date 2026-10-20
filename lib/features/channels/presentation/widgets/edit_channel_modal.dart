@@ -35,26 +35,35 @@ class _EditChannelModalState extends ConsumerState<EditChannelModal> {
   Future<void> _saveChanges() async {
     // A second tap before the screen rebuilds must not start a second save.
     if (_isSaving) return;
+    final topic = _topicController.text.trim();
+    final description = _descController.text.trim();
+    // The backend ignores empty fields and rejects a request with none.
+    if (topic.isEmpty && description.isEmpty) {
+      setState(() => _errorMessage = 'Add a topic or a description to save.');
+      return;
+    }
     setState(() {
       _isSaving = true;
       _errorMessage = null;
     });
 
-    final success = await ref
+    final result = await ref
         .read(channelProvider.notifier)
         .updateChannelTopicOrDescription(
           channelId: widget.channel.id,
-          topic: _topicController.text.trim(),
-          description: _descController.text.trim(),
+          topic: topic.isEmpty ? null : topic,
+          description: description.isEmpty ? null : description,
         );
     if (!mounted) return;
-    if (success) {
-      Navigator.of(context).pop();
-    } else {
-      setState(() {
-        _isSaving = false;
-        _errorMessage = 'Could not save the changes. Please try again.';
-      });
+    switch (result) {
+      case Success<void>():
+        Navigator.of(context).pop();
+      case Failure<void>(:final error):
+        // Keep the dialog and the typed text so the user can try again.
+        setState(() {
+          _isSaving = false;
+          _errorMessage = error.message;
+        });
     }
   }
 
