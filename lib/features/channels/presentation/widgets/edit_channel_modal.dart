@@ -13,6 +13,10 @@ class EditChannelModal extends ConsumerStatefulWidget {
 class _EditChannelModalState extends ConsumerState<EditChannelModal> {
   late TextEditingController _descController;
   late TextEditingController _topicController;
+  // Kept in the dialog, not in the channel list state, so an old error never
+  // shows when the dialog is opened again.
+  bool _isSaving = false;
+  String? _errorMessage;
 
   @override
   void initState() {
@@ -28,22 +32,46 @@ class _EditChannelModalState extends ConsumerState<EditChannelModal> {
     super.dispose();
   }
 
-  void _saveChanges() {
-    ref
+  Future<void> _saveChanges() async {
+    if (_isSaving) return;
+    final topic = _topicController.text.trim();
+    final description = _descController.text.trim();
+    // The backend ignores empty fields and rejects a request with none.
+    if (topic.isEmpty && description.isEmpty) {
+      setState(() => _errorMessage = 'Add a topic or a description to save.');
+      return;
+    }
+    setState(() {
+      _isSaving = true;
+      _errorMessage = null;
+    });
+
+    final result = await ref
         .read(channelProvider.notifier)
         .updateChannelTopicOrDescription(
           channelId: widget.channel.id,
-          topic: _topicController.text.trim(),
-          description: _descController.text.trim(),
+          topic: topic.isEmpty ? null : topic,
+          description: description.isEmpty ? null : description,
         );
-    Navigator.of(context).pop();
+    if (!mounted) return;
+    switch (result) {
+      case Success<void>():
+        Navigator.of(context).pop();
+      case Failure<void>(:final error):
+        // Keep the dialog and the typed text so the user can try again.
+        setState(() {
+          _isSaving = false;
+          _errorMessage = error.message;
+        });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
     final textTheme = context.textTheme;
-    final isLoading = ref.watch(channelProvider).isLoading;
+    final isLoading = _isSaving;
+    final errorMessage = _errorMessage;
 
     return Dialog(
       backgroundColor: colors.background,
@@ -109,6 +137,13 @@ class _EditChannelModalState extends ConsumerState<EditChannelModal> {
               ),
               style: textTheme.bodyMedium?.copyWith(color: colors.textPrimary),
             ),
+            if (errorMessage != null) ...[
+              const SizedBox(height: 16),
+              Text(
+                errorMessage,
+                style: textTheme.bodySmall?.copyWith(color: colors.error),
+              ),
+            ],
             const SizedBox(height: 32),
             Row(
               mainAxisAlignment: MainAxisAlignment.end,

@@ -97,7 +97,7 @@ class ChannelNotifier extends AsyncNotifier<List<Channel>> {
     return result;
   }
 
-  Future<bool> updateChannelTopicOrDescription({
+  Future<Result<void>> updateChannelTopicOrDescription({
     required String channelId,
     String? topic,
     String? description,
@@ -129,9 +129,8 @@ class ChannelNotifier extends AsyncNotifier<List<Channel>> {
         return c;
       }).toList();
       state = AsyncData(updatedChannels);
-      return true;
     }
-    return false;
+    return result;
   }
 }
 

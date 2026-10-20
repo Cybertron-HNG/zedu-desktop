@@ -84,8 +84,10 @@ class ChannelRemoteDataSourceImpl implements ChannelRemoteDataSource {
     if (topic != null) data['topic'] = topic;
     if (description != null) data['description'] = description;
 
-    await apiBaseService.put<Map<String, dynamic>>(
-      path: '/channels/$channelId/',
+    // The backend updates a channel with PATCH /channels/:channelId; it has no
+    // PUT route for this.
+    await apiBaseService.patch<Map<String, dynamic>>(
+      path: '/channels/$channelId',
       data: data,
     );
   }
