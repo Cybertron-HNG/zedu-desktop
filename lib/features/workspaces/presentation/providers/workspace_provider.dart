@@ -80,7 +80,10 @@ class WorkspaceNotifier extends Notifier<WorkspaceState> {
     String? previousId;
     try {
       previousId = state.selectedWorkspace?.id;
-    } catch (_) {}
+    } catch (_) {
+      // Reading `state` throws on the first build, before it has a value;
+      // there is no previous selection to keep then.
+    }
 
     final selected = previousId != null
         ? workspaces.firstWhere(

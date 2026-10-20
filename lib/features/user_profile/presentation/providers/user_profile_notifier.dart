@@ -523,7 +523,14 @@ class UserProfileNotifier extends Notifier<UserProfileState> {
             );
           }).toList();
           loadedTeamMembers = savedMembers;
-        } catch (_) {}
+        } catch (error, stackTrace) {
+          AppLogger.w(
+            'Could not read saved team members for org $orgId',
+            tag: 'UserProfileNotifier',
+            error: error,
+            stackTrace: stackTrace,
+          );
+        }
       }
     }
 

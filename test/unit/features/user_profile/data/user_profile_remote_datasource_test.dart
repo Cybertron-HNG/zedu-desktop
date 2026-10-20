@@ -4,6 +4,8 @@ import 'package:zedu/features/features.dart';
 
 class MockApiBaseService extends Mock implements ApiBaseService {}
 
+class MockSecureStorageService extends Mock implements SecureStorageService {}
+
 void main() {
   group('UserProfileRemoteDataSourceImpl.updateAccount', () {
     late MockApiBaseService mockApi;
@@ -52,5 +54,37 @@ void main() {
       });
       expect(saved.phoneNumber, '+2348012345678');
     });
+  });
+
+  group('UserProfileRemoteDataSourceImpl.getTeamMembers (mock data)', () {
+    late MockSecureStorageService storage;
+    late UserProfileRemoteDataSourceImpl datasource;
+
+    setUp(() {
+      storage = MockSecureStorageService();
+      if (locator.isRegistered<SecureStorageService>()) {
+        locator.unregister<SecureStorageService>();
+      }
+      locator.registerSingleton<SecureStorageService>(storage);
+      datasource = UserProfileRemoteDataSourceImpl(
+        config: const AppConfig(apiBaseUrl: '', usesMockData: true),
+        apiBaseService: MockApiBaseService(),
+      );
+    });
+
+    tearDown(() => locator.unregister<SecureStorageService>());
+
+    test(
+      'falls back to the default members when saved data is corrupted',
+      () async {
+        when(
+          () => storage.readData('mock_team_members_org-1'),
+        ).thenAnswer((_) async => 'not valid json');
+
+        final members = await datasource.getTeamMembers(orgId: 'org-1');
+
+        expect(members, isNotEmpty);
+      },
+    );
   });
 }
