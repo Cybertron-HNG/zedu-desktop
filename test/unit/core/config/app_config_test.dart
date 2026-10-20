@@ -20,6 +20,30 @@ void main() {
       expect(config.apiBaseUrl, 'https://api.staging.zedu.chat/api/v1/');
     });
 
+    test('release build rejects an API URL that came from .env.example', () {
+      dotenv.loadFromString(
+        envString: 'API_BASE_URL=https://api.staging.zedu.chat/api/v1/',
+      );
+
+      expect(
+        () => AppConfig.fromEnvironment(isRelease: true, envFromTemplate: true),
+        throwsA(isA<StateError>()),
+      );
+    });
+
+    test('debug build still accepts the API URL from .env.example', () {
+      dotenv.loadFromString(
+        envString: 'API_BASE_URL=https://api.staging.zedu.chat/api/v1/',
+      );
+
+      final config = AppConfig.fromEnvironment(
+        isRelease: false,
+        envFromTemplate: true,
+      );
+
+      expect(config.apiBaseUrl, 'https://api.staging.zedu.chat/api/v1/');
+    });
+
     test(
       'release build uses an API URL from .env and adds a trailing slash',
       () {

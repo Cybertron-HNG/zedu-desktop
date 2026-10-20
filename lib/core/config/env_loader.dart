@@ -7,7 +7,14 @@ import 'package:zedu/core/core.dart';
 Future<void> loadAppEnv() async {
   try {
     await dotenv.load(fileName: '.env');
+    envLoadedFromTemplate = false;
   } on Object {
     await dotenv.load(fileName: '.env.example');
+    envLoadedFromTemplate = true;
   }
 }
+
+/// True when [loadAppEnv] fell back to the bundled `.env.example` template
+/// because there is no `.env`. The template carries staging values, so release
+/// builds must not take their API URL from it.
+bool envLoadedFromTemplate = false;
