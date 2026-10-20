@@ -6,8 +6,26 @@ class DmListTile extends ConsumerWidget {
 
   const DmListTile({super.key, required this.conversation});
 
-  String _formatTime(DateTime dt) {
-    final now = DateTime.now();
+  static const _monthNames = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
+
+  /// The time label shown in the DM list: the time for today, "Yesterday",
+  /// then the date with the month as a word ("5 Jun", or "5 Jun 2025" for an
+  /// earlier year) so it reads the same in every locale.
+  static String formatTime(DateTime dt, {DateTime? now}) {
+    now ??= DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final messageDay = DateTime(dt.year, dt.month, dt.day);
 
@@ -23,7 +41,10 @@ class DmListTile extends ConsumerWidget {
       return 'Yesterday';
     }
 
-    return '${dt.day}/${dt.month}/${dt.year}';
+    final month = _monthNames[dt.month - 1];
+    return dt.year == now.year
+        ? '${dt.day} $month'
+        : '${dt.day} $month ${dt.year}';
   }
 
   @override
@@ -136,7 +157,7 @@ class DmListTile extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
             Text(
-              _formatTime(conversation.lastActivityAt),
+              formatTime(conversation.lastActivityAt),
               style: TextStyle(
                 color: hasUnread
                     ? colors.onPrimary
