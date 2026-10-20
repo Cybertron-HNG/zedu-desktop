@@ -262,7 +262,14 @@ class UserProfileRemoteDataSourceImpl implements UserProfileRemoteDataSource {
             loadedTeamMembers = decoded
                 .map((e) => TeamMemberModel.fromJson(e as Map<String, dynamic>))
                 .toList();
-          } catch (_) {}
+          } catch (error, stackTrace) {
+            AppLogger.w(
+              'Could not read saved team members for org $orgId',
+              tag: 'UserProfileRemoteDatasource',
+              error: error,
+              stackTrace: stackTrace,
+            );
+          }
         }
       }
 
