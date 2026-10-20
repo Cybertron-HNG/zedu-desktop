@@ -125,7 +125,9 @@ class _BuzzMeetingViewState extends ConsumerState<BuzzMeetingView> {
                       _buildControlButton(
                         icon: _isMuted ? Icons.mic_off : Icons.mic,
                         tooltip: _isMuted ? 'Unmute' : 'Mute',
-                        color: _isMuted ? Colors.red : Colors.white24,
+                        color: _isMuted
+                            ? Colors.red
+                            : colors.primary.withValues(alpha: 0.2),
                         onTap: () => setState(() => _isMuted = !_isMuted),
                         small: true,
                       ),
@@ -135,7 +137,9 @@ class _BuzzMeetingViewState extends ConsumerState<BuzzMeetingView> {
                         tooltip: _isVideoOff
                             ? 'Turn camera on'
                             : 'Turn camera off',
-                        color: _isVideoOff ? Colors.red : Colors.white24,
+                        color: _isVideoOff
+                            ? Colors.red
+                            : colors.primary.withValues(alpha: 0.2),
                         onTap: () => setState(() => _isVideoOff = !_isVideoOff),
                         small: true,
                       ),
@@ -143,7 +147,7 @@ class _BuzzMeetingViewState extends ConsumerState<BuzzMeetingView> {
                       _buildControlButton(
                         icon: Icons.emoji_emotions_outlined,
                         tooltip: 'Reactions',
-                        color: Colors.white24,
+                        color: colors.primary.withValues(alpha: 0.2),
                         onTap: () {},
                         small: true,
                       ),
@@ -151,7 +155,9 @@ class _BuzzMeetingViewState extends ConsumerState<BuzzMeetingView> {
                       _buildControlButton(
                         icon: Icons.back_hand,
                         tooltip: _isHandRaised ? 'Lower hand' : 'Raise hand',
-                        color: _isHandRaised ? Colors.amber : Colors.white24,
+                        color: _isHandRaised
+                            ? Colors.amber
+                            : colors.primary.withValues(alpha: 0.2),
                         onTap: () =>
                             setState(() => _isHandRaised = !_isHandRaised),
                         small: true,
