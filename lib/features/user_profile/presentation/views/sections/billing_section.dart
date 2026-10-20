@@ -80,7 +80,7 @@ class _BillingSectionState extends ConsumerState<BillingSection> {
                   ),
                 ),
                 child: const Text(
-                  'Invite People',
+                  'Manage',
                   style: TextStyle(fontWeight: FontWeight.w600),
                 ),
               ),
