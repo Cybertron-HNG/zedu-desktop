@@ -95,7 +95,9 @@ class AppSidebarRail extends ConsumerWidget {
               // Fire a test notification replicating DM notification
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
-                  content: Text('Notification will fire in 5 seconds.'),
+                  content: Text(
+                    'A test notification will appear in 5 seconds.',
+                  ),
                   duration: Duration(seconds: 3),
                 ),
               );

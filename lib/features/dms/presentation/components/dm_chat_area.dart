@@ -309,12 +309,12 @@ class _DmChatHeader extends StatelessWidget {
             builder: (context, ref, child) {
               return IconButton(
                 icon: const Icon(Icons.notifications_active_outlined),
-                tooltip: 'Test Notification (Delayed 5s)',
+                tooltip: 'Send a test notification',
                 onPressed: () {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
                       content: Text(
-                        'Notification will fire in 5 seconds. Minimize the app now!',
+                        'A test notification will appear in 5 seconds.',
                       ),
                     ),
                   );
