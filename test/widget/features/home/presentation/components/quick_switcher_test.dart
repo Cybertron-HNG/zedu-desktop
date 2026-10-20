@@ -37,13 +37,10 @@ void main() {
     });
 
     test('lists names that start with the query before the rest', () {
-      final labels = filterQuickSwitcherEntries(
-        [
-          const QuickSwitcherEntry.channel('web-design'),
-          const QuickSwitcherEntry.channel('design'),
-        ],
-        'design',
-      ).map((e) => e.label);
+      final labels = filterQuickSwitcherEntries([
+        const QuickSwitcherEntry.channel('web-design'),
+        const QuickSwitcherEntry.channel('design'),
+      ], 'design').map((e) => e.label);
 
       expect(labels, ['design', 'web-design']);
     });
@@ -59,7 +56,10 @@ void main() {
       await tester.pumpWidget(
         buildTestMaterialApp(
           Scaffold(
-            body: QuickSwitcherDialog(entries: entries, onSelected: selected.add),
+            body: QuickSwitcherDialog(
+              entries: entries,
+              onSelected: selected.add,
+            ),
           ),
         ),
       );
