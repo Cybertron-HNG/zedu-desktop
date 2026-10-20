@@ -67,6 +67,28 @@ class _BillingSectionState extends ConsumerState<BillingSection> {
               ),
               const SizedBox(width: 24),
               OutlinedButton(
+                onPressed: () => showComparePlansDialog(
+                  context,
+                  currentPlan: widget.billing.plan,
+                ),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: colors.primary,
+                  side: BorderSide(color: colors.borderOutline),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 12,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                ),
+                child: const Text(
+                  'Compare plans',
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                ),
+              ),
+              const SizedBox(width: 12),
+              OutlinedButton(
                 onPressed: () {},
                 style: OutlinedButton.styleFrom(
                   foregroundColor: colors.primary,
