@@ -1,3 +1,4 @@
+export 'package:app_badge_plus/app_badge_plus.dart';
 export 'package:flutter/material.dart';
 export 'package:flutter/foundation.dart';
 export 'package:flutter_riverpod/flutter_riverpod.dart';
