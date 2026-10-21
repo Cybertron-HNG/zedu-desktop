@@ -13,8 +13,8 @@ class FakeUserProfileNotifier extends UserProfileNotifier {
   Future<List<Map<String, dynamic>>> fetchRegisteredUsers() async => [];
 }
 
-class FakeAddEveryoneToGeneral extends AddEveryoneToGeneral {
-  FakeAddEveryoneToGeneral(super.ref, this._result);
+class FakeAddEveryoneToChannel extends AddEveryoneToChannel {
+  FakeAddEveryoneToChannel(super.ref, this._result);
 
   final Future<AddEveryoneResult> Function() _result;
   int calls = 0;
@@ -26,14 +26,28 @@ class FakeAddEveryoneToGeneral extends AddEveryoneToGeneral {
   }
 }
 
-late FakeAddEveryoneToGeneral fakeAddEveryone;
+late FakeAddEveryoneToChannel fakeAddEveryone;
 
-Widget buildModalUnderTest(Future<AddEveryoneResult> Function() result) {
+// Lets a test open the window while a given channel is open in the sidebar.
+class FakeActiveChatNotifier extends ActiveChatNotifier {
+  FakeActiveChatNotifier(this._initial);
+
+  final ActiveChatState _initial;
+
+  @override
+  ActiveChatState build() => _initial;
+}
+
+Widget buildModalUnderTest(
+  Future<AddEveryoneResult> Function() result, {
+  ActiveChatState chat = ActiveChatState.generalChannel,
+}) {
   return ProviderScope(
     overrides: [
       userProfileNotifierProvider.overrideWith(FakeUserProfileNotifier.new),
-      addEveryoneToGeneralProvider.overrideWith(
-        (ref) => fakeAddEveryone = FakeAddEveryoneToGeneral(ref, result),
+      activeChatProvider.overrideWith(() => FakeActiveChatNotifier(chat)),
+      addEveryoneToChannelProvider.overrideWith(
+        (ref) => fakeAddEveryone = FakeAddEveryoneToChannel(ref, result),
       ),
     ],
     child: MaterialApp(
@@ -73,7 +87,7 @@ void main() {
       tester,
     ) async {
       await tester.pumpWidget(
-        buildModalUnderTest(() async => const AddEveryoneAdded(3)),
+        buildModalUnderTest(() async => const AddEveryoneAdded(3, 'general')),
       );
       await openModal(tester);
 
@@ -87,7 +101,7 @@ void main() {
 
     testWidgets('says "person" when one person is added', (tester) async {
       await tester.pumpWidget(
-        buildModalUnderTest(() async => const AddEveryoneAdded(1)),
+        buildModalUnderTest(() async => const AddEveryoneAdded(1, 'general')),
       );
       await openModal(tester);
 
@@ -101,7 +115,9 @@ void main() {
       tester,
     ) async {
       await tester.pumpWidget(
-        buildModalUnderTest(() async => const AddEveryoneNobodyToAdd()),
+        buildModalUnderTest(
+          () async => const AddEveryoneNobodyToAdd('general'),
+        ),
       );
       await openModal(tester);
 
@@ -153,14 +169,56 @@ void main() {
       await tester.pump();
       expect(fakeAddEveryone.calls, 1);
 
-      pending.complete(const AddEveryoneNobodyToAdd());
+      pending.complete(const AddEveryoneNobodyToAdd('general'));
       await tester.pumpAndSettle();
       expect(find.text('Add everyone'), findsOneWidget);
     });
 
+    testWidgets('names the channel that is open, in the title and messages', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        buildModalUnderTest(
+          () async => const AddEveryoneAdded(2, 'design'),
+          chat: const ActiveChatState(
+            type: ActiveChatType.channel,
+            id: 'design',
+          ),
+        ),
+      );
+      await openModal(tester);
+
+      expect(find.text('Add people to #design'), findsOneWidget);
+      expect(find.text('Add people to #general'), findsNothing);
+
+      await tester.tap(find.text('Add everyone'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Added 2 people to #design.'), findsOneWidget);
+    });
+
+    testWidgets('keeps a very long channel name inside the title', (
+      tester,
+    ) async {
+      final longName = 'a-very-long-channel-name-' * 8;
+      await tester.pumpWidget(
+        buildModalUnderTest(
+          () async => AddEveryoneNobodyToAdd(longName),
+          chat: ActiveChatState(type: ActiveChatType.channel, id: longName),
+        ),
+      );
+      await openModal(tester);
+
+      // A RenderFlex overflow would be reported as an exception here.
+      expect(tester.takeException(), isNull);
+      expect(find.textContaining('Add people to #a-very-long'), findsOneWidget);
+    });
+
     testWidgets('leaves Copy Invite Link and Add in place', (tester) async {
       await tester.pumpWidget(
-        buildModalUnderTest(() async => const AddEveryoneNobodyToAdd()),
+        buildModalUnderTest(
+          () async => const AddEveryoneNobodyToAdd('general'),
+        ),
       );
       await openModal(tester);
 

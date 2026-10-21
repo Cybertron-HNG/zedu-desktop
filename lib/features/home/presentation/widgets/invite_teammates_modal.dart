@@ -142,28 +142,28 @@ class _InviteTeammatesModalState extends ConsumerState<InviteTeammatesModal> {
 
   Future<void> _addEveryone() async {
     setState(() => _isAddingEveryone = true);
-    final result = await ref.read(addEveryoneToGeneralProvider).call();
+    final result = await ref.read(addEveryoneToChannelProvider).call();
     if (!mounted) return;
     setState(() => _isAddingEveryone = false);
 
     final colors = context.colors;
     final messenger = ScaffoldMessenger.of(context);
     switch (result) {
-      case AddEveryoneAdded(:final count):
+      case AddEveryoneAdded(:final count, :final channelName):
         messenger.showSnackBar(
           SnackBar(
             content: Text(
-              'Added $count ${count == 1 ? 'person' : 'people'} to #general.',
+              'Added $count ${count == 1 ? 'person' : 'people'} to #$channelName.',
             ),
             backgroundColor: colors.success,
           ),
         );
         Navigator.pop(context);
-      case AddEveryoneNobodyToAdd():
+      case AddEveryoneNobodyToAdd(:final channelName):
         messenger.showSnackBar(
-          const SnackBar(
+          SnackBar(
             content: Text(
-              'Everyone in your organisation is already in #general.',
+              'Everyone in your organisation is already in #$channelName.',
             ),
           ),
         );
@@ -177,6 +177,7 @@ class _InviteTeammatesModalState extends ConsumerState<InviteTeammatesModal> {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final channelName = openChannelName(ref.watch(activeChatProvider));
 
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -191,14 +192,19 @@ class _InviteTeammatesModalState extends ConsumerState<InviteTeammatesModal> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  'Add people to #general',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: colors.textPrimary,
+                Expanded(
+                  child: Text(
+                    'Add people to #$channelName',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: colors.textPrimary,
+                    ),
                   ),
                 ),
+                const SizedBox(width: 12),
                 IconButton(
                   icon: Icon(Icons.close, color: colors.textHint),
                   onPressed: () => Navigator.pop(context),
@@ -316,7 +322,7 @@ class _InviteTeammatesModalState extends ConsumerState<InviteTeammatesModal> {
               ),
             const SizedBox(height: 8),
             Text(
-              'Search for people in your organisation and add them to #general.',
+              'Search for people in your organisation and add them to #$channelName.',
               style: TextStyle(fontSize: 12, color: colors.textHint),
             ),
             const SizedBox(height: 24),

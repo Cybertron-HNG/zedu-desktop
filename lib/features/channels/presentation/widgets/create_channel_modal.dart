@@ -13,6 +13,10 @@ class _CreateChannelModalState extends ConsumerState<CreateChannelModal> {
   final _descController = TextEditingController();
   final _topicController = TextEditingController();
   bool _isPrivate = false;
+  // Kept in the dialog, not in the channel list state, so an old error never
+  // shows when the dialog is opened again.
+  bool _isCreating = false;
+  String? _errorMessage;
 
   @override
   void dispose() {
@@ -25,9 +29,13 @@ class _CreateChannelModalState extends ConsumerState<CreateChannelModal> {
   Future<void> _createChannel() async {
     if (_nameController.text.trim().isEmpty) return;
     // A second tap before the screen rebuilds must not start a second create.
-    if (ref.read(channelProvider).isLoading) return;
+    if (_isCreating) return;
+    setState(() {
+      _isCreating = true;
+      _errorMessage = null;
+    });
 
-    final created = await ref
+    final result = await ref
         .read(channelProvider.notifier)
         .createChannel(
           name: _nameController.text.trim(),
@@ -36,21 +44,23 @@ class _CreateChannelModalState extends ConsumerState<CreateChannelModal> {
           isPrivate: _isPrivate,
         );
     if (!mounted) return;
-    if (created) Navigator.of(context).pop();
+    switch (result) {
+      case Success<Channel>():
+        Navigator.of(context).pop();
+      case Failure<Channel>(:final error):
+        setState(() {
+          _isCreating = false;
+          _errorMessage = error.message;
+        });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
     final textTheme = context.textTheme;
-    final channelState = ref.watch(channelProvider);
-    final isLoading = channelState.isLoading;
-    final error = channelState.error;
-    final errorMessage = !isLoading && channelState.hasError
-        ? (error is ApiFailure
-              ? error.message
-              : 'Could not create the channel. Please try again.')
-        : null;
+    final isLoading = _isCreating;
+    final errorMessage = _errorMessage;
 
     return Dialog(
       backgroundColor: colors.background,

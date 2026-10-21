@@ -1,5 +1,5 @@
 import 'dart:async' show Timer;
-import 'dart:io' show Directory, File;
+import 'dart:io' show Directory, File, Platform;
 
 import 'package:audioplayers/audioplayers.dart'
     show AudioPlayer, DeviceFileSource;
@@ -94,6 +94,7 @@ class DmMessageComposerState extends ConsumerState<DmMessageComposer> {
   void _onTextChanged() {
     _updateFormattingState();
     _updateMentionSuggestions();
+    if (mounted) setState(() {});
   }
 
   void _updateFormattingState() {
@@ -225,22 +226,9 @@ class DmMessageComposerState extends ConsumerState<DmMessageComposer> {
 
     final key = event.logicalKey;
 
-    if (key == LogicalKeyboardKey.enter ||
-        key == LogicalKeyboardKey.numpadEnter) {
-      final hasModifier =
-          HardwareKeyboard.instance.isControlPressed ||
-          HardwareKeyboard.instance.isMetaPressed;
-      // Shift+Enter must fall through so the default newline is inserted.
-      if (!hasModifier && HardwareKeyboard.instance.isShiftPressed) {
-        return KeyEventResult.ignored;
-      }
-      // Never send while an IME (Chinese, Japanese…) is still composing.
-      if (_controller.value.composing.isValid &&
-          !_controller.value.composing.isCollapsed) {
-        return KeyEventResult.ignored;
-      }
-      // Plain Enter, Ctrl+Enter and Cmd+Enter all share the send path, which
-      // no-ops on an empty box. Handled either way, so no newline is added.
+    if (key == LogicalKeyboardKey.enter &&
+        (HardwareKeyboard.instance.isControlPressed ||
+            HardwareKeyboard.instance.isMetaPressed)) {
       _handleSend();
       return KeyEventResult.handled;
     }
@@ -332,16 +320,9 @@ class DmMessageComposerState extends ConsumerState<DmMessageComposer> {
     final text = _controller.text;
     final sel = _controller.selection;
     if (!sel.isValid) return;
-    final selected = text.substring(sel.start, sel.end);
-    // A selection that ends right after a newline leaves an empty last piece.
-    // Quoting it would put "> " on the first line that is not selected.
-    final endsWithNewline = selected.endsWith('\n');
-    final lines = selected.split('\n');
-    final quoted =
-        (endsWithNewline ? lines.sublist(0, lines.length - 1) : lines)
-            .map((line) => '> $line')
-            .join('\n');
-    final insert = endsWithNewline ? '$quoted\n' : quoted;
+    final insert = sel.isCollapsed
+        ? '> '
+        : '> ${text.substring(sel.start, sel.end)}';
     final newText =
         text.substring(0, sel.start) + insert + text.substring(sel.end);
     _controller.value = TextEditingValue(
@@ -396,7 +377,7 @@ class DmMessageComposerState extends ConsumerState<DmMessageComposer> {
         return;
       }
       final path =
-          '${Directory.systemTemp.path}/zedu-voice-${DateTime.now().millisecondsSinceEpoch}.m4a';
+          '${Directory.systemTemp.path}${Platform.pathSeparator}zedu-voice-${DateTime.now().millisecondsSinceEpoch}.m4a';
       _activeRecordingPath = path;
       await _audioRecorder.start(const RecordConfig(), path: path);
       // Only remember the file once recording really started.
@@ -805,8 +786,7 @@ class DmMessageComposerState extends ConsumerState<DmMessageComposer> {
                       decoration: InputDecoration(
                         hintText: _isEditMode
                             ? 'Editing message…'
-                            : 'Message ${widget.recipientName} · '
-                                  'Enter to send, Shift+Enter for a new line',
+                            : 'Message ${widget.recipientName}',
                         hintStyle: TextStyle(
                           color: colors.textHint.withValues(alpha: 0.75),
                           fontSize: 12,
@@ -903,7 +883,9 @@ class DmMessageComposerState extends ConsumerState<DmMessageComposer> {
                         onTap: _handleSend,
                         child: Icon(
                           Icons.send_rounded,
-                          color: colors.textHint.withValues(alpha: 0.55),
+                          color: _controller.text.trim().isEmpty
+                              ? colors.textHint.withValues(alpha: 0.55)
+                              : colors.primary,
                           size: 22,
                         ),
                       ),
