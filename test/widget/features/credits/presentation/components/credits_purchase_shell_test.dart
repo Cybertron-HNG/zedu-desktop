@@ -1,6 +1,6 @@
-import 'package:flutter_test/flutter_test.dart';
 import 'package:zedu/core/core.dart';
 import 'package:zedu/features/features.dart';
+import '../../../../../helpers/helpers.dart';
 
 class _FakeAuthNotifier extends AuthNotifier {
   @override
@@ -20,11 +20,11 @@ void main() {
             authNotifierProvider.overrideWith(_FakeAuthNotifier.new),
             orgCreditBalanceProvider.overrideWithValue(100),
           ],
-          child: MaterialApp(
-            theme: AppTheme.light.copyWith(splashFactory: NoSplash.splashFactory),
-            home: const CreditsPurchaseShell(
+          child: buildTestMaterialApp(
+            const CreditsPurchaseShell(
               child: SizedBox(),
             ),
+            theme: AppTheme.light.copyWith(splashFactory: NoSplash.splashFactory),
           ),
         ),
       );
