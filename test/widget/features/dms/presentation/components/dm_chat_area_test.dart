@@ -208,6 +208,23 @@ void main() {
       'created_at': '2026-10-17T08:00:00Z',
     };
 
+    Map<String, dynamic> ownMessage(String id, String content) => {
+      'id': id,
+      'content': content,
+      'user_id': 'user-1',
+      'created_at': '2026-10-17T08:00:00Z',
+    };
+
+    testWidgets('opens the message menu on long press', (tester) async {
+      await pumpChat(tester, [ownMessage('m1', 'my message')]);
+
+      await tester.longPress(find.text('my message', findRichText: true));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Edit message'), findsOneWidget);
+      expect(find.text('Delete message'), findsOneWidget);
+    });
+
     testWidgets('shows no text for a message with an empty paragraph', (
       tester,
     ) async {
