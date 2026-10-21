@@ -70,7 +70,7 @@ class _BuzzMeetingViewState extends ConsumerState<BuzzMeetingView> {
                             ),
                           ),
                           Text(
-                            '2 participant',
+                            '2 participants',
                             style: TextStyle(
                               fontSize: 11,
                               color: colors.textHint,
@@ -193,7 +193,7 @@ class _BuzzMeetingViewState extends ConsumerState<BuzzMeetingView> {
                 Icon(Icons.people_outline, size: 16, color: colors.textHint),
                 const SizedBox(width: 4),
                 Text(
-                  '2 participant',
+                  '2 participants',
                   style: TextStyle(fontSize: 13, color: colors.textHint),
                 ),
                 const Spacer(),
@@ -256,7 +256,11 @@ class _BuzzMeetingViewState extends ConsumerState<BuzzMeetingView> {
                 _buildControlButton(
                   icon: Icons.screen_share_outlined,
                   color: colors.primary.withValues(alpha: 0.2),
-                  onTap: () {},
+                  onTap: () => AppToastService.show(
+                    context,
+                    type: AppToastType.info,
+                    message: 'Screen sharing is not available yet.',
+                  ),
                   small: false,
                 ),
                 const SizedBox(width: 16),
