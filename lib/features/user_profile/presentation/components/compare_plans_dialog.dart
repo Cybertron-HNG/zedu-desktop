@@ -8,62 +8,19 @@ String _normalizePlanName(String name) {
   return lower.startsWith('zedu ') ? lower.substring(5) : lower;
 }
 
-class SubscriptionPlan {
-  const SubscriptionPlan({
-    required this.id,
-    required this.name,
-    required this.description,
-    required this.benefits,
-    required this.fee,
-    required this.credits,
-  });
-
-  factory SubscriptionPlan.fromJson(Map<String, dynamic> json) {
-    return SubscriptionPlan(
-      id: json['id'] as String? ?? '',
-      name: json['name'] as String? ?? '',
-      description: (json['description'] as String? ?? '').trim(),
-      benefits:
-          (json['benefits'] as List<dynamic>?)
-              ?.whereType<String>()
-              .where((b) => b.trim().isNotEmpty)
-              .toList() ??
-          const [],
-      fee: (json['fee'] as num?)?.toDouble() ?? 0,
-      credits: (json['credits'] as num?)?.toInt() ?? 0,
-    );
-  }
-
-  final String id;
-  final String name;
-  final String description;
-  final List<String> benefits;
-  final double fee;
-  final int credits;
+int _planTier(SubscriptionPlan plan) {
+  final index = _planOrder.indexOf(_normalizePlanName(plan.name));
+  return index == -1 ? _planOrder.length : index;
 }
 
-/// Same plan list the web app shows: GET /subscriptions/plans.
-final subscriptionPlansProvider =
-    FutureProvider.autoDispose<List<SubscriptionPlan>>((ref) async {
-      final response = await locator<ApiBaseService>()
-          .get<Map<String, dynamic>>(path: '/subscriptions/plans');
-      final data = response.data['data'];
-      if (data is! List) return [];
-      final plans = data
-          .cast<Map<String, dynamic>>()
-          .map(SubscriptionPlan.fromJson)
-          .toList();
-      int tier(SubscriptionPlan p) {
-        final index = _planOrder.indexOf(_normalizePlanName(p.name));
-        return index == -1 ? _planOrder.length : index;
-      }
-
-      plans.sort((a, b) {
-        final byTier = tier(a).compareTo(tier(b));
-        return byTier != 0 ? byTier : a.fee.compareTo(b.fee);
-      });
-      return plans;
-    });
+List<SubscriptionPlan> _sortedPlans(List<SubscriptionPlan> plans) {
+  final sorted = [...plans];
+  sorted.sort((a, b) {
+    final byTier = _planTier(a).compareTo(_planTier(b));
+    return byTier != 0 ? byTier : a.fee.compareTo(b.fee);
+  });
+  return sorted;
+}
 
 Future<void> showComparePlansDialog(
   BuildContext context, {
@@ -90,57 +47,47 @@ class _ComparePlansDialogState extends ConsumerState<ComparePlansDialog> {
   bool _isCurrent(SubscriptionPlan plan) =>
       _normalizePlanName(plan.name) == _normalizePlanName(widget.currentPlan);
 
+  void _showError(String message) {
+    if (!mounted) return;
+    AppToastService.show(context, type: AppToastType.error, message: message);
+  }
+
   Future<void> _upgrade(SubscriptionPlan plan) async {
     final user = ref.read(authNotifierProvider).user;
     if (user == null) return;
 
     setState(() => _loadingPlanId = plan.id);
-    try {
-      final payload = {
-        'plan_name': plan.name,
-        'org_id': user.currentOrg,
-        'email': user.email,
-      };
-      final api = locator<ApiBaseService>();
-      final response = _normalizePlanName(widget.currentPlan) == 'free'
-          ? await api.post<Map<String, dynamic>>(
-              path: '/subscriptions/create',
-              data: payload,
-            )
-          : await api.put<Map<String, dynamic>>(
-              path: '/subscriptions/modify',
-              data: payload,
-            );
-      final data = response.data['data'];
-      final url = data is Map ? data['checkout_session_url'] as String? : null;
-      final uri = url == null ? null : Uri.tryParse(url);
-      if (!mounted) return;
-      if (uri == null) {
-        AppToastService.show(
-          context,
-          type: AppToastType.error,
-          message: 'Could not get a checkout link. Please try again.',
+    final result = await ref
+        .read(userProfileRepositoryProvider)
+        .startPlanCheckout(
+          planName: plan.name,
+          orgId: user.currentOrg,
+          email: user.email,
+          isNewSubscription: _normalizePlanName(widget.currentPlan) == 'free',
         );
-        return;
-      }
-      final launched = await launchUrl(uri, mode: LaunchMode.platformDefault);
-      if (!launched && mounted) {
-        AppToastService.show(
-          context,
-          type: AppToastType.error,
-          message: 'Could not open the payment page automatically.',
-        );
-      }
-    } catch (_) {
-      if (mounted) {
-        AppToastService.show(
-          context,
-          type: AppToastType.error,
-          message: 'An error occurred during upgrade. Please try again.',
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _loadingPlanId = null);
+    if (!mounted) return;
+    setState(() => _loadingPlanId = null);
+
+    switch (result) {
+      case Success<String>(:final value):
+        final uri = value.isEmpty ? null : Uri.tryParse(value);
+        if (uri == null) {
+          _showError('Could not get a checkout link. Please try again.');
+          return;
+        }
+        try {
+          final launched = await launchUrl(
+            uri,
+            mode: LaunchMode.platformDefault,
+          );
+          if (!launched) {
+            _showError('Could not open the payment page automatically.');
+          }
+        } catch (_) {
+          _showError('Could not open the payment page automatically.');
+        }
+      case Failure<String>(:final error):
+        _showError(error.message);
     }
   }
 
@@ -150,6 +97,7 @@ class _ComparePlansDialogState extends ConsumerState<ComparePlansDialog> {
     final plans = ref.watch(subscriptionPlansProvider);
 
     return AlertDialog(
+      scrollable: true,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       title: Text(
         'Compare plans',
@@ -180,7 +128,7 @@ class _ComparePlansDialogState extends ConsumerState<ComparePlansDialog> {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                for (final plan in items) ...[
+                for (final plan in _sortedPlans(items)) ...[
                   _PlanColumn(
                     plan: plan,
                     isCurrent: _isCurrent(plan),

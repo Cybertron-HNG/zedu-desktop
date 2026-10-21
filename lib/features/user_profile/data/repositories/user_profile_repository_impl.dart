@@ -115,6 +115,28 @@ class UserProfileRepositoryImpl implements UserProfileRepository {
     return _guard(_remote.getBillingInfo);
   }
 
+  @override
+  Future<Result<List<SubscriptionPlan>>> getSubscriptionPlans() {
+    return _guard(_remote.getSubscriptionPlans);
+  }
+
+  @override
+  Future<Result<String>> startPlanCheckout({
+    required String planName,
+    required String orgId,
+    required String email,
+    required bool isNewSubscription,
+  }) {
+    return _guard(
+      () => _remote.startPlanCheckout(
+        planName: planName,
+        orgId: orgId,
+        email: email,
+        isNewSubscription: isNewSubscription,
+      ),
+    );
+  }
+
   Future<Result<T>> _guard<T>(Future<T> Function() operation) async {
     try {
       return Success(await operation());
