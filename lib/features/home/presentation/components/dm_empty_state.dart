@@ -28,6 +28,7 @@ class DmEmptyState extends StatelessWidget {
                   'assets/svgs/dm_empty_chat.svg',
                   width: 60,
                   height: 56,
+                  excludeFromSemantics: true,
                 ),
               ),
               const SizedBox(height: 24),
