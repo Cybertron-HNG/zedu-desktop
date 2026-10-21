@@ -177,14 +177,14 @@ class DmRepository {
   }
 
   Future<void> editMessage(
-    String channelId, {
+    String messageId, {
     required String content,
     String? threadId,
     List<Map<String, dynamic>>? media,
     List<Map<String, dynamic>>? mentions,
   }) async {
     await _apiClient.put<Map<String, dynamic>>(
-      path: '/dms/messages/$channelId',
+      path: '/dms/messages/$messageId',
       data: {
         'content': content,
         ...?(threadId != null ? {'thread_id': threadId} : null),
