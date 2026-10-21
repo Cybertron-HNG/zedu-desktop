@@ -98,13 +98,17 @@ class ApiBaseService {
     Map<String, String>? headers,
   }) async {
     try {
+      final requestHeaders = headersForPath(path, headers: headers);
+      if (data is FormData) {
+        requestHeaders.remove('Content-Type');
+      }
       final response = await _dio.request<T>(
         path,
         data: data,
         queryParameters: queryParameters,
         options: Options(
           method: method,
-          headers: headersForPath(path, headers: headers),
+          headers: requestHeaders,
         ),
       );
 
