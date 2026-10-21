@@ -16,16 +16,17 @@ abstract interface class UserProfileRemoteDataSource {
     required String currentPassword,
     required String newPassword,
   });
-  Future<OrganizationProfileModel> getOrganization();
+  Future<OrganizationProfileModel> getOrganization({String? orgId});
   Future<OrganizationProfileModel> createOrganization({
     required String name,
     required String type,
     required String country,
   });
   Future<OrganizationProfileModel> updateOrganization(
-    OrganizationProfile organization,
-  );
-  Future<void> deleteOrganization();
+    OrganizationProfile organization, {
+    String? orgId,
+  });
+  Future<void> deleteOrganization({String? orgId});
   Future<List<TeamMemberModel>> getTeamMembers({String? orgId});
   Future<TeamMemberModel> inviteMember({
     required String email,
@@ -168,12 +169,14 @@ class UserProfileRemoteDataSourceImpl implements UserProfileRemoteDataSource {
   }
 
   @override
-  Future<OrganizationProfileModel> getOrganization() async {
+  Future<OrganizationProfileModel> getOrganization({String? orgId}) async {
     if (_config.usesMockData) {
       return OrganizationProfileModel.fromJson(_organization);
     }
+    // The selected workspace's own endpoint returns its real name, type and
+    // country; /profile/organization fails for members of other workspaces.
     final response = await _apiBaseService.get<Map<String, dynamic>>(
-      path: '/profile/organization',
+      path: orgId == null ? '/profile/organization' : '/organisations/$orgId',
     );
     return OrganizationProfileModel.fromJson(
       response.data['data'] as Map<String, dynamic>,
@@ -182,8 +185,9 @@ class UserProfileRemoteDataSourceImpl implements UserProfileRemoteDataSource {
 
   @override
   Future<OrganizationProfileModel> updateOrganization(
-    OrganizationProfile organization,
-  ) async {
+    OrganizationProfile organization, {
+    String? orgId,
+  }) async {
     if (_config.usesMockData) {
       return OrganizationProfileModel(
         id: organization.id,
@@ -192,15 +196,24 @@ class UserProfileRemoteDataSourceImpl implements UserProfileRemoteDataSource {
         country: organization.country,
       );
     }
-    final response = await _apiBaseService.patch<Map<String, dynamic>>(
-      path: '/profile/organization',
-      data: OrganizationProfileModel(
-        id: organization.id,
-        name: organization.name,
-        natureOfBusiness: organization.natureOfBusiness,
-        country: organization.country,
-      ).toJson(),
-    );
+    final data = OrganizationProfileModel(
+      id: organization.id,
+      name: organization.name,
+      natureOfBusiness: organization.natureOfBusiness,
+      country: organization.country,
+    ).toJson();
+    // Like the load and the delete, save to the selected workspace's own
+    // endpoint: /profile/organization is rejected for members of other
+    // workspaces.
+    final response = orgId == null
+        ? await _apiBaseService.patch<Map<String, dynamic>>(
+            path: '/profile/organization',
+            data: data,
+          )
+        : await _apiBaseService.put<Map<String, dynamic>>(
+            path: '/organisations/$orgId',
+            data: data,
+          );
     return OrganizationProfileModel.fromJson(
       response.data['data'] as Map<String, dynamic>,
     );
@@ -239,10 +252,12 @@ class UserProfileRemoteDataSourceImpl implements UserProfileRemoteDataSource {
   }
 
   @override
-  Future<void> deleteOrganization() async {
+  Future<void> deleteOrganization({String? orgId}) async {
     if (_config.usesMockData) return;
+    // Delete the workspace that is shown, not whichever organisation the
+    // profile endpoint resolves to.
     await _apiBaseService.delete<Map<String, dynamic>>(
-      path: '/profile/organization',
+      path: orgId == null ? '/profile/organization' : '/organisations/$orgId',
     );
   }
 
@@ -582,7 +597,6 @@ const _roles = [
 
 const _billing = {
   'plan': 'Zedu Free',
-  'description':
-      'You are enjoying the full Zedu experience with ability to add as many users to your organisation.',
+  'description': 'You are enjoying the full Zedu experience with ability to add as many users to your organisation.',
   'payment_history': <Map<String, dynamic>>[],
 };
