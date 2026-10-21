@@ -80,7 +80,7 @@ class NotificationService {
       await windowManager.focus();
 
       final router = locator<GoRouter>();
-      router.go('/dms/$channelId');
+      router.go(AppRouter.home);
     };
 
     await notification.show();
