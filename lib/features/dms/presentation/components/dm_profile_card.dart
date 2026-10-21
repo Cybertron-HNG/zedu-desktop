@@ -71,7 +71,7 @@ class DmProfileCard extends StatelessWidget {
           OutlinedButton(
             onPressed: () {
               final userId = conversation.participantId;
-              context.go('/profile/$userId');
+              context.go('/profile/$userId', extra: conversation);
             },
             style: OutlinedButton.styleFrom(
               side: BorderSide(color: colors.divider),

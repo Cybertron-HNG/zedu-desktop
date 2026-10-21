@@ -13,6 +13,7 @@ class AppRouter {
   static const resetPassword = '/reset-password';
   static const changePassword = '/change-password';
   static const profile = '/profile';
+  static const participantProfile = '/profile/:userId';
   static const createOrganization = '/create-organization';
   static const buyCredits = '/credits/buy';
 
@@ -59,6 +60,19 @@ class AppRouter {
       GoRoute(
         path: profile,
         builder: (context, state) => const UserProfileView(),
+      ),
+      GoRoute(
+        path: participantProfile,
+        builder: (context, state) {
+          final userId = state.pathParameters['userId'] ?? '';
+          final conversation = state.extra is DmConversation
+              ? state.extra! as DmConversation
+              : null;
+          return ParticipantProfileView(
+            userId: userId,
+            conversation: conversation,
+          );
+        },
       ),
       GoRoute(
         path: createOrganization,
