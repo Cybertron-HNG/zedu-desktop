@@ -40,7 +40,10 @@ class WorkspaceSwitcherList extends ConsumerWidget {
                     child: _ActionButton(
                       icon: Icons.settings_outlined,
                       label: 'Settings',
-                      onPressed: () {},
+                      onPressed: () {
+                        Navigator.pop(context);
+                        context.go(AppRouter.profile);
+                      },
                     ),
                   ),
                   const SizedBox(width: 8),
