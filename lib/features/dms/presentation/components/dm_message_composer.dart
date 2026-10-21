@@ -416,10 +416,15 @@ class DmMessageComposerState extends ConsumerState<DmMessageComposer> {
         _isRecording = true;
         _recordSeconds = 0;
       });
-    } catch (error) {
+    } catch (error, stackTrace) {
       _activeRecordingPath = null;
       if (mounted) setState(() => _isRecording = false);
-      AppLogger.e('Failed to start voice recording', tag: _tag, error: error);
+      AppLogger.e(
+        'Failed to start voice recording',
+        tag: _tag,
+        error: error,
+        stackTrace: stackTrace,
+      );
       _showVoiceError('Could not start recording. Please try again.');
     } finally {
       _isStarting = false;
@@ -446,9 +451,14 @@ class DmMessageComposerState extends ConsumerState<DmMessageComposer> {
           );
         }
       });
-    } catch (error) {
+    } catch (error, stackTrace) {
       if (mounted) setState(() => _isRecording = false);
-      AppLogger.e('Failed to save voice recording', tag: _tag, error: error);
+      AppLogger.e(
+        'Failed to save voice recording',
+        tag: _tag,
+        error: error,
+        stackTrace: stackTrace,
+      );
       _showVoiceError('Could not save the recording. Please try again.');
     }
   }
