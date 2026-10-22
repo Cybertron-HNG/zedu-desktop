@@ -79,8 +79,26 @@ class NotificationService {
       await windowManager.show();
       await windowManager.focus();
 
+      _ref.read(homeSidebarProvider.notifier).setType(HomeSidebarType.dms);
+
       final router = locator<GoRouter>();
       router.go(AppRouter.home);
+
+      DmConversation? conversation;
+      try {
+        final conversations = await _ref.read(dmListProvider.future);
+        for (final item in conversations) {
+          if (item.channelId == channelId) {
+            conversation = item;
+            break;
+          }
+        }
+      } catch (_) {
+        return;
+      }
+      if (conversation != null) {
+        _ref.read(selectedDmProvider.notifier).select(conversation);
+      }
     };
 
     await notification.show();
