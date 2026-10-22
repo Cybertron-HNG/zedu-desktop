@@ -99,8 +99,9 @@ void main() {
         ),
         apiBaseService: api,
       );
-      when(() => api.delete<Map<String, dynamic>>(path: any(named: 'path')))
-          .thenAnswer((_) async => _ok());
+      when(
+        () => api.delete<Map<String, dynamic>>(path: any(named: 'path')),
+      ).thenAnswer((_) async => _ok());
     });
 
     test('deletes the workspace that was given', () async {
