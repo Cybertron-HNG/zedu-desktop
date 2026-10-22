@@ -88,7 +88,7 @@ class _DesktopManagerState extends ConsumerState<DesktopManager>
 
   @override
   void onTrayIconRightMouseDown() async {
-    await trayManager.popUpContextMenu(bringAppToFront: false);
+    await trayManager.popUpContextMenu();
   }
 
   @override
