@@ -28,6 +28,8 @@
 	<string>MainMenu</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Zedu needs access to your camera to show your video in Buzz calls.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Zedu needs access to your microphone to send voice notes.</string>
 </dict>
