@@ -176,21 +176,57 @@ class DmRepository {
         .toList();
   }
 
-  Future<void> editMessage(
-    String channelId, {
-    required String content,
-    String? threadId,
-    List<Map<String, dynamic>>? media,
-    List<Map<String, dynamic>>? mentions,
+  /// Fetches the replies for a thread in a channel/DM.
+  Future<List<Map<String, dynamic>>> getThreadReplies({
+    required String threadId,
+    required String channelId,
+    int page = 1,
+    int limit = 30,
   }) async {
-    await _apiClient.put<Map<String, dynamic>>(
-      path: '/dms/messages/$channelId',
-      data: {
-        'content': content,
-        ...?(threadId != null ? {'thread_id': threadId} : null),
-        ...?(media != null ? {'media': media} : null),
-        ...?(mentions != null ? {'mentions': mentions} : null),
-      },
+    final response = await _apiClient.get<Map<String, dynamic>>(
+      path: '/threads/$threadId/channels/$channelId',
+      queryParameters: {'page': page, 'limit': limit},
     );
+
+    final data = response.data;
+    final rawReplies = data['data'] ?? data['messages'] ?? data['replies'];
+    final replies = rawReplies is Map<String, dynamic>
+        ? (rawReplies['data'] ??
+            rawReplies['messages'] ??
+            rawReplies['replies'] ??
+            rawReplies['thread'])
+        : rawReplies;
+
+    if (replies is! List) return const [];
+
+    return replies
+        .whereType<Map<dynamic, dynamic>>()
+        .map((reply) => Map<String, dynamic>.from(reply))
+        .toList();
+  }
+
+  /// Fetches the thread list for a channel.
+  Future<List<Map<String, dynamic>>> getChannelThreads({
+    required String channelId,
+    int page = 1,
+    int limit = 30,
+  }) async {
+    final response = await _apiClient.get<Map<String, dynamic>>(
+      path: '/threads/channels/$channelId',
+      queryParameters: {'page': page, 'limit': limit},
+    );
+
+    final data = response.data;
+    final rawThreads = data['data'] ?? data['threads'];
+    final threads = rawThreads is Map<String, dynamic>
+        ? (rawThreads['data'] ?? rawThreads['threads'])
+        : rawThreads;
+
+    if (threads is! List) return const [];
+
+    return threads
+        .whereType<Map<dynamic, dynamic>>()
+        .map((thread) => Map<String, dynamic>.from(thread))
+        .toList();
   }
 }
