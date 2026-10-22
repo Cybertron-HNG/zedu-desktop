@@ -4,8 +4,9 @@ import 'package:zedu/core/core.dart';
 import 'package:zedu/features/features.dart';
 import '../../../../../helpers/helpers.dart';
 
-// Avoids the locator: the modal only asks this notifier for search results.
+// Avoids the locator and API: no users to suggest, invites are recorded.
 class FakeUserProfileNotifier extends UserProfileNotifier {
+  final List<String> invited = [];
   final List<String> invitedEmails = [];
   Future<void> Function(String email)? onInvite;
 
@@ -21,6 +22,7 @@ class FakeUserProfileNotifier extends UserProfileNotifier {
     required String role,
     String? userId,
   }) async {
+    invited.add(email);
     invitedEmails.add(email);
     final hook = onInvite;
     if (hook != null) await hook(email);
@@ -383,6 +385,101 @@ void main() {
         find.widgetWithText(ElevatedButton, 'Add'),
       );
       expect(button.onPressed, isNotNull);
+    });
+  });
+
+  group('InviteTeammatesModal email validation', () {
+    const errorText = 'Please enter a valid email address.';
+
+    Future<FakeUserProfileNotifier> pumpModal(WidgetTester tester) async {
+      await tester.binding.setSurfaceSize(const Size(1280, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      // The fixed 480px dialog's button row only overflows with the wide
+      // Ahem test font; ignore that layout warning, keep every other error.
+      final onError = FlutterError.onError;
+      FlutterError.onError = (details) {
+        if (details.exceptionAsString().contains('overflowed')) return;
+        onError?.call(details);
+      };
+      addTearDown(() => FlutterError.onError = onError);
+      final notifier = FakeUserProfileNotifier();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            userProfileNotifierProvider.overrideWith(() => notifier),
+            activeChatProvider.overrideWith(
+              () => FakeActiveChatNotifier(ActiveChatState.generalChannel),
+            ),
+          ],
+          child: buildTestMaterialApp(
+            const Scaffold(body: InviteTeammatesModal()),
+          ),
+        ),
+      );
+      await tester.pump();
+      return notifier;
+    }
+
+    Future<void> submitText(WidgetTester tester, String text) async {
+      await tester.enterText(find.byType(TextField), text);
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pump();
+    }
+
+    for (final invalid in ['@@@', 'abc@', 'name@domain']) {
+      testWidgets('rejects "$invalid" with an error', (tester) async {
+        await pumpModal(tester);
+
+        await submitText(tester, invalid);
+
+        expect(find.byType(Chip), findsNothing);
+        expect(find.text(errorText), findsOneWidget);
+      });
+    }
+
+    testWidgets('clears the error when the user types again', (tester) async {
+      await pumpModal(tester);
+      await submitText(tester, 'abc@');
+      expect(find.text(errorText), findsOneWidget);
+
+      await tester.enterText(find.byType(TextField), 'abc@zedu.chat');
+      await tester.pump();
+
+      expect(find.text(errorText), findsNothing);
+    });
+
+    testWidgets('adds a valid email as an invite', (tester) async {
+      await pumpModal(tester);
+
+      await submitText(tester, ' ada@example.com ');
+
+      expect(find.widgetWithText(Chip, 'ada@example.com'), findsOneWidget);
+      expect(find.text(errorText), findsNothing);
+    });
+
+    testWidgets('adds the same email in different case only once', (
+      tester,
+    ) async {
+      await pumpModal(tester);
+
+      await submitText(tester, 'Ada@example.com');
+      await submitText(tester, 'ada@example.com');
+
+      expect(find.byType(Chip), findsOneWidget);
+    });
+
+    testWidgets('Add with invalid text left in the box sends nothing', (
+      tester,
+    ) async {
+      final notifier = await pumpModal(tester);
+      await submitText(tester, 'ada@example.com');
+      await tester.enterText(find.byType(TextField), 'abc@');
+
+      await tester.tap(find.widgetWithText(ElevatedButton, 'Add'));
+      await tester.pump();
+
+      expect(notifier.invited, isEmpty);
+      expect(find.text(errorText), findsOneWidget);
     });
   });
 }
