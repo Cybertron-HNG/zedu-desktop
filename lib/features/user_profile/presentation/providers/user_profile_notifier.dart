@@ -9,6 +9,14 @@ class UserProfileNotifier extends Notifier<UserProfileState> {
   @override
   UserProfileState build() {
     _repository = ref.read(userProfileRepositoryProvider);
+    // Members, roles and billing belong to the selected workspace, so the
+    // profile reloads when the user switches to another organisation.
+    ref.listen(workspaceProvider.select((state) => state.selectedWorkspace?.id), (
+      previous,
+      next,
+    ) {
+      if (previous != next) load();
+    });
     load();
     return const UserProfileState(isLoading: true);
   }
@@ -484,7 +492,7 @@ class UserProfileNotifier extends Notifier<UserProfileState> {
       _repository.getSecuritySessions(),
       _repository.getOrganization(),
       _repository.getTeamMembers(orgId: orgId),
-      _repository.getRolesAndPermissions(),
+      _repository.getRolesAndPermissions(orgId: orgId),
       _repository.getBillingInfo(),
     ]);
 
