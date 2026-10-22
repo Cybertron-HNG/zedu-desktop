@@ -82,8 +82,7 @@ Future<void> showEditAccountDialog(
                 keyboardType: TextInputType.emailAddress,
                 validator: (v) {
                   if (v == null || v.trim().isEmpty) return 'Email is required';
-                  if (!v.contains('@')) return 'Enter a valid email';
-                  return null;
+                  return Validators.validateEmail(context, v.trim());
                 },
               ),
               const SizedBox(height: 16),
@@ -337,8 +336,7 @@ Future<void> showInviteMemberDialog(
                     if (v == null || v.trim().isEmpty) {
                       return 'Email is required';
                     }
-                    if (!v.contains('@')) return 'Enter a valid email';
-                    return null;
+                    return Validators.validateEmail(context, v.trim());
                   },
                 ),
                 const SizedBox(height: 16),
