@@ -330,6 +330,33 @@ void main() {
       },
     );
 
+    testWidgets('returns Add to a usable state when an invite throws', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        buildModalUnderTest(
+          () async => const AddEveryoneNobodyToAdd('general'),
+        ),
+      );
+      await openModal(tester);
+
+      await addRecipient(tester, 'one@test.com');
+      await addRecipient(tester, 'two@test.com');
+
+      fakeUserProfile.onInvite = (_) async {
+        throw Exception('network error');
+      };
+
+      await tester.tap(find.widgetWithText(ElevatedButton, 'Add'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(InviteTeammatesModal), findsOneWidget);
+      final button = tester.widget<ElevatedButton>(
+        find.widgetWithText(ElevatedButton, 'Add'),
+      );
+      expect(button.onPressed, isNotNull);
+    });
+
     testWidgets('returns Add to a usable state when the batch fails', (
       tester,
     ) async {

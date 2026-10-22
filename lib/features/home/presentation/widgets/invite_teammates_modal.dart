@@ -106,18 +106,32 @@ class _InviteTeammatesModalState extends ConsumerState<InviteTeammatesModal> {
     final invites = List<Map<String, String?>>.of(_invites);
 
     // Loop through and invite all
-    for (final invite in invites) {
-      // Assuming 'User' role by default since there's no dropdown in UI
-      await notifier.inviteMember(
-        email: invite['email']!,
-        role: 'User',
-        userId: invite['userId'],
-      );
-      final state = ref.read(userProfileNotifierProvider);
-      if (state.error != null) {
-        lastError = state.error;
-      } else {
-        successCount++;
+    try {
+      for (final invite in invites) {
+        // Assuming 'User' role by default since there's no dropdown in UI
+        try {
+          await notifier.inviteMember(
+            email: invite['email']!,
+            role: 'User',
+            userId: invite['userId'],
+          );
+        } catch (_) {
+          lastError = 'Invite failed for ${invite['email']}';
+          continue;
+        }
+        final state = ref.read(userProfileNotifierProvider);
+        if (state.error != null) {
+          lastError = state.error;
+        } else {
+          successCount++;
+        }
+      }
+    } finally {
+      // A thrown invite must not leave Add and the chip delete icons stuck.
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
       }
     }
 
