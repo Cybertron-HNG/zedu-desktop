@@ -1,4 +1,3 @@
-import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:zedu/core/core.dart';
 
@@ -18,9 +17,7 @@ void main() {
     return result;
   }
 
-  testWidgets('rejects a lone @ and an address with no domain', (
-    tester,
-  ) async {
+  testWidgets('rejects a lone @ and an address with no domain', (tester) async {
     expect(await validate(tester, '@'), isNotNull);
     expect(await validate(tester, 'name@'), isNotNull);
   });
