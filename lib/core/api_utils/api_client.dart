@@ -106,10 +106,7 @@ class ApiBaseService {
         path,
         data: data,
         queryParameters: queryParameters,
-        options: Options(
-          method: method,
-          headers: requestHeaders,
-        ),
+        options: Options(method: method, headers: requestHeaders),
       );
 
       final responseData = response.data;
