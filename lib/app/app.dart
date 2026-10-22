@@ -13,7 +13,11 @@ class App extends ConsumerWidget {
       routerConfig: AppRouter.router,
       builder: (context, child) => UnreadBadgeListener(
         child: CreditsPaymentDeepLinkListener(
-          child: AuthDeepLinkListener(child: child ?? const SizedBox.shrink()),
+          child: AuthDeepLinkListener(
+            child: QuickSwitcherShortcut(
+              child: child ?? const SizedBox.shrink(),
+            ),
+          ),
         ),
       ),
     );
