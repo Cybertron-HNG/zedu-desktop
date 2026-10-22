@@ -477,7 +477,7 @@ class _EditProfileDialogState extends State<_EditProfileDialog> {
                   ),
                   const SizedBox(width: 12),
                   AppButton(
-                    label: 'Save Changes',
+                    label: 'Save changes',
                     expand: false,
                     height: 40,
                     onPressed: () {
