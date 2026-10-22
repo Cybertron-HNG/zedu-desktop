@@ -23,16 +23,26 @@ class _QuickSwitcherShortcutState extends ConsumerState<QuickSwitcherShortcut> {
         AppRouter.router.routerDelegate.navigatorKey.currentContext;
     if (_open || !signedIn || navigatorContext == null) return;
 
-    final channels = (ref.read(channelProvider).value ?? const <Channel>[])
-        .where((c) => !c.archived)
-        .map((c) => QuickSwitcherEntry.channel(c.name));
-    final dms = (ref.read(dmListProvider).value ?? const <DmConversation>[])
-        .map(QuickSwitcherEntry.dm);
-
     _open = true;
     try {
+      // Wait for the lists to load, so Cmd/Ctrl+K right after launch still
+      // finds every channel and DM.
+      final channelList = await ref
+          .read(channelProvider.future)
+          .catchError((_) => const <Channel>[]);
+      final dmList = await ref
+          .read(dmListProvider.future)
+          .catchError((_) => const <DmConversation>[]);
+      final channels = channelList
+          .where((c) => !c.archived)
+          .map((c) => QuickSwitcherEntry.channel(c.name));
+      final dms = dmList.map(QuickSwitcherEntry.dm);
+      final rootContext =
+          AppRouter.router.routerDelegate.navigatorKey.currentContext;
+      if (!mounted || rootContext == null || !rootContext.mounted) return;
+
       await showDialog<void>(
-        context: navigatorContext,
+        context: rootContext,
         builder: (dialogContext) => QuickSwitcherDialog(
           entries: [...channels, ...dms],
           onSelected: (entry) {
