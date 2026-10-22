@@ -28,7 +28,7 @@ void main() {
         overrides: [dmRepositoryProvider.overrideWithValue(mockRepository)],
       );
       notifier = container.read(chatHistoryProvider('ch-1'));
-      container.listen(chatHistoryProvider('ch-1'), (_, __) {});
+      container.listen(chatHistoryProvider('ch-1'), (_, _) {});
       await pumpEventQueue();
     });
 
