@@ -11,6 +11,12 @@ Channel _channel(String name) => Channel(
   ownerId: 'user-1',
 );
 
+class _EmptyChannelRepository extends Mock implements ChannelRepository {
+  @override
+  Future<Result<List<ChannelMessage>>> fetchChannelMessages(String id) async =>
+      const Success(<ChannelMessage>[]);
+}
+
 class _FakeChannelNotifier extends ChannelNotifier {
   @override
   Future<List<Channel>> build() async => [
@@ -56,6 +62,9 @@ void main() {
           overrides: [
             channelProvider.overrideWith(channels),
             workspaceProvider.overrideWith(_FakeWorkspaceNotifier.new),
+            channelRepositoryProvider.overrideWithValue(
+              _EmptyChannelRepository(),
+            ),
           ],
           child: buildTestMaterialApp(
             const Scaffold(
