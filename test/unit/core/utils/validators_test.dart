@@ -19,6 +19,17 @@ void main() {
       expect(Validators.validateEmail(context, 'you@example.com\t'), isNull);
     });
 
+    test('accepts valid emails with dots, plus tags and subdomains', () {
+      for (final email in [
+        'first.last@example.com',
+        'first.last+tag@mail.school.co.uk',
+        'a_b%c@sub-domain.example.org',
+        'x@a-b.io',
+      ]) {
+        expect(Validators.validateEmail(context, email), isNull, reason: email);
+      }
+    });
+
     test('requires an email when the field is empty or only whitespace', () {
       expect(Validators.validateEmail(context, null), 'Email is required');
       expect(Validators.validateEmail(context, ''), 'Email is required');
@@ -32,6 +43,13 @@ void main() {
         'you@example',
         'you @example.com',
         '@example.com',
+        'a@b..com',
+        'a@-b.com',
+        'a@b-.com',
+        'a@.x.com',
+        '..a@x.com',
+        'a..b@x.com',
+        'a.@x.com',
       ]) {
         expect(
           Validators.validateEmail(context, email),

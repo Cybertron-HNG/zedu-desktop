@@ -1,6 +1,14 @@
 import 'package:zedu/core/core.dart';
 
 class Validators {
+  /// Name: dot-separated parts, so no leading, trailing or doubled dots.
+  /// Domain: dot-separated labels that do not start or end with a dash, then
+  /// a TLD of at least 2 letters.
+  static final RegExp _emailRegex = RegExp(
+    r'^[a-zA-Z0-9_%+-]+(?:\.[a-zA-Z0-9_%+-]+)*'
+    r'@(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$',
+  );
+
   static String? validatePassword(BuildContext context, String? value) {
     if (value == null || value.isEmpty) {
       return 'Password is required';
@@ -25,10 +33,7 @@ class Validators {
     if (email == null || email.isEmpty) {
       return 'Email is required';
     }
-    final emailRegex = RegExp(
-      r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$',
-    );
-    if (!emailRegex.hasMatch(email)) return 'Please enter a valid email';
+    if (!_emailRegex.hasMatch(email)) return 'Please enter a valid email';
     return null;
   }
 
