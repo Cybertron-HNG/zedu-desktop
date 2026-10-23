@@ -19,3 +19,16 @@ final userProfileNotifierProvider =
     NotifierProvider<UserProfileNotifier, UserProfileState>(
       UserProfileNotifier.new,
     );
+
+final subscriptionPlansProvider =
+    FutureProvider.autoDispose<List<SubscriptionPlan>>((ref) async {
+      final result = await ref
+          .watch(userProfileRepositoryProvider)
+          .getSubscriptionPlans();
+      switch (result) {
+        case Success<List<SubscriptionPlan>>(:final value):
+          return value;
+        case Failure<List<SubscriptionPlan>>(:final error):
+          throw error;
+      }
+    });
