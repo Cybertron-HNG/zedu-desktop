@@ -30,6 +30,7 @@ class _LoginViewState extends ConsumerState<LoginView> {
         .login(
           email: _emailController.text.trim(),
           password: _passwordController.text.trim(),
+          rememberMe: _rememberMe,
         );
   }
 
@@ -80,7 +81,7 @@ class _LoginViewState extends ConsumerState<LoginView> {
               Image.asset('assets/pngs/zedu_logo.png', width: 83, height: 31),
               Text.rich(
                 TextSpan(
-                  text: 'Already have an account? ',
+                  text: "Don't have an account? ",
                   style: context.textTheme.bodyLarge?.copyWith(
                     fontWeight: FontWeight.w400,
                     color: context.colors.textPrimary,
@@ -125,6 +126,7 @@ class _LoginViewState extends ConsumerState<LoginView> {
                 SocialAuthButton(
                   icon: 'assets/svgs/google_logo.svg',
                   label: 'Sign up with Google',
+                  loading: authState.isLoading,
                   onPressed: () =>
                       ref.read(authNotifierProvider.notifier).loginWithGoogle(),
                 ),

@@ -5,8 +5,10 @@ import 'package:zedu/features/features.dart';
 typedef _PopoutRowData = (String, String, String?, String?, VoidCallback);
 TextStyle _w600(Color color, double size) =>
     TextStyle(color: color, fontSize: size, fontWeight: FontWeight.w600);
-const _mutedStyle = TextStyle(color: Color(0xFF5959A8), fontSize: 12);
-const _stateStyle = TextStyle(color: Color(0xFF667085), fontSize: 14);
+TextStyle _mutedStyle(AppPalette colors) =>
+    TextStyle(color: colors.sidebar, fontSize: 12);
+TextStyle _stateStyle(AppPalette colors) =>
+    TextStyle(color: colors.textHint, fontSize: 14);
 const _transparent = Colors.transparent;
 const _cardWidth = 358.0;
 const _avatarSize = 36.0;
@@ -60,9 +62,13 @@ class _SidebarPopoutHostState extends ConsumerState<SidebarPopoutHost>
     final isDms = type == HomeSidebarType.dms;
     if (isDms && ref.read(dmListProvider).hasError) {
       ref.read(dmListProvider.notifier).refresh();
-    } else if (type == HomeSidebarType.people &&
-        ref.read(userProfileNotifierProvider).error != null) {
-      ref.read(userProfileNotifierProvider.notifier).load();
+    } else if (type == HomeSidebarType.people) {
+      // An unrelated profile error must not reload everything on each hover
+      // once the people are loaded.
+      final profile = ref.read(userProfileNotifierProvider);
+      if (profile.teamMembers.isEmpty && profile.error != null) {
+        ref.read(userProfileNotifierProvider.notifier).load();
+      }
     }
     final overlay = Overlay.of(context, rootOverlay: true);
     final overlayBox = overlay.context.findRenderObject();
@@ -140,22 +146,14 @@ class _SidebarPopoutHostState extends ConsumerState<SidebarPopoutHost>
     if (orgId.isEmpty) return _showChatError();
     _openingChat = true;
     try {
-      final response = await locator<ApiBaseService>()
-          .post<Map<String, dynamic>>(
-            path: '/organisations/$orgId/dms',
-            data: {'chat_type': 'user', 'participant_id': person.id},
-          );
+      final opened = await ref
+          .read(dmRepositoryProvider)
+          .openConversation(orgId: orgId, participantId: person.id);
       if (!mounted) return;
-      final data = response.data['data'] as Map<String, dynamic>;
-      final channelId = data['channel_id'] as String;
-      final participantId = data['participant_id'] as String;
-      if (channelId.isEmpty || participantId.isEmpty) {
-        throw const FormatException('Invalid direct message response.');
-      }
       final conversation = DmConversation(
-        channelId: channelId,
+        channelId: opened.channelId,
         username: person.name ?? person.email,
-        participantId: participantId,
+        participantId: opened.participantId,
         participantEmail: person.email,
         avatarUrl: person.avatarUrl,
         previewMessage: '',
@@ -229,12 +227,15 @@ class SidebarPopoutCard extends ConsumerWidget {
         person.name?.isNotEmpty == true ? person.name! : 'Organisation member',
         person.role.isNotEmpty ? person.role : 'Organisation member',
         person.avatarUrl,
-        '${person.status.name[0].toUpperCase()}${person.status.name.substring(1)}',
+        // No status label: the API has no presence, and every member would
+        // read "Active", which looks like being online.
+        null,
         () => onPersonTap(person),
       );
     }).toList();
     final isLoading = isDms ? dmState!.isLoading : profileState!.isLoading;
-    final hasError = isDms ? dmState!.hasError : profileState!.error != null;
+    final colors = context.colors;
+    // Loaded people are listed even if an unrelated profile request failed.
     final stateText = isLoading
         ? 'Loading...'
         : isDms && dmState!.hasError
@@ -251,7 +252,7 @@ class SidebarPopoutCard extends ConsumerWidget {
           width: _cardWidth,
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: colors.background,
             borderRadius: BorderRadius.circular(12),
             boxShadow: [
               BoxShadow(
@@ -261,34 +262,38 @@ class SidebarPopoutCard extends ConsumerWidget {
               ),
             ],
           ),
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        isDms ? 'Direct messages' : 'People',
-                        style: _w600(const Color(0xFF182230), 15),
+          // Rows are ListTiles; they need a Material below the decorated box.
+          child: Material(
+            type: MaterialType.transparency,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          isDms ? 'Direct messages' : 'People',
+                          style: _w600(colors.textPrimary, 15),
+                        ),
                       ),
-                    ),
-                    if (isDms) Text('Recent', style: _mutedStyle),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                if (isLoading || rows.isEmpty || hasError)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 4),
-                    child: Text(stateText, style: _stateStyle),
-                  )
-                else
-                  Column(
-                    spacing: 12,
-                    children: [for (final row in rows) _row(context, row)],
+                      if (isDms) Text('Recent', style: _mutedStyle(colors)),
+                    ],
                   ),
-              ],
+                  const SizedBox(height: 16),
+                  if (isLoading || rows.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: Text(stateText, style: _stateStyle(colors)),
+                    )
+                  else
+                    Column(
+                      spacing: 12,
+                      children: [for (final row in rows) _row(context, row)],
+                    ),
+                ],
+              ),
             ),
           ),
         ),
@@ -297,13 +302,14 @@ class SidebarPopoutCard extends ConsumerWidget {
   }
 
   Widget _row(BuildContext context, _PopoutRowData data) {
+    final colors = context.colors;
     final status = data.$4;
     final fallback = Container(
       width: _avatarSize,
       height: _avatarSize,
       color: context.colors.primary,
       alignment: Alignment.center,
-      child: Text(data.$1[0].toUpperCase(), style: _w600(Colors.white, 14)),
+      child: Text(data.$1[0].toUpperCase(), style: _w600(colors.onPrimary, 14)),
     );
     return ListTile(
       contentPadding: EdgeInsets.zero,
@@ -330,17 +336,22 @@ class SidebarPopoutCard extends ConsumerWidget {
         data.$1,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
-        style: _w600(const Color(0xFF182230), 13),
+        style: _w600(colors.textPrimary, 13),
       ),
       subtitle: Text(
         data.$2.isEmpty ? 'No recent message' : data.$2,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
-        style: _mutedStyle,
+        style: _mutedStyle(colors),
       ),
       trailing: status == null
           ? null
-          : Text(status, maxLines: 1, softWrap: false, style: _mutedStyle),
+          : Text(
+              status,
+              maxLines: 1,
+              softWrap: false,
+              style: _mutedStyle(colors),
+            ),
       onTap: data.$5,
     );
   }
