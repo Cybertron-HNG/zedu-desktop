@@ -5,4 +5,3 @@ export 'profile_dialogs.dart';
 export 'profile_section_header.dart';
 export 'profile_settings_shell.dart';
 export 'profile_widgets.dart';
-export 'launch_at_login_tile.dart';
