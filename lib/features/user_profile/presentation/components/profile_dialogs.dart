@@ -147,7 +147,7 @@ Future<void> showChangePasswordDialog(
       builder: (ctx, setDialogState) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         title: Text(
-          'Change Password',
+          'Change password',
           style: ctx.textTheme.titleMedium?.copyWith(
             fontWeight: FontWeight.w700,
           ),
