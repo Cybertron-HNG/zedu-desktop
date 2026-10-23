@@ -63,7 +63,12 @@ void main() {
       verify(
         () => api.put<Map<String, dynamic>>(
           path: '/organisations/org-1',
-          data: any(named: 'data'),
+          data: {
+            'id': 'org-1',
+            'name': 'Acme',
+            'type': 'Design agency',
+            'country': 'Nigeria',
+          },
         ),
       ).called(1);
       verifyNever(

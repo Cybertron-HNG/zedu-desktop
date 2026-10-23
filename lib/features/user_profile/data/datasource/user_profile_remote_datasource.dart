@@ -204,7 +204,8 @@ class UserProfileRemoteDataSourceImpl implements UserProfileRemoteDataSource {
     ).toJson();
     // Like the load and the delete, save to the selected workspace's own
     // endpoint: /profile/organization is rejected for members of other
-    // workspaces.
+    // workspaces. That endpoint reads the business type from `type` (it
+    // ignores `nature_of_business`), so send it under that name.
     final response = orgId == null
         ? await _apiBaseService.patch<Map<String, dynamic>>(
             path: '/profile/organization',
@@ -212,7 +213,12 @@ class UserProfileRemoteDataSourceImpl implements UserProfileRemoteDataSource {
           )
         : await _apiBaseService.put<Map<String, dynamic>>(
             path: '/organisations/$orgId',
-            data: data,
+            data: {
+              'id': organization.id,
+              'name': organization.name,
+              'type': organization.natureOfBusiness,
+              'country': organization.country,
+            },
           );
     return OrganizationProfileModel.fromJson(
       response.data['data'] as Map<String, dynamic>,
