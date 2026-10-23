@@ -71,7 +71,7 @@ class _ComparePlansDialogState extends ConsumerState<ComparePlansDialog> {
     switch (result) {
       case Success<String>(:final value):
         final uri = value.isEmpty ? null : Uri.tryParse(value);
-        if (uri == null) {
+        if (uri == null || uri.scheme != 'https' || uri.host.isEmpty) {
           _showError('Could not get a checkout link. Please try again.');
           return;
         }
