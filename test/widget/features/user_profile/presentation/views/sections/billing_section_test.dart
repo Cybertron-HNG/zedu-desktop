@@ -9,9 +9,11 @@ void main() {
       ProviderScope(
         child: buildTestMaterialApp(
           Scaffold(
-            body: BillingSection(
-              billing: BillingInfo.empty(),
-              onInvite: ({required email, required role}) async {},
+            body: SingleChildScrollView(
+              child: BillingSection(
+                billing: BillingInfo.empty(),
+                onInvite: ({required email, required role}) async {},
+              ),
             ),
           ),
         ),
