@@ -141,14 +141,6 @@ class _BuzzMeetingViewState extends ConsumerState<BuzzMeetingView> {
                       ),
                       const SizedBox(width: 8),
                       _buildControlButton(
-                        icon: Icons.emoji_emotions_outlined,
-                        tooltip: 'Reactions',
-                        color: Colors.white24,
-                        onTap: () {},
-                        small: true,
-                      ),
-                      const SizedBox(width: 8),
-                      _buildControlButton(
                         icon: Icons.back_hand,
                         tooltip: _isHandRaised ? 'Lower hand' : 'Raise hand',
                         color: _isHandRaised ? Colors.amber : Colors.white24,
@@ -285,28 +277,12 @@ class _BuzzMeetingViewState extends ConsumerState<BuzzMeetingView> {
                 ),
                 const SizedBox(width: 16),
                 _buildControlButton(
-                  icon: Icons.emoji_emotions_outlined,
-                  tooltip: 'Reactions',
-                  color: colors.primary.withValues(alpha: 0.2),
-                  onTap: () {},
-                  small: false,
-                ),
-                const SizedBox(width: 16),
-                _buildControlButton(
                   icon: Icons.back_hand,
                   tooltip: _isHandRaised ? 'Lower hand' : 'Raise hand',
                   color: _isHandRaised
                       ? Colors.amber
                       : colors.primary.withValues(alpha: 0.2),
                   onTap: () => setState(() => _isHandRaised = !_isHandRaised),
-                  small: false,
-                ),
-                const SizedBox(width: 16),
-                _buildControlButton(
-                  icon: Icons.more_vert,
-                  tooltip: 'More options',
-                  color: colors.primary.withValues(alpha: 0.2),
-                  onTap: () {},
                   small: false,
                 ),
                 const SizedBox(width: 16),

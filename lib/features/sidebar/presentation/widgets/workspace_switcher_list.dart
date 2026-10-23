@@ -40,7 +40,11 @@ class WorkspaceSwitcherList extends ConsumerWidget {
                     child: _ActionButton(
                       icon: Icons.settings_outlined,
                       label: 'Settings',
-                      onPressed: () {},
+                      onPressed: () {
+                        final router = GoRouter.of(context);
+                        Navigator.pop(context);
+                        router.go(AppRouter.profile);
+                      },
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -139,7 +143,7 @@ class WorkspaceSwitcherList extends ConsumerWidget {
                   ),
                 ),
                 Text(
-                  '${workspace.membersCount} members',
+                  workspace.channelsLabel,
                   style: TextStyle(color: colors.textHint, fontSize: 13),
                 ),
               ],

@@ -62,7 +62,6 @@ void main() {
         'Open full page',
         'Mute',
         'Turn camera off',
-        'Reactions',
         'Raise hand',
         'Leave call',
       ]) {
@@ -82,9 +81,7 @@ void main() {
         'Mute',
         'Share screen',
         'Turn camera off',
-        'Reactions',
         'Raise hand',
-        'More options',
         'Leave call',
       ]) {
         expect(find.byTooltip(label), findsOneWidget, reason: label);
