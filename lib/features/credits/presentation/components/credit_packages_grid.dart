@@ -88,11 +88,11 @@ class CreditPackagesGrid extends StatelessWidget {
           'Create your own AI Co Workers',
           'Unlimited AI Co Workers',
           'AI Credits purchasable',
-          '1 hour maximum call duration',
-          'Up to 500 buzz participants',
-          'Up to 500 active calls per workspace',
+          'Unlimited call duration',
+          'Up to 1500 buzz participants',
+          'Up to 1500 active calls per workspace',
           'Advanced controls for administrator only',
-          'Call records available',
+          'Call records and transcript available',
         ],
         planSlug: 'pro_plus',
       ),
@@ -116,36 +116,39 @@ class CreditPackagesGrid extends StatelessWidget {
       ),
     ];
 
-    return defaultPackages.map((uiPkg) {
-      // Find matching package from API to get the correct real ID for purchases
-      final apiMatch = packages.where((p) {
-        final slug = p.planSlug?.toLowerCase() ?? p.name.toLowerCase();
-        if (uiPkg.name == 'Pro Plus') {
-          return slug.contains('pro_plus') ||
-              slug.contains('pro plus') ||
-              slug.contains('pro-plus');
-        }
-        if (uiPkg.name == 'Pro') {
-          return slug.contains('pro') && !slug.contains('plus');
-        }
-        if (uiPkg.name == 'Business') {
-          return slug.contains('business');
-        }
-        if (uiPkg.name == 'Enterprise') {
-          return slug.contains('enterprise');
-        }
-        return false;
-      }).firstOrNull;
+    if (packages.isEmpty) {
+      return defaultPackages;
+    }
 
-      return CreditPackage(
-        id: apiMatch?.id ?? uiPkg.id,
-        name: uiPkg.name,
-        description: uiPkg.description,
-        price: uiPkg.price,
-        credits: uiPkg.credits,
-        benefits: uiPkg.benefits,
-        planSlug: uiPkg.planSlug,
-      );
+    CreditPackage? _findByName(List<CreditPackage> list, String name) {
+      for (final p in list) {
+        final slug = (p.planSlug ?? p.name).toLowerCase().replace(' ', '_');
+        final n = name.toLowerCase().replace(' ', '_');
+        if (slug == n || slug.contains(n)) return p;
+      }
+      return null;
+    }
+
+    return defaultPackages.map((uiPkg) {
+      final apiMatch = _findByName(packages, uiPkg.name);
+
+      if (apiMatch != null) {
+        return CreditPackage(
+          id: apiMatch.id,
+          name: uiPkg.name,
+          description: apiMatch.description.isNotEmpty
+              ? apiMatch.description
+              : uiPkg.description,
+          price: apiMatch.price,
+          credits: apiMatch.credits,
+          benefits: apiMatch.benefits.isNotEmpty
+              ? apiMatch.benefits
+              : uiPkg.benefits,
+          planSlug: apiMatch.planSlug ?? uiPkg.planSlug,
+        );
+      }
+
+      return uiPkg;
     }).toList();
   }
 
