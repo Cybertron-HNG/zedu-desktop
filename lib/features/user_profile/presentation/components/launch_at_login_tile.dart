@@ -82,7 +82,7 @@ class _LaunchAtLoginTileState extends State<LaunchAtLoginTile> {
                 Text(
                   'Start Zedu automatically when you log in to this computer.',
                   style: context.textTheme.bodySmall?.copyWith(
-                    color: context.colors.textSecondary,
+                    color: const Color(0xFF6B7280),
                   ),
                 ),
               ],
