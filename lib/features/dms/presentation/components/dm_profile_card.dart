@@ -69,7 +69,10 @@ class DmProfileCard extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           OutlinedButton(
-            onPressed: () {},
+            onPressed: () {
+              final userId = conversation.participantId;
+              context.go('/profile/$userId', extra: conversation);
+            },
             style: OutlinedButton.styleFrom(
               side: BorderSide(color: colors.divider),
               shape: RoundedRectangleBorder(
