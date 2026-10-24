@@ -12,6 +12,14 @@ class FakeWorkspaceNotifier extends WorkspaceNotifier {
   WorkspaceState build() => _initial;
 }
 
+class FakeActiveChatNotifier extends ActiveChatNotifier {
+  FakeActiveChatNotifier(this._initial);
+  final ActiveChatState _initial;
+
+  @override
+  ActiveChatState build() => _initial;
+}
+
 class FakeAuthNotifier extends AuthNotifier {
   FakeAuthNotifier(this._initial);
   final AuthState _initial;
@@ -48,6 +56,33 @@ Channel _channel(String id, String name, {bool archived = false}) {
 }
 
 void main() {
+  group('openChannelName', () {
+    test('is the open channel', () {
+      expect(
+        openChannelName(
+          const ActiveChatState(type: ActiveChatType.channel, id: 'design'),
+        ),
+        'design',
+      );
+    });
+
+    test('is #general when no channel is open', () {
+      expect(
+        openChannelName(
+          const ActiveChatState(type: ActiveChatType.directMessage, id: 'u1'),
+        ),
+        'general',
+      );
+      expect(openChannelName(ActiveChatState.channelDirectory), 'general');
+      expect(
+        openChannelName(
+          const ActiveChatState(type: ActiveChatType.channel, id: ' '),
+        ),
+        'general',
+      );
+    });
+  });
+
   group('usersToAddToChannel', () {
     test('skips channel members, the current user, repeats and empty ids', () {
       final ids = usersToAddToChannel(
@@ -69,7 +104,7 @@ void main() {
     });
   });
 
-  group('AddEveryoneToGeneral', () {
+  group('AddEveryoneToChannel', () {
     late MockChannelRepository repository;
 
     setUp(() {
@@ -91,10 +126,15 @@ void main() {
       ).thenAnswer((_) async => const Success(null));
     });
 
-    ProviderContainer makeContainer({String? orgId = 'org-1'}) {
+    ProviderContainer makeContainer({
+      String? orgId = 'org-1',
+      ActiveChatState? chat,
+    }) {
       final container = ProviderContainer(
         overrides: [
           channelRepositoryProvider.overrideWithValue(repository),
+          if (chat != null)
+            activeChatProvider.overrideWith(() => FakeActiveChatNotifier(chat)),
           workspaceProvider.overrideWith(
             () => FakeWorkspaceNotifier(
               WorkspaceState(
@@ -117,11 +157,12 @@ void main() {
 
     test('adds only the organisation members not in #general yet', () async {
       final result = await makeContainer()
-          .read(addEveryoneToGeneralProvider)
+          .read(addEveryoneToChannelProvider)
           .call();
 
       expect(result, isA<AddEveryoneAdded>());
       expect((result as AddEveryoneAdded).count, 2);
+      expect(result.channelName, 'general');
       verify(
         () => repository.addMembersToChannel(
           channelId: 'ch-gen',
@@ -129,6 +170,67 @@ void main() {
         ),
       ).called(1);
     });
+
+    test('adds to the channel that is open, not #general', () async {
+      when(() => repository.fetchChannels('org-1')).thenAnswer(
+        (_) async => Success([
+          _channel('ch-gen', 'general'),
+          _channel('ch-design', 'design'),
+        ]),
+      );
+      when(
+        () => repository.fetchChannelMemberIds('ch-design'),
+      ).thenAnswer((_) async => const Success(['me']));
+
+      final result = await makeContainer(
+        chat: const ActiveChatState(type: ActiveChatType.channel, id: 'design'),
+      ).read(addEveryoneToChannelProvider).call();
+
+      expect(result, isA<AddEveryoneAdded>());
+      expect((result as AddEveryoneAdded).count, 3);
+      expect(result.channelName, 'design');
+      verify(
+        () => repository.addMembersToChannel(
+          channelId: 'ch-design',
+          userIds: ['u1', 'u2', 'u3'],
+        ),
+      ).called(1);
+      verifyNever(() => repository.fetchChannelMemberIds('ch-gen'));
+    });
+
+    test('falls back to #general when a direct message is open', () async {
+      final result = await makeContainer(
+        chat: const ActiveChatState(
+          type: ActiveChatType.directMessage,
+          id: 'u1',
+        ),
+      ).read(addEveryoneToChannelProvider).call();
+
+      expect((result as AddEveryoneAdded).channelName, 'general');
+      verify(
+        () => repository.addMembersToChannel(
+          channelId: 'ch-gen',
+          userIds: ['u2', 'u3'],
+        ),
+      ).called(1);
+    });
+
+    test(
+      'says which channel is missing when the open one is not found',
+      () async {
+        final result = await makeContainer(
+          chat: const ActiveChatState(
+            type: ActiveChatType.channel,
+            id: 'design',
+          ),
+        ).read(addEveryoneToChannelProvider).call();
+
+        expect(
+          (result as AddEveryoneFailed).message,
+          'Could not find #design in this organisation.',
+        );
+      },
+    );
 
     test(
       'ignores archived channels and matches the name in any case',
@@ -141,7 +243,7 @@ void main() {
           ]),
         );
 
-        await makeContainer().read(addEveryoneToGeneralProvider).call();
+        await makeContainer().read(addEveryoneToChannelProvider).call();
 
         verify(
           () => repository.addMembersToChannel(
@@ -158,7 +260,7 @@ void main() {
       ).thenAnswer((_) async => const Success(['me', 'u1', 'u2', 'u3']));
 
       final result = await makeContainer()
-          .read(addEveryoneToGeneralProvider)
+          .read(addEveryoneToChannelProvider)
           .call();
 
       expect(result, isA<AddEveryoneNobodyToAdd>());
@@ -176,7 +278,7 @@ void main() {
       ).thenAnswer((_) async => Success([_channel('ch-random', 'random')]));
 
       final result = await makeContainer()
-          .read(addEveryoneToGeneralProvider)
+          .read(addEveryoneToChannelProvider)
           .call();
 
       expect(result, isA<AddEveryoneFailed>());
@@ -199,7 +301,7 @@ void main() {
       );
 
       final result = await makeContainer()
-          .read(addEveryoneToGeneralProvider)
+          .read(addEveryoneToChannelProvider)
           .call();
 
       expect(
@@ -213,7 +315,7 @@ void main() {
       () async {
         final result = await makeContainer(
           orgId: null,
-        ).read(addEveryoneToGeneralProvider).call();
+        ).read(addEveryoneToChannelProvider).call();
 
         expect(result, isA<AddEveryoneFailed>());
         verifyNever(() => repository.fetchChannels(any()));

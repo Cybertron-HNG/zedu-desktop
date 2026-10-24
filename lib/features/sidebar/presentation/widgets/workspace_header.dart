@@ -27,7 +27,31 @@ class _WorkspaceSwitcherHeaderState
     final workspaceState = ref.watch(workspaceProvider);
     final selectedWorkspace = workspaceState.selectedWorkspace;
 
-    if (selectedWorkspace == null) return const SizedBox.shrink();
+    if (selectedWorkspace == null) {
+      final errorMessage = workspaceState.errorMessage;
+      if (errorMessage == null) return const SizedBox.shrink();
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                errorMessage,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: colors.onPrimary.withValues(alpha: 0.8),
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: () =>
+                  ref.read(workspaceProvider.notifier).fetchWorkspaces(),
+              child: Text('Retry', style: TextStyle(color: colors.onPrimary)),
+            ),
+          ],
+        ),
+      );
+    }
 
     return Container(
       key: _headerKey,
@@ -40,16 +64,19 @@ class _WorkspaceSwitcherHeaderState
               child: Row(
                 children: [
                   Flexible(
-                    child: Text(
-                      selectedWorkspace.name,
-                      key: _nameKey,
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: colors.onPrimary,
-                        letterSpacing: 0.2,
+                    child: Tooltip(
+                      message: selectedWorkspace.name,
+                      child: Text(
+                        selectedWorkspace.name,
+                        key: _nameKey,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: colors.onPrimary,
+                          letterSpacing: 0.2,
+                        ),
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                   const SizedBox(width: 4),
