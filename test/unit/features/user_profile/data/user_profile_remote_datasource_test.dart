@@ -53,4 +53,66 @@ void main() {
       expect(saved.phoneNumber, '+2348012345678');
     });
   });
+
+  group('UserProfileRemoteDataSourceImpl.getRolesAndPermissions', () {
+    late MockApiBaseService mockApi;
+    late UserProfileRemoteDataSourceImpl datasource;
+
+    setUp(() {
+      mockApi = MockApiBaseService();
+      datasource = UserProfileRemoteDataSourceImpl(
+        config: const AppConfig(apiBaseUrl: '', usesMockData: false),
+        apiBaseService: mockApi,
+      );
+    });
+
+    test('loads the roles of the selected organisation', () async {
+      when(
+        () => mockApi.get<Map<String, dynamic>>(path: any(named: 'path')),
+      ).thenAnswer(
+        (_) async => const ApiResponseModel<Map<String, dynamic>>(
+          data: {
+            'data': [
+              {
+                'id': 'role-1',
+                'name': 'Administrator',
+                'description': 'Full access, control',
+                'permissions': {
+                  'permission_list': {
+                    'can_create_channels': true,
+                    'can_view_billing': false,
+                  },
+                },
+              },
+            ],
+          },
+          statusCode: 200,
+        ),
+      );
+
+      final roles = await datasource.getRolesAndPermissions(orgId: 'org-1');
+
+      verify(
+        () => mockApi.get<Map<String, dynamic>>(
+          path: '/organisations/org-1/roles',
+        ),
+      ).called(1);
+      final role = roles.single;
+      expect(role.id, 'role-1');
+      expect(role.role, 'Administrator');
+      expect(role.description, 'Full access, control');
+      expect(role.permissions, ['can_create_channels']);
+    });
+
+    test('returns no roles when no organisation is selected', () async {
+      final roles = await datasource.getRolesAndPermissions();
+
+      expect(roles, isEmpty);
+      verifyNever(
+        () => mockApi.get<Map<String, dynamic>>(
+          path: any(named: 'path'),
+        ),
+      );
+    });
+  });
 }

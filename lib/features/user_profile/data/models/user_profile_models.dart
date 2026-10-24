@@ -162,18 +162,34 @@ class TeamMemberModel extends TeamMember {
 
 class RolePermissionModel extends RolePermission {
   const RolePermissionModel({
+    required super.id,
     required super.role,
     required super.description,
     required super.permissions,
   });
 
+  /// Maps a role from `GET /organisations/{orgId}/roles`, which returns
+  /// `{id, name, description, permissions: {permission_list: {key: bool}}}`.
+  /// The mock data uses `role` and a plain list of permission names instead.
   factory RolePermissionModel.fromJson(Map<String, dynamic> json) {
     return RolePermissionModel(
-      role: json['role'] as String? ?? 'User',
+      id: json['id'] as String? ?? '',
+      role: (json['name'] ?? json['role']) as String? ?? 'User',
       description: json['description'] as String? ?? '',
-      permissions:
-          (json['permissions'] as List<dynamic>?)?.cast<String>() ?? const [],
+      permissions: _permissionsFromJson(json['permissions']),
     );
+  }
+
+  static List<String> _permissionsFromJson(Object? raw) {
+    if (raw is List) return raw.whereType<String>().toList();
+
+    final permissionList = raw is Map ? raw['permission_list'] : null;
+    if (permissionList is! Map) return const [];
+
+    return [
+      for (final entry in permissionList.entries)
+        if (entry.value == true) entry.key.toString(),
+    ];
   }
 }
 
