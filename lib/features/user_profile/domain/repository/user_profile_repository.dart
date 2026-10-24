@@ -38,4 +38,11 @@ abstract interface class UserProfileRepository {
   Future<Result<void>> removeMember(String memberId);
   Future<Result<List<RolePermission>>> getRolesAndPermissions();
   Future<Result<BillingInfo>> getBillingInfo();
+  Future<Result<List<SubscriptionPlan>>> getSubscriptionPlans();
+  Future<Result<String>> startPlanCheckout({
+    required String planName,
+    required String orgId,
+    required String email,
+    required bool isNewSubscription,
+  });
 }

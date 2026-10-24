@@ -218,3 +218,30 @@ class PaymentRecordModel extends PaymentRecord {
     );
   }
 }
+
+class SubscriptionPlanModel extends SubscriptionPlan {
+  const SubscriptionPlanModel({
+    required super.id,
+    required super.name,
+    required super.description,
+    required super.benefits,
+    required super.fee,
+    required super.credits,
+  });
+
+  factory SubscriptionPlanModel.fromJson(Map<String, dynamic> json) {
+    return SubscriptionPlanModel(
+      id: json['id'] as String? ?? '',
+      name: json['name'] as String? ?? '',
+      description: (json['description'] as String? ?? '').trim(),
+      benefits:
+          (json['benefits'] as List<dynamic>?)
+              ?.whereType<String>()
+              .where((benefit) => benefit.trim().isNotEmpty)
+              .toList() ??
+          const [],
+      fee: (json['fee'] as num?)?.toDouble() ?? 0,
+      credits: (json['credits'] as num?)?.toInt() ?? 0,
+    );
+  }
+}

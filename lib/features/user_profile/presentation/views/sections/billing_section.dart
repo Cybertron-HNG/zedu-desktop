@@ -17,6 +17,61 @@ class BillingSection extends ConsumerStatefulWidget {
 }
 
 class _BillingSectionState extends ConsumerState<BillingSection> {
+  static const double _stackActionsBelowWidth = 600;
+
+  Widget _buildPlanDetails(BuildContext context) {
+    final colors = context.colors;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Zedu Free',
+          style: context.textTheme.titleSmall?.copyWith(
+            fontWeight: FontWeight.w600,
+            color: colors.textPrimary,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'You are enjoying the full Zedu experience with ability to add as many users to your organisation.',
+          style: context.textTheme.bodySmall?.copyWith(
+            color: colors.textSecondary.withValues(alpha: 0.6),
+            height: 1.4,
+          ),
+        ),
+      ],
+    );
+  }
+
+  List<Widget> _buildActions(BuildContext context) {
+    final colors = context.colors;
+    final style = OutlinedButton.styleFrom(
+      foregroundColor: colors.primary,
+      side: BorderSide(color: colors.borderOutline),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+    );
+    return [
+      OutlinedButton(
+        onPressed: () =>
+            showComparePlansDialog(context, currentPlan: widget.billing.plan),
+        style: style,
+        child: const Text(
+          'Compare plans',
+          style: TextStyle(fontWeight: FontWeight.w600),
+        ),
+      ),
+      OutlinedButton(
+        onPressed: () => showInviteMemberDialog(context, widget.onInvite),
+        style: style,
+        child: const Text(
+          'Invite People',
+          style: TextStyle(fontWeight: FontWeight.w600),
+        ),
+      ),
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
@@ -46,52 +101,31 @@ class _BillingSectionState extends ConsumerState<BillingSection> {
             color: colors.primaryBg,
             borderRadius: BorderRadius.circular(8),
           ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Expanded(
-                child: Column(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final details = _buildPlanDetails(context);
+              final actions = _buildActions(context);
+              if (constraints.maxWidth < _stackActionsBelowWidth) {
+                return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Zedu Free',
-                      style: context.textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w600,
-                        color: colors.textPrimary,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'You are enjoying the full Zedu experience with ability to add as many users to your organisation.',
-                      style: context.textTheme.bodySmall?.copyWith(
-                        color: colors.textSecondary.withValues(alpha: 0.6),
-                        height: 1.4,
-                      ),
-                    ),
+                    details,
+                    const SizedBox(height: 16),
+                    Wrap(spacing: 12, runSpacing: 12, children: actions),
                   ],
-                ),
-              ),
-              const SizedBox(width: 24),
-              OutlinedButton(
-                onPressed: () =>
-                    showInviteMemberDialog(context, widget.onInvite),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: colors.primary,
-                  side: BorderSide(color: colors.borderOutline),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 24,
-                    vertical: 12,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                ),
-                child: const Text(
-                  'Invite People',
-                  style: TextStyle(fontWeight: FontWeight.w600),
-                ),
-              ),
-            ],
+                );
+              }
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Expanded(child: details),
+                  const SizedBox(width: 24),
+                  actions[0],
+                  const SizedBox(width: 12),
+                  actions[1],
+                ],
+              );
+            },
           ),
         ),
         const SizedBox(height: 48),

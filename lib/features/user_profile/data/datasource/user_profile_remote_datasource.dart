@@ -36,6 +36,16 @@ abstract interface class UserProfileRemoteDataSource {
   Future<void> removeMember(String memberId);
   Future<List<RolePermissionModel>> getRolesAndPermissions();
   Future<BillingInfoModel> getBillingInfo();
+  Future<List<SubscriptionPlanModel>> getSubscriptionPlans();
+
+  /// Returns the checkout URL for [planName]. A new subscription is created
+  /// for a Free organisation; otherwise the existing one is modified.
+  Future<String> startPlanCheckout({
+    required String planName,
+    required String orgId,
+    required String email,
+    required bool isNewSubscription,
+  });
 }
 
 class UserProfileRemoteDataSourceImpl implements UserProfileRemoteDataSource {
@@ -425,6 +435,44 @@ class UserProfileRemoteDataSourceImpl implements UserProfileRemoteDataSource {
       response.data['data'] as Map<String, dynamic>,
     );
   }
+
+  @override
+  Future<List<SubscriptionPlanModel>> getSubscriptionPlans() async {
+    if (_config.usesMockData) {
+      return _subscriptionPlans.map(SubscriptionPlanModel.fromJson).toList();
+    }
+    final response = await _apiBaseService.get<Map<String, dynamic>>(
+      path: '/subscriptions/plans',
+    );
+    final data = response.data['data'];
+    if (data is! List) return [];
+    return data
+        .cast<Map<String, dynamic>>()
+        .map(SubscriptionPlanModel.fromJson)
+        .toList();
+  }
+
+  @override
+  Future<String> startPlanCheckout({
+    required String planName,
+    required String orgId,
+    required String email,
+    required bool isNewSubscription,
+  }) async {
+    if (_config.usesMockData) return '';
+    final payload = {'plan_name': planName, 'org_id': orgId, 'email': email};
+    final response = isNewSubscription
+        ? await _apiBaseService.post<Map<String, dynamic>>(
+            path: '/subscriptions/create',
+            data: payload,
+          )
+        : await _apiBaseService.put<Map<String, dynamic>>(
+            path: '/subscriptions/modify',
+            data: payload,
+          );
+    final data = response.data['data'];
+    return data is Map ? (data['checkout_session_url'] as String? ?? '') : '';
+  }
 }
 
 const _account = {
@@ -583,3 +631,22 @@ const _billing = {
       'You are enjoying the full Zedu experience with ability to add as many users to your organisation.',
   'payment_history': <Map<String, dynamic>>[],
 };
+
+const _subscriptionPlans = <Map<String, dynamic>>[
+  {
+    'id': 'mock_free',
+    'name': 'Free',
+    'description': 'Mock plan used when USE_MOCK_DATA is on.',
+    'benefits': <String>['Mock benefit'],
+    'fee': 0,
+    'credits': 0,
+  },
+  {
+    'id': 'mock_pro',
+    'name': 'Pro',
+    'description': 'Mock plan used when USE_MOCK_DATA is on.',
+    'benefits': <String>['Mock benefit'],
+    'fee': 10,
+    'credits': 1000,
+  },
+];
