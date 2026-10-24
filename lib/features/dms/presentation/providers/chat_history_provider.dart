@@ -396,7 +396,7 @@ class ChatHistoryNotifier extends ChangeNotifier {
   }
 }
 
-final chatHistoryProvider =
-    ChangeNotifierProvider.family<ChatHistoryNotifier, String>(
+final chatHistoryProvider = ChangeNotifierProvider.autoDispose
+    .family<ChatHistoryNotifier, String>(
       (ref, channelId) => ChatHistoryNotifier(channelId, ref),
     );
