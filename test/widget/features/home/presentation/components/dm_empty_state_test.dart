@@ -30,5 +30,17 @@ void main() {
 
       expect(tester.takeException(), isNull);
     });
+
+    testWidgets('excludes decorative illustration from semantics', (tester) async {
+      await tester.pumpWidget(buildTestMaterialApp(const DmEmptyState()));
+
+      final svg = tester.widget<SvgPicture>(
+        find.descendant(
+          of: find.byType(DmEmptyState),
+          matching: find.byType(SvgPicture),
+        ),
+      );
+      expect(svg.excludeFromSemantics, isTrue);
+    });
   });
 }
