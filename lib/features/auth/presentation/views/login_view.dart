@@ -125,7 +125,7 @@ class _LoginViewState extends ConsumerState<LoginView> {
                 context.gapV(32),
                 SocialAuthButton(
                   icon: 'assets/svgs/google_logo.svg',
-                  label: 'Sign up with Google',
+                  label: 'Sign in with Google',
                   loading: authState.isLoading,
                   onPressed: () =>
                       ref.read(authNotifierProvider.notifier).loginWithGoogle(),
@@ -133,7 +133,7 @@ class _LoginViewState extends ConsumerState<LoginView> {
                 context.gapV(12),
                 SocialAuthButton(
                   icon: 'assets/svgs/apple_logo.svg',
-                  label: 'Sign up with Apple',
+                  label: 'Sign in with Apple',
                   onPressed: () => AppToastService.show(
                     context,
                     type: AppToastType.info,
@@ -197,8 +197,11 @@ class _LoginViewState extends ConsumerState<LoginView> {
                         hint: 'Password',
                         textInputAction: TextInputAction.done,
                         onFieldSubmitted: (_) => _onLoginPressed(),
-                        validator: (value) =>
-                            Validators.validatePassword(context, value),
+                        validator: (value) => Validators.validateRequired(
+                          context,
+                          value?.trim(),
+                          fieldName: 'Password',
+                        ),
                       ),
                       context.gapV(8),
                       Row(

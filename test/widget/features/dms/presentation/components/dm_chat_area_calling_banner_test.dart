@@ -37,6 +37,20 @@ class CallingActiveCallNotifier extends ActiveCallNotifier {
   );
 }
 
+class FakeSecureStorageService extends Fake implements SecureStorageService {
+  final Map<String, String> _values = {};
+
+  @override
+  Future<String?> readData(String key) async => _values[key];
+
+  @override
+  Future<void> writeData(String key, String value) async =>
+      _values[key] = value;
+
+  @override
+  Future<void> deleteValue(String key) async => _values.remove(key);
+}
+
 Widget buildCallingDmChatArea() {
   final repository = MockDmRepository();
   when(
@@ -48,6 +62,13 @@ Widget buildCallingDmChatArea() {
       dmRepositoryProvider.overrideWithValue(repository),
       authNotifierProvider.overrideWith(FakeAuthNotifier.new),
       activeCallProvider.overrideWith(CallingActiveCallNotifier.new),
+      dmDraftStoreProvider.overrideWith(
+        (ref) => DmDraftStore(
+          FakeSecureStorageService(),
+          userId: 'user-1',
+          orgId: 'org-1',
+        ),
+      ),
     ],
     child: buildTestMaterialApp(
       Scaffold(
