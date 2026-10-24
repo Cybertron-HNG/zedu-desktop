@@ -500,30 +500,39 @@ class UserProfileNotifier extends Notifier<UserProfileState> {
 
     var loadedTeamMembers = _valueOrNull(teamResult) ?? const [];
 
-    // Load persisted mock members if they exist
-    if (orgId != null) {
+    // Mock mode keeps the members added from the invite dialog in secure
+    // storage so they survive a restart. That cache must never be applied, or
+    // left behind, when the app runs against the real API: it would replace
+    // the members the API returned with stale demo entries (#717).
+    if (orgId != null && orgId.isNotEmpty) {
       final storage = locator<SecureStorageService>();
-      final data = await storage.readData('mock_team_members_$orgId');
-      if (data != null) {
-        try {
-          final List<dynamic> decoded = jsonDecode(data) as List<dynamic>;
-          final savedMembers = decoded.map((e) {
-            final map = e as Map<String, dynamic>;
-            return TeamMember(
-              id: (map['id'] as String?) ?? '',
-              email: (map['email'] as String?) ?? '',
-              role: (map['role'] as String?) ?? '',
-              name: map['name'] as String?,
-              avatarUrl: map['avatar_url'] as String?,
-              dateJoined: (map['date_joined'] as String?) ?? '',
-              status: TeamMemberStatus.values.firstWhere(
-                (s) => s.name == (map['status'] as String?),
-                orElse: () => TeamMemberStatus.active,
-              ),
-            );
-          }).toList();
-          loadedTeamMembers = savedMembers;
-        } catch (_) {}
+      final storageKey = 'mock_team_members_$orgId';
+      try {
+        if (locator<AppConfig>().usesMockData) {
+          final data = await storage.readData(storageKey);
+          if (data != null) {
+            final List<dynamic> decoded = jsonDecode(data) as List<dynamic>;
+            loadedTeamMembers = decoded.map((e) {
+              final map = e as Map<String, dynamic>;
+              return TeamMember(
+                id: (map['id'] as String?) ?? '',
+                email: (map['email'] as String?) ?? '',
+                role: (map['role'] as String?) ?? '',
+                name: map['name'] as String?,
+                avatarUrl: map['avatar_url'] as String?,
+                dateJoined: (map['date_joined'] as String?) ?? '',
+                status: TeamMemberStatus.values.firstWhere(
+                  (s) => s.name == (map['status'] as String?),
+                  orElse: () => TeamMemberStatus.active,
+                ),
+              );
+            }).toList();
+          }
+        } else {
+          await storage.deleteData(storageKey);
+        }
+      } catch (_) {
+        // Storage problems must not stop the profile from loading.
       }
     }
 

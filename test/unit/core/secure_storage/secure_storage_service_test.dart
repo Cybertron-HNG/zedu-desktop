@@ -43,4 +43,25 @@ void main() {
       expect(await service.getAccessToken(), isNull);
     });
   });
+
+  group('SecureStorageService data', () {
+    setUp(() => FlutterSecureStorage.setMockInitialValues({}));
+
+    test('deleteData removes a value written for a key', () async {
+      final service = SecureStorageService();
+      await service.writeData('mock_team_members_org-1', '[]');
+
+      await service.deleteData('mock_team_members_org-1');
+
+      expect(await service.readData('mock_team_members_org-1'), isNull);
+    });
+
+    test('deleteData ignores a key that was never written', () async {
+      final service = SecureStorageService();
+
+      await service.deleteData('never-written');
+
+      expect(await service.readData('never-written'), isNull);
+    });
+  });
 }
