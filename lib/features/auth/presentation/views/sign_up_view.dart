@@ -240,7 +240,7 @@ class _SignUpViewState extends ConsumerState<SignUpView> {
                 context.gapV(32),
                 Text.rich(
                   TextSpan(
-                    text: 'By Signing up, you agree to our ',
+                    text: 'By signing up, you agree to our ',
                     style: context.textTheme.bodySmall?.copyWith(
                       color: context.colors.textSecondary,
                     ),
