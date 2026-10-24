@@ -301,7 +301,7 @@ class HomeChatArea extends ConsumerWidget {
 
     return Column(
       children: [
-        _buildChatHeader(context, channelName),
+        _buildChatHeader(context, channelName, selected),
         Expanded(child: _buildWelcomeScreen(context, channelName)),
         DmMessageComposer(
           key: ValueKey(selected?.id ?? channelName),
@@ -313,7 +313,11 @@ class HomeChatArea extends ConsumerWidget {
     );
   }
 
-  Widget _buildChatHeader(BuildContext context, String channelName) {
+  Widget _buildChatHeader(
+    BuildContext context,
+    String channelName,
+    Channel? channel,
+  ) {
     final colors = context.colors;
 
     return Container(
@@ -344,7 +348,7 @@ class HomeChatArea extends ConsumerWidget {
             child: Icon(Icons.person, size: 18, color: colors.onPrimary),
           ),
           const SizedBox(width: 8),
-          Icon(Icons.more_vert, color: colors.textHint),
+          ChannelOptionsMenu(channel: channel),
         ],
       ),
     );
