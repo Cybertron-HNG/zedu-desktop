@@ -195,13 +195,7 @@ void main() {
     }
 
     Future<void> pumpTile(WidgetTester tester, DmConversation dm) async {
-      await tester.pumpWidget(
-        ProviderScope(
-          child: buildTestMaterialApp(
-            Scaffold(body: DmListTile(conversation: dm)),
-          ),
-        ),
-      );
+      await tester.pumpWidget(buildTileUnderTest(dm));
     }
 
     testWidgets('shows no time for a conversation with no activity', (
