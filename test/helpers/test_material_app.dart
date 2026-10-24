@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
-Widget buildTestMaterialApp(Widget child) {
-  return MaterialApp(home: child);
+Widget buildTestMaterialApp(Widget child, {ThemeData? theme}) {
+  return MaterialApp(
+    theme: theme,
+    home: child,
+  );
 }
