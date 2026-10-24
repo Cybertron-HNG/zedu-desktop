@@ -291,9 +291,10 @@ class UserProfileRemoteDataSourceImpl implements UserProfileRemoteDataSource {
       return list;
     }
 
-    if (orgId == null || orgId.length < 36) {
-      orgId = '019700db-4e22-7f90-a20e-f9116291ef24';
-    }
+    // The member list belongs to one organisation. Without a selected
+    // organisation there is nothing to list - never fall back to a hard-coded
+    // organisation id, which would show another team's members.
+    if (orgId == null || orgId.isEmpty) return const [];
 
     try {
       final response = await _apiBaseService.get<Map<String, dynamic>>(

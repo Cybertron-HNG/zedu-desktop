@@ -53,4 +53,76 @@ void main() {
       expect(saved.phoneNumber, '+2348012345678');
     });
   });
+
+  group('UserProfileRemoteDataSourceImpl.getTeamMembers', () {
+    late MockApiBaseService mockApi;
+    late UserProfileRemoteDataSourceImpl datasource;
+
+    setUp(() {
+      mockApi = MockApiBaseService();
+      datasource = UserProfileRemoteDataSourceImpl(
+        config: const AppConfig(apiBaseUrl: '', usesMockData: false),
+        apiBaseService: mockApi,
+      );
+    });
+
+    test('lists the members of the selected organisation', () async {
+      when(
+        () => mockApi.get<Map<String, dynamic>>(
+          path: any(named: 'path'),
+        ),
+      ).thenAnswer(
+        (_) async => const ApiResponseModel<Map<String, dynamic>>(
+          data: {
+            'data': [
+              {'id': 'user-1', 'email': 'a@zedu.app', 'name': 'A'},
+            ],
+          },
+          statusCode: 200,
+        ),
+      );
+
+      final members = await datasource.getTeamMembers(orgId: 'org-1');
+
+      verify(
+        () => mockApi.get<Map<String, dynamic>>(
+          path: '/organisations/org-1/users',
+        ),
+      ).called(1);
+      expect(members.single.id, 'user-1');
+      expect(members.single.name, 'A');
+    });
+
+    test('returns no members when no organisation is selected', () async {
+      final members = await datasource.getTeamMembers();
+
+      expect(members, isEmpty);
+      verifyNever(
+        () => mockApi.get<Map<String, dynamic>>(
+          path: any(named: 'path'),
+        ),
+      );
+    });
+
+    test('returns no members for an empty organisation id', () async {
+      final members = await datasource.getTeamMembers(orgId: '');
+
+      expect(members, isEmpty);
+      verifyNever(
+        () => mockApi.get<Map<String, dynamic>>(
+          path: any(named: 'path'),
+        ),
+      );
+    });
+
+    test('never asks for a hard-coded organisation', () async {
+      await datasource.getTeamMembers();
+
+      verifyNever(
+        () => mockApi.get<Map<String, dynamic>>(
+          path: '/organisations/019700db-4e22-7f90-a20e-f9116291ef24/users',
+        ),
+      );
+    });
+  });
 }
