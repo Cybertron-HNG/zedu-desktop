@@ -126,6 +126,7 @@ class _EditProfileDialogState extends State<_EditProfileDialog> {
                     ),
                   ),
                   IconButton(
+                    tooltip: 'Close',
                     onPressed: () => Navigator.pop(context),
                     icon: Icon(Icons.close, color: colors.textHint),
                   ),
