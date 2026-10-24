@@ -53,6 +53,59 @@ void main() {
     });
   });
 
+  group('BuzzMeetingView control tooltips', () {
+    testWidgets('compact view labels every control', (tester) async {
+      await tester.pumpWidget(buildBuzzMeetingViewUnderTest(isFullPage: false));
+      await tester.pump();
+
+      for (final label in [
+        'Open full page',
+        'Mute',
+        'Turn camera off',
+        'Raise hand',
+        'Leave call',
+      ]) {
+        expect(find.byTooltip(label), findsOneWidget, reason: label);
+      }
+    });
+
+    testWidgets('full-page view labels every control', (tester) async {
+      tester.view.physicalSize = const Size(1440, 900);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(buildBuzzMeetingViewUnderTest(isFullPage: true));
+      await tester.pump();
+
+      for (final label in [
+        'Mute',
+        'Share screen',
+        'Turn camera off',
+        'Raise hand',
+        'Leave call',
+      ]) {
+        expect(find.byTooltip(label), findsOneWidget, reason: label);
+      }
+    });
+
+    testWidgets('mute, camera and hand tooltips follow the button state', (
+      tester,
+    ) async {
+      await tester.pumpWidget(buildBuzzMeetingViewUnderTest(isFullPage: false));
+      await tester.pump();
+
+      await tester.tap(find.byIcon(Icons.mic));
+      await tester.tap(find.byIcon(Icons.videocam));
+      await tester.tap(find.byIcon(Icons.back_hand));
+      await tester.pump();
+
+      expect(find.byTooltip('Unmute'), findsOneWidget);
+      expect(find.byTooltip('Turn camera on'), findsOneWidget);
+      expect(find.byTooltip('Lower hand'), findsOneWidget);
+      expect(find.byTooltip('Mute'), findsNothing);
+    });
+  });
+
   group('BuzzMeetingView share screen button', () {
     testWidgets('tells the user screen sharing is not available yet', (
       tester,
