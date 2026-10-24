@@ -224,6 +224,10 @@ class DmMessageComposerState extends ConsumerState<DmMessageComposer> {
   KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
     if (event is! KeyDownEvent) return KeyEventResult.ignored;
 
+    if (_handleEmojiPickerKeyEvent(node, event) == KeyEventResult.handled) {
+      return KeyEventResult.handled;
+    }
+
     final key = event.logicalKey;
 
     if (key == LogicalKeyboardKey.enter &&
@@ -334,6 +338,17 @@ class DmMessageComposerState extends ConsumerState<DmMessageComposer> {
 
   void _toggleEmojiPicker() {
     setState(() => _showEmojiPicker = !_showEmojiPicker);
+  }
+
+  KeyEventResult _handleEmojiPickerKeyEvent(FocusNode node, KeyEvent event) {
+    if (_showEmojiPicker &&
+        event is KeyDownEvent &&
+        event.logicalKey == LogicalKeyboardKey.escape) {
+      setState(() => _showEmojiPicker = false);
+      _focusNode.requestFocus();
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
   }
 
   void _insertEmoji(String emoji) {
@@ -899,43 +914,47 @@ class DmMessageComposerState extends ConsumerState<DmMessageComposer> {
       ],
     );
 
-    return DropTarget(
-      onDragDone: (detail) {
-        addFiles(detail.files);
-        setState(() => _isDragging = false);
-      },
-      onDragEntered: (detail) => setState(() => _isDragging = true),
-      onDragExited: (detail) => setState(() => _isDragging = false),
-      child: Stack(
-        children: [
-          mainColumn,
-          if (_isDragging)
-            Positioned.fill(
-              child: Container(
-                color: colors.primary.withValues(alpha: 0.1),
-                child: Center(
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 24,
-                      vertical: 12,
-                    ),
-                    decoration: BoxDecoration(
-                      color: colors.primary,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Text(
-                      'Drop files to attach',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
+    return Focus(
+      canRequestFocus: false,
+      onKeyEvent: _handleEmojiPickerKeyEvent,
+      child: DropTarget(
+        onDragDone: (detail) {
+          addFiles(detail.files);
+          setState(() => _isDragging = false);
+        },
+        onDragEntered: (detail) => setState(() => _isDragging = true),
+        onDragExited: (detail) => setState(() => _isDragging = false),
+        child: Stack(
+          children: [
+            mainColumn,
+            if (_isDragging)
+              Positioned.fill(
+                child: Container(
+                  color: colors.primary.withValues(alpha: 0.1),
+                  child: Center(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 12,
+                      ),
+                      decoration: BoxDecoration(
+                        color: colors.primary,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Text(
+                        'Drop files to attach',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
                       ),
                     ),
                   ),
                 ),
               ),
-            ),
-        ],
+          ],
+        ),
       ),
     );
   }
