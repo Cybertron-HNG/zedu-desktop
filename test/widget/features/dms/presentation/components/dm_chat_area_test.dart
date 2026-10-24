@@ -225,6 +225,21 @@ void main() {
       expect(find.text('Delete message'), findsOneWidget);
     });
 
+    testWidgets('Edit message from the menu puts the message in the composer', (
+      tester,
+    ) async {
+      await pumpChat(tester, [ownMessage('m1', 'my message')]);
+
+      await tester.longPress(find.text('my message', findRichText: true));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Edit message'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Editing message'), findsOneWidget);
+      final composer = tester.widget<TextField>(find.byType(TextField).last);
+      expect(composer.controller!.text, 'my message');
+    });
+
     testWidgets('shows no text for a message with an empty paragraph', (
       tester,
     ) async {

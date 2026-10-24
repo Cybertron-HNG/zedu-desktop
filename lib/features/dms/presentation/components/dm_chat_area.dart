@@ -267,6 +267,9 @@ class _DmChatAreaState extends ConsumerState<DmChatArea> {
                                     message: msg,
                                     conversation: widget.conversation,
                                     channelId: widget.conversation.channelId,
+                                    onEdit: (id, text) => _composerKey
+                                        .currentState
+                                        ?.enterEditMode(id, text),
                                   );
                                 }, childCount: messages.length),
                               ),
@@ -662,11 +665,13 @@ class _MessageBubble extends ConsumerWidget {
   final Map<String, dynamic> message;
   final DmConversation conversation;
   final String channelId;
+  final void Function(String messageId, String content) onEdit;
 
   const _MessageBubble({
     required this.message,
     required this.conversation,
     required this.channelId,
+    required this.onEdit,
   });
 
   TextSpan _parseRichText(String text, TextStyle defaultStyle) {
@@ -927,9 +932,7 @@ class _MessageBubble extends ConsumerWidget {
                 if (content.isNotEmpty)
                   _OwnMessageMenu(
                     enabled: isMe && status == null,
-                    onEdit: () => ref
-                        .read(chatHistoryProvider(channelId))
-                        .startEditing(messageId),
+                    onEdit: () => onEdit(messageId, rawContent),
                     onDelete: () => _confirmDelete(context, ref, messageId),
                     child: Container(
                       padding: const EdgeInsets.symmetric(
