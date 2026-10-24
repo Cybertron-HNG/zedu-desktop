@@ -2,8 +2,25 @@ import 'package:zedu/core/core.dart';
 import 'package:zedu/features/features.dart';
 import '../../../../../helpers/helpers.dart';
 
+class FakeAuthNotifier extends AuthNotifier {
+  @override
+  AuthState build() => const AuthState(status: AuthStatus.unauthenticated);
+}
+
+class MockSecureStorageService extends Mock implements SecureStorageService {}
+
 Widget buildComposerUnderTest() {
+  // The composer reads the draft store, which needs the signed-in user and
+  // secure storage, so give it the same fakes the chat area test uses.
+  final storage = MockSecureStorageService();
+  when(() => storage.readData(any())).thenAnswer((_) async => null);
   return ProviderScope(
+    overrides: [
+      authNotifierProvider.overrideWith(FakeAuthNotifier.new),
+      dmDraftStoreProvider.overrideWith(
+        (ref) => DmDraftStore(storage, userId: 'u', orgId: 'o'),
+      ),
+    ],
     child: buildTestMaterialApp(
       Scaffold(
         body: DmMessageComposer(
