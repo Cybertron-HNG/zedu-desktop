@@ -152,12 +152,68 @@ class _ChatAreaSwitcher extends ConsumerWidget {
   }
 }
 
+/// A tappable sidebar section title with an arrow that rotates to show
+/// whether the section is [expanded].
+class SidebarSectionHeader extends StatelessWidget {
+  const SidebarSectionHeader({
+    super.key,
+    required this.label,
+    required this.expanded,
+    required this.onToggle,
+  });
+
+  final String label;
+  final bool expanded;
+  final VoidCallback onToggle;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+
+    return Semantics(
+      button: true,
+      expanded: expanded,
+      child: InkWell(
+        onTap: onToggle,
+        mouseCursor: SystemMouseCursors.click,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Row(
+            children: [
+              AnimatedRotation(
+                turns: sectionArrowTurns(expanded: expanded),
+                duration: const Duration(milliseconds: 150),
+                child: Icon(
+                  Icons.arrow_drop_down,
+                  color: colors.onPrimary,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: TextStyle(
+                  color: colors.onPrimary,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 15,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _MainSidebar extends ConsumerWidget {
   const _MainSidebar();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final colors = context.colors;
+    final expanded = ref.watch(sidebarSectionsProvider);
+    final notifier = ref.read(sidebarSectionsProvider.notifier);
 
     return Container(
       width: 320,
@@ -166,73 +222,55 @@ class _MainSidebar extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const WorkspaceSwitcherHeader(),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
-            child: Row(
-              children: [
-                Icon(Icons.arrow_drop_down, color: colors.onPrimary, size: 20),
-                const SizedBox(width: 8),
-                Text(
-                  'Channels',
-                  style: TextStyle(
-                    color: colors.onPrimary,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 15,
-                  ),
-                ),
-              ],
-            ),
+          const SizedBox(height: 12),
+          SidebarSectionHeader(
+            label: 'Channels',
+            expanded: expanded.contains(SidebarSection.channels),
+            onToggle: () => notifier.toggle(SidebarSection.channels),
           ),
-          const SidebarChannelList(),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                border: Border.all(
-                  color: colors.onPrimary.withValues(alpha: 0.24),
+          if (expanded.contains(SidebarSection.channels)) ...[
+            const SidebarChannelList(),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
                 ),
-                borderRadius: BorderRadius.circular(6),
-                color: colors.onPrimary.withValues(alpha: 0.05),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      'View all channels',
-                      style: TextStyle(
-                        color: colors.onPrimary.withValues(alpha: 0.7),
-                        fontSize: 13,
+                decoration: BoxDecoration(
+                  border: Border.all(
+                    color: colors.onPrimary.withValues(alpha: 0.24),
+                  ),
+                  borderRadius: BorderRadius.circular(6),
+                  color: colors.onPrimary.withValues(alpha: 0.05),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'View all channels',
+                        style: TextStyle(
+                          color: colors.onPrimary.withValues(alpha: 0.7),
+                          fontSize: 13,
+                        ),
                       ),
                     ),
-                  ),
-                  Icon(
-                    Icons.chevron_right,
-                    color: colors.onPrimary.withValues(alpha: 0.7),
-                    size: 16,
-                  ),
-                ],
+                    Icon(
+                      Icons.chevron_right,
+                      color: colors.onPrimary.withValues(alpha: 0.7),
+                      size: 16,
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-          const _AddChannelButton(),
-          const SizedBox(height: 20),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              children: [
-                Icon(Icons.arrow_right, color: colors.onPrimary, size: 20),
-                const SizedBox(width: 8),
-                Text(
-                  'People',
-                  style: TextStyle(
-                    color: colors.onPrimary,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 15,
-                  ),
-                ),
-              ],
-            ),
+            const _AddChannelButton(),
+          ],
+          const SizedBox(height: 12),
+          SidebarSectionHeader(
+            label: 'People',
+            expanded: expanded.contains(SidebarSection.people),
+            onToggle: () => notifier.toggle(SidebarSection.people),
           ),
         ],
       ),
