@@ -25,7 +25,18 @@ class AuthNotifier extends Notifier<AuthState> {
 
   Future<void> _restoreSession() async {
     AppLogger.d('Restoring session from storage', tag: _tag);
-    final token = await _storage.getAccessToken();
+    final String? token;
+    try {
+      token = await _storage.getAccessToken();
+    } catch (error) {
+      // e.g. a locked or missing system keyring on Linux (KeyringLocked).
+      AppLogger.e('Could not read stored token', tag: _tag, error: error);
+      state = const AuthState(
+        status: AuthStatus.unauthenticated,
+        error: 'Couldn\'t access your saved login. Please log in again.',
+      );
+      return;
+    }
     if (token == null) {
       AppLogger.i('No stored token — unauthenticated', tag: _tag);
       state = const AuthState(status: AuthStatus.unauthenticated);
