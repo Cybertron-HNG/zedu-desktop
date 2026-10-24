@@ -52,8 +52,9 @@ Future<void> showEditAccountDialog(
   final timezoneCtrl = TextEditingController(text: account.timezone);
   final formKey = GlobalKey<FormState>();
 
-  await showDialog<void>(
-    context: context,
+  await _showDialogOwningControllers(
+    context,
+    controllers: [nameCtrl, emailCtrl, timezoneCtrl],
     builder: (ctx) => AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       title: Text(
@@ -121,10 +122,6 @@ Future<void> showEditAccountDialog(
       ],
     ),
   );
-
-  nameCtrl.dispose();
-  emailCtrl.dispose();
-  timezoneCtrl.dispose();
 }
 
 /// Dialog for changing password.
@@ -141,8 +138,9 @@ Future<void> showChangePasswordDialog(
   final confirmCtrl = TextEditingController();
   final formKey = GlobalKey<FormState>();
 
-  await showDialog<void>(
-    context: context,
+  await _showDialogOwningControllers(
+    context,
+    controllers: [currentCtrl, newCtrl, confirmCtrl],
     builder: (ctx) => AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       title: Text(
@@ -212,10 +210,6 @@ Future<void> showChangePasswordDialog(
       ],
     ),
   );
-
-  currentCtrl.dispose();
-  newCtrl.dispose();
-  confirmCtrl.dispose();
 }
 
 /// Dialog for editing organization information.
@@ -231,8 +225,9 @@ Future<void> showEditOrganizationDialog(
   final countryCtrl = TextEditingController(text: organization.country);
   final formKey = GlobalKey<FormState>();
 
-  await showDialog<void>(
-    context: context,
+  await _showDialogOwningControllers(
+    context,
+    controllers: [nameCtrl, businessCtrl, countryCtrl],
     builder: (ctx) => AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       title: Text(
@@ -294,10 +289,6 @@ Future<void> showEditOrganizationDialog(
       ],
     ),
   );
-
-  nameCtrl.dispose();
-  businessCtrl.dispose();
-  countryCtrl.dispose();
 }
 
 /// Dialog for inviting a team member.
@@ -309,8 +300,9 @@ Future<void> showInviteMemberDialog(
   String role = 'User';
   final formKey = GlobalKey<FormState>();
 
-  await showDialog<void>(
-    context: context,
+  await _showDialogOwningControllers(
+    context,
+    controllers: [emailCtrl],
     builder: (ctx) => StatefulBuilder(
       builder: (ctx, setDialogState) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -389,8 +381,6 @@ Future<void> showInviteMemberDialog(
       ),
     ),
   );
-
-  emailCtrl.dispose();
 }
 
 /// Dialog for editing a team member's role.
@@ -469,4 +459,43 @@ Future<void> showEditMemberDialog(
       ),
     ),
   );
+}
+
+/// Shows a dialog whose [controllers] are disposed when the dialog route is
+/// removed, i.e. after its exit animation. Disposing right after
+/// `await showDialog` is too early: that future completes on pop, while the
+/// text fields are still rebuilt by the close animation.
+Future<void> _showDialogOwningControllers(
+  BuildContext context, {
+  required List<TextEditingController> controllers,
+  required WidgetBuilder builder,
+}) {
+  return showDialog<void>(
+    context: context,
+    builder: (ctx) =>
+        _ControllerOwner(controllers: controllers, child: builder(ctx)),
+  );
+}
+
+class _ControllerOwner extends StatefulWidget {
+  const _ControllerOwner({required this.controllers, required this.child});
+
+  final List<TextEditingController> controllers;
+  final Widget child;
+
+  @override
+  State<_ControllerOwner> createState() => _ControllerOwnerState();
+}
+
+class _ControllerOwnerState extends State<_ControllerOwner> {
+  @override
+  void dispose() {
+    for (final controller in widget.controllers) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }
