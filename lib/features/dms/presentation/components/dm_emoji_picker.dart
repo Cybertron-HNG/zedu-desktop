@@ -130,6 +130,7 @@ class DmEmojiPicker extends StatelessWidget {
                 const Spacer(),
                 IconButton(
                   onPressed: onClose,
+                    tooltip: 'Close',
                   icon: Icon(Icons.close, size: 16, color: colors.textHint),
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),

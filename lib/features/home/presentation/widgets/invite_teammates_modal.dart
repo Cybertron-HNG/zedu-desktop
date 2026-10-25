@@ -218,6 +218,7 @@ class _InviteTeammatesModalState extends ConsumerState<InviteTeammatesModal> {
                 IconButton(
                   icon: Icon(Icons.close, color: colors.textHint),
                   onPressed: () => Navigator.pop(context),
+                  tooltip: 'Close',
                   splashRadius: 20,
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
