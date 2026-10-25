@@ -54,11 +54,12 @@ class _CreditsPaymentDeepLinkListenerState
   Future<void> _handleUri(Uri uri) async {
     final sessionId = CreditsPaymentDeepLinkParser.extractSessionId(uri);
     if (sessionId == null || sessionId == _lastProcessedSessionId) return;
-    _lastProcessedSessionId = sessionId;
 
     final user = ref.read(authNotifierProvider).user;
     final orgId = user?.currentOrg;
     if (orgId == null || orgId.isEmpty) return;
+
+    _lastProcessedSessionId = sessionId;
 
     AppLogger.i('Verifying credit payment session', tag: _tag);
     final verified = await ref
