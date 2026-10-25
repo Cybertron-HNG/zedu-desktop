@@ -284,8 +284,8 @@ class HomeChatArea extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Shows the channel picked in the sidebar. Its messages are not listed
-    // yet, so the header and welcome text carry the name.
+    // Shows the channel picked in the sidebar: its messages, or the welcome
+    // text while it has none.
     final chat = ref.watch(activeChatProvider);
     final channels = ref.watch(channelProvider).value ?? const <Channel>[];
     final channelName = chat.type == ActiveChatType.channel
@@ -299,10 +299,37 @@ class HomeChatArea extends ConsumerWidget {
       }
     }
 
+    final channelId = selected?.id ?? '';
+    final welcome = _buildWelcomeScreen(context, channelName);
+
+    if (channelId.isNotEmpty) {
+      // The composer sends through the chat history; reload the list once a
+      // send has gone through, so the new message shows.
+      ref.listen<int>(
+        chatHistoryProvider(channelId).select(
+          (history) =>
+              history.messages.where((m) => m['status'] == null).length,
+        ),
+        (previous, next) {
+          if (next > (previous ?? 0)) {
+            ref.invalidate(channelHistoryProvider(channelId));
+          }
+        },
+      );
+    }
+
     return Column(
       children: [
         _buildChatHeader(context, channelName),
-        Expanded(child: _buildWelcomeScreen(context, channelName)),
+        Expanded(
+          child: channelId.isEmpty
+              ? welcome
+              : ChannelMessageList(
+                  key: ValueKey(channelId),
+                  channelId: channelId,
+                  empty: welcome,
+                ),
+        ),
         DmMessageComposer(
           key: ValueKey(selected?.id ?? channelName),
           recipientName: '#$channelName',
