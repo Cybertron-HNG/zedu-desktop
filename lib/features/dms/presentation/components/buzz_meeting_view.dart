@@ -81,6 +81,7 @@ class _BuzzMeetingViewState extends ConsumerState<BuzzMeetingView> {
                       const Spacer(),
                       IconButton(
                         icon: const Icon(Icons.open_in_full, size: 16),
+                        tooltip: 'Open full page',
                         color: colors.textHint,
                         onPressed: () {
                           ref
@@ -123,21 +124,40 @@ class _BuzzMeetingViewState extends ConsumerState<BuzzMeetingView> {
                     children: [
                       _buildControlButton(
                         icon: _isMuted ? Icons.mic_off : Icons.mic,
-                        color: _isMuted ? Colors.red : Colors.white24,
+                        tooltip: _isMuted ? 'Unmute' : 'Mute',
+                        color: _isMuted
+                            ? Colors.red
+                            : colors.primary.withValues(alpha: 0.2),
                         onTap: () => setState(() => _isMuted = !_isMuted),
                         small: true,
                       ),
                       const SizedBox(width: 8),
                       _buildControlButton(
                         icon: _isVideoOff ? Icons.videocam_off : Icons.videocam,
-                        color: _isVideoOff ? Colors.red : Colors.white24,
+                        tooltip: _isVideoOff
+                            ? 'Turn camera on'
+                            : 'Turn camera off',
+                        color: _isVideoOff
+                            ? Colors.red
+                            : colors.primary.withValues(alpha: 0.2),
                         onTap: () => setState(() => _isVideoOff = !_isVideoOff),
                         small: true,
                       ),
                       const SizedBox(width: 8),
                       _buildControlButton(
+                        icon: Icons.emoji_emotions_outlined,
+                        tooltip: 'Reactions',
+                        color: colors.primary.withValues(alpha: 0.2),
+                        onTap: () {},
+                        small: true,
+                      ),
+                      const SizedBox(width: 8),
+                      _buildControlButton(
                         icon: Icons.back_hand,
-                        color: _isHandRaised ? Colors.amber : Colors.white24,
+                        tooltip: _isHandRaised ? 'Lower hand' : 'Raise hand',
+                        color: _isHandRaised
+                            ? Colors.amber
+                            : colors.primary.withValues(alpha: 0.2),
                         onTap: () =>
                             setState(() => _isHandRaised = !_isHandRaised),
                         small: true,
@@ -145,6 +165,7 @@ class _BuzzMeetingViewState extends ConsumerState<BuzzMeetingView> {
                       const SizedBox(width: 8),
                       _buildControlButton(
                         icon: Icons.call_end,
+                        tooltip: 'Leave call',
                         color: Colors.red,
                         onTap: () {
                           ref.read(activeCallProvider.notifier).endCall();
@@ -239,6 +260,7 @@ class _BuzzMeetingViewState extends ConsumerState<BuzzMeetingView> {
               children: [
                 _buildControlButton(
                   icon: _isMuted ? Icons.mic_off : Icons.mic,
+                  tooltip: _isMuted ? 'Unmute' : 'Mute',
                   color: _isMuted
                       ? Colors.red
                       : colors.primary.withValues(alpha: 0.2),
@@ -248,6 +270,7 @@ class _BuzzMeetingViewState extends ConsumerState<BuzzMeetingView> {
                 const SizedBox(width: 16),
                 _buildControlButton(
                   icon: Icons.screen_share_outlined,
+                  tooltip: 'Share screen',
                   color: colors.primary.withValues(alpha: 0.2),
                   onTap: () => AppToastService.show(
                     context,
@@ -259,6 +282,7 @@ class _BuzzMeetingViewState extends ConsumerState<BuzzMeetingView> {
                 const SizedBox(width: 16),
                 _buildControlButton(
                   icon: _isVideoOff ? Icons.videocam_off : Icons.videocam,
+                  tooltip: _isVideoOff ? 'Turn camera on' : 'Turn camera off',
                   color: _isVideoOff
                       ? Colors.red
                       : colors.primary.withValues(alpha: 0.2),
@@ -267,7 +291,16 @@ class _BuzzMeetingViewState extends ConsumerState<BuzzMeetingView> {
                 ),
                 const SizedBox(width: 16),
                 _buildControlButton(
+                  icon: Icons.emoji_emotions_outlined,
+                  tooltip: 'Reactions',
+                  color: colors.primary.withValues(alpha: 0.2),
+                  onTap: () {},
+                  small: false,
+                ),
+                const SizedBox(width: 16),
+                _buildControlButton(
                   icon: Icons.back_hand,
+                  tooltip: _isHandRaised ? 'Lower hand' : 'Raise hand',
                   color: _isHandRaised
                       ? Colors.amber
                       : colors.primary.withValues(alpha: 0.2),
@@ -276,7 +309,16 @@ class _BuzzMeetingViewState extends ConsumerState<BuzzMeetingView> {
                 ),
                 const SizedBox(width: 16),
                 _buildControlButton(
+                  icon: Icons.more_vert,
+                  tooltip: 'More options',
+                  color: colors.primary.withValues(alpha: 0.2),
+                  onTap: () {},
+                  small: false,
+                ),
+                const SizedBox(width: 16),
+                _buildControlButton(
                   icon: Icons.call_end,
+                  tooltip: 'Leave call',
                   color: Colors.red,
                   onTap: () {
                     ref.read(activeCallProvider.notifier).endCall();
@@ -344,20 +386,24 @@ class _BuzzMeetingViewState extends ConsumerState<BuzzMeetingView> {
 
   Widget _buildControlButton({
     required IconData icon,
+    required String tooltip,
     required Color color,
     required VoidCallback onTap,
     required bool small,
   }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        padding: EdgeInsets.all(small ? 6 : 12),
-        decoration: BoxDecoration(
-          color: color,
-          borderRadius: BorderRadius.circular(8),
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: EdgeInsets.all(small ? 6 : 12),
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, color: Colors.white, size: small ? 18 : 24),
         ),
-        child: Icon(icon, color: Colors.white, size: small ? 18 : 24),
       ),
     );
   }

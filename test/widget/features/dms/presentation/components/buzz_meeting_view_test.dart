@@ -53,6 +53,99 @@ void main() {
     });
   });
 
+  group('BuzzMeetingView control tooltips', () {
+    testWidgets('compact view labels every control', (tester) async {
+      await tester.pumpWidget(buildBuzzMeetingViewUnderTest(isFullPage: false));
+      await tester.pump();
+
+      for (final label in [
+        'Open full page',
+        'Mute',
+        'Turn camera off',
+        'Reactions',
+        'Raise hand',
+        'Leave call',
+      ]) {
+        expect(find.byTooltip(label), findsOneWidget, reason: label);
+      }
+    });
+
+    testWidgets('full-page view labels every control', (tester) async {
+      tester.view.physicalSize = const Size(1440, 900);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(buildBuzzMeetingViewUnderTest(isFullPage: true));
+      await tester.pump();
+
+      for (final label in [
+        'Mute',
+        'Share screen',
+        'Turn camera off',
+        'Reactions',
+        'Raise hand',
+        'More options',
+        'Leave call',
+      ]) {
+        expect(find.byTooltip(label), findsOneWidget, reason: label);
+      }
+    });
+
+    testWidgets('mute, camera and hand tooltips follow the button state', (
+      tester,
+    ) async {
+      await tester.pumpWidget(buildBuzzMeetingViewUnderTest(isFullPage: false));
+      await tester.pump();
+
+      await tester.tap(find.byIcon(Icons.mic));
+      await tester.tap(find.byIcon(Icons.videocam));
+      await tester.tap(find.byIcon(Icons.back_hand));
+      await tester.pump();
+
+      expect(find.byTooltip('Unmute'), findsOneWidget);
+      expect(find.byTooltip('Turn camera on'), findsOneWidget);
+      expect(find.byTooltip('Lower hand'), findsOneWidget);
+      expect(find.byTooltip('Mute'), findsNothing);
+    });
+  });
+
+  group('BuzzMeetingView small window button colours', () {
+    Color? idleColour(WidgetTester tester, IconData icon) {
+      final box = tester.widget<Container>(
+        find
+            .ancestor(of: find.byIcon(icon), matching: find.byType(Container))
+            .first,
+      );
+      return (box.decoration as BoxDecoration?)?.color;
+    }
+
+    testWidgets('idle controls match the full-page view, not white24', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(1440, 900);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(buildBuzzMeetingViewUnderTest(isFullPage: true));
+      await tester.pump();
+      final fullPage = idleColour(tester, Icons.mic);
+
+      await tester.pumpWidget(buildBuzzMeetingViewUnderTest(isFullPage: false));
+      await tester.pump();
+
+      for (final icon in [
+        Icons.mic,
+        Icons.videocam,
+        Icons.emoji_emotions_outlined,
+        Icons.back_hand,
+      ]) {
+        final colour = idleColour(tester, icon);
+        expect(colour, isNot(Colors.white24), reason: '$icon');
+        expect(colour, fullPage, reason: '$icon');
+      }
+    });
+  });
+
   group('BuzzMeetingView share screen button', () {
     testWidgets('tells the user screen sharing is not available yet', (
       tester,
