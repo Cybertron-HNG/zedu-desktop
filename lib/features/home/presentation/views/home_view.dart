@@ -13,7 +13,7 @@ class _HomeViewState extends ConsumerState<HomeView> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final orgId = ref.read(authNotifierProvider).user?.currentOrg;
+      final orgId = ref.read(workspaceProvider).selectedWorkspace?.id;
       if (orgId != null && orgId.isNotEmpty) {
         ref.read(creditsNotifierProvider.notifier).load(orgId: orgId);
       }

@@ -9,6 +9,8 @@ class BuyCreditsView extends ConsumerStatefulWidget {
 }
 
 class _BuyCreditsViewState extends ConsumerState<BuyCreditsView> {
+  String? _loadedOrgId;
+
   @override
   void initState() {
     super.initState();
@@ -16,10 +18,17 @@ class _BuyCreditsViewState extends ConsumerState<BuyCreditsView> {
   }
 
   void _loadCredits() {
-    final orgId = ref.read(authNotifierProvider).user?.currentOrg;
-    if (orgId != null && orgId.isNotEmpty) {
-      ref.read(creditsNotifierProvider.notifier).load(orgId: orgId);
-    }
+    final orgId = ref.read(workspaceProvider).selectedWorkspace?.id;
+    if (orgId == null || orgId.isEmpty) return;
+    _loadedOrgId = orgId;
+    ref.read(creditsNotifierProvider.notifier).load(orgId: orgId);
+  }
+
+  void _maybeReloadForWorkspace(String? orgId) {
+    if (orgId == null || orgId.isEmpty) return;
+    if (orgId == _loadedOrgId) return;
+    _loadedOrgId = orgId;
+    ref.read(creditsNotifierProvider.notifier).load(orgId: orgId);
   }
 
   @override
@@ -47,6 +56,14 @@ class _BuyCreditsViewState extends ConsumerState<BuyCreditsView> {
         });
       }
     });
+
+    // Reload the credits whenever the user switches workspaces.
+    ref.listen<String?>(
+      workspaceProvider.select((s) => s.selectedWorkspace?.id),
+      (previous, next) {
+        _maybeReloadForWorkspace(next);
+      },
+    );
 
     final state = ref.watch(creditsNotifierProvider);
     final authUser = ref.watch(authNotifierProvider).user;

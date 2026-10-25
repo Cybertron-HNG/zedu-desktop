@@ -56,14 +56,20 @@ class _CreditsPaymentDeepLinkListenerState
     if (sessionId == null || sessionId == _lastProcessedSessionId) return;
     _lastProcessedSessionId = sessionId;
 
-    final user = ref.read(authNotifierProvider).user;
-    final orgId = user?.currentOrg;
-    if (orgId == null || orgId.isEmpty) return;
+    final orgId = ref.read(workspaceProvider).selectedWorkspace?.id;
+    if (orgId == null || orgId.isEmpty) {
+      final user = ref.read(authNotifierProvider).user;
+      final fallbackOrgId = user?.currentOrg;
+      if (fallbackOrgId == null || fallbackOrgId.isEmpty) return;
+    }
 
     AppLogger.i('Verifying credit payment session', tag: _tag);
     final verified = await ref
         .read(creditsNotifierProvider.notifier)
-        .verifyPayment(sessionId: sessionId, orgId: orgId);
+        .verifyPayment(
+          sessionId: sessionId,
+          orgId: orgId ?? ref.read(authNotifierProvider).user!.currentOrg,
+        );
 
     if (!mounted) return;
 
