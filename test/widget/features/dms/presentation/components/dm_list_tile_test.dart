@@ -224,7 +224,7 @@ void main() {
         ),
       );
 
-      expect(find.text('5/3/2026'), findsOneWidget);
+      expect(find.text('5 Mar'), findsOneWidget);
     });
 
     testWidgets('shows the last read date when there are no messages', (
@@ -232,7 +232,7 @@ void main() {
     ) async {
       await pumpTile(tester, conversation(lastReadAt: DateTime(2026, 4, 2)));
 
-      expect(find.text('2/4/2026'), findsOneWidget);
+      expect(find.text('2 Apr'), findsOneWidget);
     });
   });
 }
