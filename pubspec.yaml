@@ -52,6 +52,7 @@ flutter:
     - .env.example
     - assets/pngs/
     - assets/svgs/
+    - assets/pngs/tray_icon.png
   fonts:
     - family: Roboto
       fonts:

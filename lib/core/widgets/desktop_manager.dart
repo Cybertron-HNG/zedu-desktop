@@ -29,8 +29,15 @@ class _DesktopManagerState extends ConsumerState<DesktopManager>
     super.dispose();
   }
 
+  /// Only run desktop-only plumbing on desktop platforms.
+  /// On mobile the plugins would fail with missing platform channels.
+  bool _isDesktop() {
+    return Platform.isMacOS || Platform.isWindows || Platform.isLinux;
+  }
+
   Future<void> _initDesktop() async {
     // Make sure window doesn't close completely when clicking X
+    if (!_isDesktop()) return;
     try {
       await windowManager.setPreventClose(true);
     } catch (e) {
@@ -40,6 +47,13 @@ class _DesktopManagerState extends ConsumerState<DesktopManager>
     try {
       if (Platform.isWindows) {
         await trayManager.setIcon('app_icon.ico');
+      } else {
+        // Platform-agnostic: tray icon must be a square asset.
+        // macOS template icon for proper menu bar display.
+        await trayManager.setIcon(
+          'assets/pngs/tray_icon.png',
+          isTemplate: Platform.isMacOS,
+        );
       }
 
       Menu menu = Menu(
@@ -70,6 +84,11 @@ class _DesktopManagerState extends ConsumerState<DesktopManager>
   void onTrayIconMouseDown() async {
     await windowManager.show();
     await windowManager.focus();
+  }
+
+  @override
+  void onTrayIconRightMouseDown() async {
+    await trayManager.popUpContextMenu();
   }
 
   @override
