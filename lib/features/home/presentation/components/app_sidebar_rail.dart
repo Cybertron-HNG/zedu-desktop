@@ -1,7 +1,7 @@
 import 'package:zedu/core/core.dart';
 import 'package:zedu/features/features.dart';
 
-class AppSidebarRail extends ConsumerWidget {
+class AppSidebarRail extends ConsumerStatefulWidget {
   const AppSidebarRail({
     super.key,
     required this.activeType,
@@ -16,9 +16,22 @@ class AppSidebarRail extends ConsumerWidget {
   final bool settingsSelected;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final dmsTargetKey = GlobalKey();
-    final peopleTargetKey = GlobalKey();
+  ConsumerState<AppSidebarRail> createState() => _AppSidebarRailState();
+}
+
+class _AppSidebarRailState extends ConsumerState<AppSidebarRail> {
+  // Held in state so a rebuild keeps the icons the pop-outs anchor to mounted.
+  final _dmsTargetKey = GlobalKey();
+  final _peopleTargetKey = GlobalKey();
+
+  HomeSidebarType? get activeType => widget.activeType;
+  ValueChanged<HomeSidebarType>? get onTypeSelected => widget.onTypeSelected;
+  bool get settingsSelected => widget.settingsSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final dmsTargetKey = _dmsTargetKey;
+    final peopleTargetKey = _peopleTargetKey;
 
     void select(HomeSidebarType type) {
       if (onTypeSelected != null) {
@@ -45,7 +58,7 @@ class AppSidebarRail extends ConsumerWidget {
   ) {
     final colors = context.colors;
     return Container(
-      width: width,
+      width: AppSidebarRail.width,
       decoration: BoxDecoration(
         color: colors.sidebar,
         border: Border(
@@ -167,7 +180,7 @@ class _BuzzRailItem extends ConsumerWidget {
   }
 }
 
-class _RailNavItem extends StatefulWidget {
+class _RailNavItem extends StatelessWidget {
   const _RailNavItem({
     required this.icon,
     required this.label,
@@ -185,47 +198,34 @@ class _RailNavItem extends StatefulWidget {
   final VoidCallback? onTap;
 
   @override
-  State<_RailNavItem> createState() => _RailNavItemState();
-}
-
-class _RailNavItemState extends State<_RailNavItem> {
-  bool _hovered = false;
-
-  @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    final popouts = widget.popoutType == null
-        ? null
-        : SidebarPopoutHost.of(context);
+    final popouts = popoutType == null ? null : SidebarPopoutHost.of(context);
 
     return InkWell(
-      onTap: widget.onTap,
+      onTap: onTap,
       onHover: popouts == null
           ? null
-          : (hovered) => popouts.onRailHover(widget.popoutType!, hovered),
+          : (hovered) => popouts.onRailHover(popoutType!, hovered),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 6),
         child: Column(
           children: [
-            MouseRegion(
-              onEnter: (_) => setState(() => _hovered = true),
-              onExit: (_) => setState(() => _hovered = false),
-              child: Container(
-                key: widget.positionKey,
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(
-                  color: (widget.isActive || _hovered)
-                      ? colors.primary.withValues(alpha: 0.95)
-                      : Colors.transparent,
-                  borderRadius: BorderRadius.circular(7),
-                ),
-                child: Icon(widget.icon, color: colors.onPrimary, size: 18),
+            Container(
+              key: positionKey,
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                color: isActive
+                    ? colors.primary.withValues(alpha: 0.95)
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(7),
               ),
+              child: Icon(icon, color: colors.onPrimary, size: 18),
             ),
             const SizedBox(height: 4),
             Text(
-              widget.label,
+              label,
               style: TextStyle(
                 color: colors.onPrimary.withValues(alpha: 0.92),
                 fontSize: 9,
@@ -239,7 +239,7 @@ class _RailNavItemState extends State<_RailNavItem> {
   }
 }
 
-class _RailBottomIcon extends StatefulWidget {
+class _RailBottomIcon extends StatelessWidget {
   const _RailBottomIcon({
     required this.icon,
     this.hasNotification = false,
@@ -253,40 +253,29 @@ class _RailBottomIcon extends StatefulWidget {
   final VoidCallback? onTap;
 
   @override
-  State<_RailBottomIcon> createState() => _RailBottomIconState();
-}
-
-class _RailBottomIconState extends State<_RailBottomIcon> {
-  bool _hovered = false;
-
-  @override
   Widget build(BuildContext context) {
     final colors = context.colors;
 
     return InkWell(
-      onTap: widget.onTap,
+      onTap: onTap,
       borderRadius: BorderRadius.circular(7),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 7),
         child: Stack(
           clipBehavior: Clip.none,
           children: [
-            MouseRegion(
-              onEnter: (_) => setState(() => _hovered = true),
-              onExit: (_) => setState(() => _hovered = false),
-              child: Container(
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(
-                  color: (widget.selected || _hovered)
-                      ? colors.primary.withValues(alpha: 0.95)
-                      : Colors.transparent,
-                  borderRadius: BorderRadius.circular(7),
-                ),
-                child: Icon(widget.icon, color: colors.onPrimary, size: 18),
+            Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                color: selected
+                    ? colors.primary.withValues(alpha: 0.95)
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(7),
               ),
+              child: Icon(icon, color: colors.onPrimary, size: 18),
             ),
-            if (widget.hasNotification)
+            if (hasNotification)
               Positioned(
                 right: 6,
                 top: 6,

@@ -34,24 +34,16 @@ class DmEmptyState extends StatelessWidget {
               Text(
                 'Your messages',
                 textAlign: TextAlign.center,
-                style: TextStyle(
+                style: context.textTheme.headlineMedium?.copyWith(
                   color: colors.textSecondary,
-                  fontSize: 28.5,
-                  fontWeight: FontWeight.w700,
-                  height: 1.2,
                 ),
               ),
               const SizedBox(height: 10),
               Text(
                 'Select a conversation from the list to start messaging.',
                 textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: Color.lerp(
-                    colors.textPrimary,
-                    colors.primary,
-                    0.28,
-                  )!.withValues(alpha: 0.64),
-                  fontSize: 16.5,
+                style: context.textTheme.bodyLarge?.copyWith(
+                  color: colors.sidebar.withValues(alpha: 0.7),
                 ),
               ),
             ],
