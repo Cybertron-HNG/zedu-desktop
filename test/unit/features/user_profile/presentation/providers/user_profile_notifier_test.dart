@@ -102,7 +102,10 @@ void main() {
 
     void registerConfig({required bool usesMockData}) {
       locator.registerSingleton<AppConfig>(
-        AppConfig(apiBaseUrl: 'https://api.example.com', usesMockData: usesMockData),
+        AppConfig(
+          apiBaseUrl: 'https://api.example.com',
+          usesMockData: usesMockData,
+        ),
       );
     }
 
