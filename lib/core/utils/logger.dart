@@ -15,6 +15,8 @@ enum LogLevel {
   final int value;
 }
 
+typedef WarningLogger = void Function(String message, {String? tag});
+
 /// Project-wide static logger backed by dart:developer.
 ///
 /// In release builds, levels below [LogLevel.warning] are suppressed.

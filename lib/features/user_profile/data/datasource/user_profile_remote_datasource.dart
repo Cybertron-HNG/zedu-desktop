@@ -42,11 +42,14 @@ class UserProfileRemoteDataSourceImpl implements UserProfileRemoteDataSource {
   const UserProfileRemoteDataSourceImpl({
     required AppConfig config,
     required ApiBaseService apiBaseService,
+    WarningLogger? warningLogger,
   }) : _config = config,
-       _apiBaseService = apiBaseService;
+       _apiBaseService = apiBaseService,
+       _warningLogger = warningLogger;
 
   final AppConfig _config;
   final ApiBaseService _apiBaseService;
+  final WarningLogger? _warningLogger;
 
   static const _tag = 'UserProfileRemoteDataSource';
 
@@ -252,14 +255,21 @@ class UserProfileRemoteDataSourceImpl implements UserProfileRemoteDataSource {
       // Load persisted mock members if they exist
       if (orgId != null) {
         final storage = locator<SecureStorageService>();
-        final data = await storage.readData('mock_team_members_$orgId');
-        if (data != null) {
-          try {
+        try {
+          final data = await storage.readData('mock_team_members_$orgId');
+          if (data != null) {
             final List<dynamic> decoded = jsonDecode(data) as List<dynamic>;
             loadedTeamMembers = decoded
                 .map((e) => TeamMemberModel.fromJson(e as Map<String, dynamic>))
                 .toList();
-          } catch (_) {}
+          }
+        } catch (_) {
+          final warningLogger = _warningLogger;
+          if (warningLogger != null) {
+            warningLogger('Could not read saved team members', tag: _tag);
+          } else {
+            AppLogger.w('Could not read saved team members', tag: _tag);
+          }
         }
       }
 
