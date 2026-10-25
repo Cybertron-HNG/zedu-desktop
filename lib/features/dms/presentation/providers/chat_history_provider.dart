@@ -392,7 +392,7 @@ class ChatHistoryNotifier extends ChangeNotifier {
 
     try {
       final repository = ref.read(dmRepositoryProvider);
-      await repository.editMessage(channelId, content: newContent);
+      await repository.editMessage(messageId, content: newContent);
     } catch (_) {
       messages = messages.map((m) {
         if (m['id'] == messageId && m['content'] == newContent) {
