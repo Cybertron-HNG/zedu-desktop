@@ -99,5 +99,24 @@ void main() {
         expect(warnings.single.message, isNot(contains('org-1')));
       },
     );
+
+    test(
+      'warns and falls back to the default members when storage read fails',
+      () async {
+        when(
+          () => storage.readData('mock_team_members_org-1'),
+        ).thenThrow(Exception('storage unavailable'));
+
+        final members = await datasource.getTeamMembers(orgId: 'org-1');
+
+        expect(members, isNotEmpty);
+        expect(warnings, [
+          (
+            message: 'Could not read saved team members',
+            tag: 'UserProfileRemoteDataSource',
+          ),
+        ]);
+      },
+    );
   });
 }

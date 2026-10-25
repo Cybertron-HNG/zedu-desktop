@@ -175,5 +175,41 @@ void main() {
         expect(warnings.single.message, isNot(contains('org-1')));
       },
     );
+
+    test(
+      'initialization warns and completes with repository members when storage read fails',
+      () async {
+        when(
+          () => storage.readData('mock_team_members_org-1'),
+        ).thenThrow(Exception('storage unavailable'));
+        final container = ProviderContainer(
+          overrides: [
+            userProfileRepositoryProvider.overrideWithValue(repository),
+            workspaceProvider.overrideWith(FakeWorkspaceNotifier.new),
+            userProfileNotifierProvider.overrideWith(
+              () => UserProfileNotifier(
+                warningLogger: (message, {tag}) {
+                  warnings.add((message: message, tag: tag));
+                },
+              ),
+            ),
+          ],
+        );
+        addTearDown(container.dispose);
+
+        container.read(userProfileNotifierProvider);
+        await pumpEventQueue();
+
+        final state = container.read(userProfileNotifierProvider);
+        expect(state.teamMembers.single.id, 'fallback-member');
+        expect(state.isLoading, isFalse);
+        expect(warnings, [
+          (
+            message: 'Could not read saved team members',
+            tag: 'UserProfileNotifier',
+          ),
+        ]);
+      },
+    );
   });
 }

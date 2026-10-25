@@ -507,9 +507,9 @@ class UserProfileNotifier extends Notifier<UserProfileState> {
     // Load persisted mock members if they exist
     if (orgId != null) {
       final storage = locator<SecureStorageService>();
-      final data = await storage.readData('mock_team_members_$orgId');
-      if (data != null) {
-        try {
+      try {
+        final data = await storage.readData('mock_team_members_$orgId');
+        if (data != null) {
           final List<dynamic> decoded = jsonDecode(data) as List<dynamic>;
           final savedMembers = decoded.map((e) {
             final map = e as Map<String, dynamic>;
@@ -527,19 +527,19 @@ class UserProfileNotifier extends Notifier<UserProfileState> {
             );
           }).toList();
           loadedTeamMembers = savedMembers;
-        } catch (_) {
-          final warningLogger = _warningLogger;
-          if (warningLogger != null) {
-            warningLogger(
-              'Could not read saved team members',
-              tag: 'UserProfileNotifier',
-            );
-          } else {
-            AppLogger.w(
-              'Could not read saved team members',
-              tag: 'UserProfileNotifier',
-            );
-          }
+        }
+      } catch (_) {
+        final warningLogger = _warningLogger;
+        if (warningLogger != null) {
+          warningLogger(
+            'Could not read saved team members',
+            tag: 'UserProfileNotifier',
+          );
+        } else {
+          AppLogger.w(
+            'Could not read saved team members',
+            tag: 'UserProfileNotifier',
+          );
         }
       }
     }
