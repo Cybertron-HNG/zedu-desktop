@@ -53,4 +53,36 @@ void main() {
       expect(member.status, TeamMemberStatus.pending);
     });
   });
+
+  group('RolePermissionModel', () {
+    test('maps the organisation roles response', () {
+      final role = RolePermissionModel.fromJson(const {
+        'id': 'role-1',
+        'name': 'Manager',
+        'description': 'Read, write, approve',
+        'permissions': {
+          'permission_list': {
+            'can_view_channels': true,
+            'can_view_billing': false,
+          },
+        },
+      });
+
+      expect(role.id, 'role-1');
+      expect(role.role, 'Manager');
+      expect(role.description, 'Read, write, approve');
+      expect(role.permissions, ['can_view_channels']);
+    });
+
+    test('keeps the mock shape with a role name and a permission list', () {
+      final role = RolePermissionModel.fromJson(const {
+        'role': 'Guess',
+        'description': 'Read-only access',
+        'permissions': ['View channels'],
+      });
+
+      expect(role.role, 'Guess');
+      expect(role.permissions, ['View channels']);
+    });
+  });
 }
