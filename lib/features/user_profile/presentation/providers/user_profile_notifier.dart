@@ -301,7 +301,7 @@ class UserProfileNotifier extends Notifier<UserProfileState> {
     }
   }
 
-  Future<String> _getRoleId(String? orgId) async {
+  Future<String> _getRoleId(String? orgId, [String? roleName]) async {
     try {
       if (orgId == null) return '019700d8-9085-7f7b-839a-fcbd08b9e26d';
       final api = locator<ApiBaseService>();
@@ -310,13 +310,57 @@ class UserProfileNotifier extends Notifier<UserProfileState> {
       );
       final data = response.data['data'] as List<dynamic>?;
       if (data != null && data.isNotEmpty) {
+        final target = roleName?.trim().toLowerCase();
+        if (target != null && target.isNotEmpty) {
+          for (final item in data) {
+            if (item is! Map) continue;
+            final id = item['id']?.toString();
+            final name = (item['name'] ?? item['role'] ?? item['title'])
+                ?.toString()
+                .trim()
+                .toLowerCase();
+            if (id != null &&
+                id.isNotEmpty &&
+                (name == target || id.toLowerCase() == target)) {
+              return id;
+            }
+          }
+          for (final item in data) {
+            if (item is! Map) continue;
+            final id = item['id']?.toString();
+            final name = (item['name'] ?? item['role'] ?? item['title'])
+                ?.toString()
+                .trim()
+                .toLowerCase();
+            if (id != null &&
+                id.isNotEmpty &&
+                name != null &&
+                _isRoleAliasMatch(name, target)) {
+              return id;
+            }
+          }
+        }
         return data.last['id']
-            as String; // Just pick a valid role ID to avoid 404
+            as String; // Fallback to a valid role ID to avoid 404
       }
     } catch (e) {
       // ignore
     }
     return '019700d8-9085-7f7b-839a-fcbd08b9e26d';
+  }
+
+  bool _isRoleAliasMatch(String backendRole, String selectedRole) {
+    const adminAliases = {'admin', 'administrator', 'owner'};
+    const userAliases = {'user', 'member'};
+    if (adminAliases.contains(selectedRole) &&
+        adminAliases.contains(backendRole)) {
+      return true;
+    }
+    if (userAliases.contains(selectedRole) &&
+        userAliases.contains(backendRole)) {
+      return true;
+    }
+    return false;
   }
 
   Future<String?> generateInviteLink() async {
@@ -370,7 +414,7 @@ class UserProfileNotifier extends Notifier<UserProfileState> {
     }
 
     // Map human readable role to a valid UUID role_id by fetching from backend
-    String roleId = await _getRoleId(orgId);
+    String roleId = await _getRoleId(orgId, role);
 
     if (orgId == null) {
       state = state.copyWith(
