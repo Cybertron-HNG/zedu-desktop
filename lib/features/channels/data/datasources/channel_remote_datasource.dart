@@ -23,6 +23,9 @@ abstract class ChannelRemoteDataSource {
     required String channelId,
     required List<String> userIds,
   });
+
+  /// The latest messages of a channel, newest first.
+  Future<List<ChannelMessage>> fetchChannelMessages(String channelId);
 }
 
 class ChannelRemoteDataSourceImpl implements ChannelRemoteDataSource {
@@ -118,6 +121,21 @@ class ChannelRemoteDataSourceImpl implements ChannelRemoteDataSource {
       path: '/channels/add-multiple',
       data: {'channel_id': channelId, 'user_ids': userIds},
     );
+  }
+
+  @override
+  Future<List<ChannelMessage>> fetchChannelMessages(String channelId) async {
+    final response = await apiBaseService.get<Map<String, dynamic>>(
+      path: '/threads/channels/$channelId',
+      queryParameters: {'page': 1, 'limit': 50},
+    );
+    final data = response.data['data'];
+    if (data == null) return const [];
+    // A wrong shape throws, so the list shows its retry state.
+    return (data as List)
+        .cast<Map<String, dynamic>>()
+        .map(ChannelMessage.fromJson)
+        .toList();
   }
 
   Future<List<String>> _fetchAllMemberIds(String path) async {

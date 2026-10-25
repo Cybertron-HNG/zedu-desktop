@@ -11,6 +11,12 @@ Channel _channel(String name) => Channel(
   ownerId: 'user-1',
 );
 
+class _EmptyChannelRepository extends Mock implements ChannelRepository {
+  @override
+  Future<Result<List<ChannelMessage>>> fetchChannelMessages(String id) async =>
+      const Success(<ChannelMessage>[]);
+}
+
 class FakeSecureStorageService extends Fake implements SecureStorageService {
   final _values = <String, String>{};
 
@@ -70,6 +76,9 @@ void main() {
           overrides: [
             channelProvider.overrideWith(channels),
             workspaceProvider.overrideWith(_FakeWorkspaceNotifier.new),
+            channelRepositoryProvider.overrideWithValue(
+              _EmptyChannelRepository(),
+            ),
             dmDraftStoreProvider.overrideWith(
               (ref) => DmDraftStore(
                 FakeSecureStorageService(),
