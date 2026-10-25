@@ -4,12 +4,16 @@ import 'package:zedu/core/core.dart';
 import 'package:zedu/features/features.dart';
 
 class UserProfileNotifier extends Notifier<UserProfileState> {
+  UserProfileNotifier({WarningLogger? warningLogger})
+    : _warningLogger = warningLogger;
+
+  final WarningLogger? _warningLogger;
   late final UserProfileRepository _repository;
 
   @override
   UserProfileState build() {
     _repository = ref.read(userProfileRepositoryProvider);
-    load();
+    Future.microtask(load);
     return const UserProfileState(isLoading: true);
   }
 
@@ -523,13 +527,19 @@ class UserProfileNotifier extends Notifier<UserProfileState> {
             );
           }).toList();
           loadedTeamMembers = savedMembers;
-        } catch (error, stackTrace) {
-          AppLogger.w(
-            'Could not read saved team members for org $orgId',
-            tag: 'UserProfileNotifier',
-            error: error,
-            stackTrace: stackTrace,
-          );
+        } catch (_) {
+          final warningLogger = _warningLogger;
+          if (warningLogger != null) {
+            warningLogger(
+              'Could not read saved team members',
+              tag: 'UserProfileNotifier',
+            );
+          } else {
+            AppLogger.w(
+              'Could not read saved team members',
+              tag: 'UserProfileNotifier',
+            );
+          }
         }
       }
     }

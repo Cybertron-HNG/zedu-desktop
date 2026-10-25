@@ -59,9 +59,11 @@ void main() {
   group('UserProfileRemoteDataSourceImpl.getTeamMembers (mock data)', () {
     late MockSecureStorageService storage;
     late UserProfileRemoteDataSourceImpl datasource;
+    late List<({String message, String? tag})> warnings;
 
     setUp(() {
       storage = MockSecureStorageService();
+      warnings = [];
       if (locator.isRegistered<SecureStorageService>()) {
         locator.unregister<SecureStorageService>();
       }
@@ -69,6 +71,9 @@ void main() {
       datasource = UserProfileRemoteDataSourceImpl(
         config: const AppConfig(apiBaseUrl: '', usesMockData: true),
         apiBaseService: MockApiBaseService(),
+        warningLogger: (message, {tag}) {
+          warnings.add((message: message, tag: tag));
+        },
       );
     });
 
@@ -84,6 +89,14 @@ void main() {
         final members = await datasource.getTeamMembers(orgId: 'org-1');
 
         expect(members, isNotEmpty);
+        expect(warnings, [
+          (
+            message: 'Could not read saved team members',
+            tag: 'UserProfileRemoteDataSource',
+          ),
+        ]);
+        expect(warnings.single.message, isNot(contains('not valid json')));
+        expect(warnings.single.message, isNot(contains('org-1')));
       },
     );
   });

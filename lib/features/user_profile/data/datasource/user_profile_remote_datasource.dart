@@ -42,11 +42,14 @@ class UserProfileRemoteDataSourceImpl implements UserProfileRemoteDataSource {
   const UserProfileRemoteDataSourceImpl({
     required AppConfig config,
     required ApiBaseService apiBaseService,
+    WarningLogger? warningLogger,
   }) : _config = config,
-       _apiBaseService = apiBaseService;
+       _apiBaseService = apiBaseService,
+       _warningLogger = warningLogger;
 
   final AppConfig _config;
   final ApiBaseService _apiBaseService;
+  final WarningLogger? _warningLogger;
 
   static const _tag = 'UserProfileRemoteDataSource';
 
@@ -259,13 +262,13 @@ class UserProfileRemoteDataSourceImpl implements UserProfileRemoteDataSource {
             loadedTeamMembers = decoded
                 .map((e) => TeamMemberModel.fromJson(e as Map<String, dynamic>))
                 .toList();
-          } catch (error, stackTrace) {
-            AppLogger.w(
-              'Could not read saved team members for org $orgId',
-              tag: 'UserProfileRemoteDatasource',
-              error: error,
-              stackTrace: stackTrace,
-            );
+          } catch (_) {
+            final warningLogger = _warningLogger;
+            if (warningLogger != null) {
+              warningLogger('Could not read saved team members', tag: _tag);
+            } else {
+              AppLogger.w('Could not read saved team members', tag: _tag);
+            }
           }
         }
       }
