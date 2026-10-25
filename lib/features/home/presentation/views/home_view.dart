@@ -29,6 +29,7 @@ class _HomeViewState extends ConsumerState<HomeView> {
       backgroundColor: colors.background,
       body: Column(
         children: [
+          const UpdateBanner(),
           const _HomeAppBar(),
           Expanded(
             child: Row(

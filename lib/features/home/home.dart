@@ -2,6 +2,7 @@ export 'presentation/providers/active_chat_provider.dart';
 export 'presentation/providers/group_dm_provider.dart';
 export 'presentation/views/new_group_chat_view.dart';
 export 'data/services/chat_storage_service.dart';
+export 'data/services/update_check_service.dart';
 export 'data/services/chat_websocket_service.dart';
 export 'presentation/widgets/message_composer.dart';
 export 'presentation/widgets/message_bubble.dart';

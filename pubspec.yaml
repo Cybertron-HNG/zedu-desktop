@@ -31,6 +31,7 @@ dependencies:
   hive_flutter: ^1.1.0
   launch_at_startup: ^0.5.1
   local_notifier: ^0.1.6
+  package_info_plus: ^8.3.0
   riverpod: ^3.2.1
   state_notifier: ^1.0.0
   super_clipboard: ^0.9.1
