@@ -16,6 +16,7 @@ class _InviteTeammatesModalState extends ConsumerState<InviteTeammatesModal> {
   List<Map<String, dynamic>> _filteredUsers = [];
   bool _isLoading = false;
   bool _isAddingEveryone = false;
+  String? _emailError;
 
   @override
   void initState() {
@@ -57,21 +58,29 @@ class _InviteTeammatesModalState extends ConsumerState<InviteTeammatesModal> {
     super.dispose();
   }
 
-  void _addEmailFromInput() {
+  /// Adds the typed email as an invite. Returns false, and shows an error,
+  /// when the box holds text that is not a valid email address.
+  bool _addEmailFromInput() {
     final email = _emailController.text.trim();
-    if (email.isNotEmpty && email.contains('@')) {
-      _addInvite(email, null);
+    if (email.isEmpty) return true;
+    if (Validators.validateEmail(context, email) != null) {
+      setState(() => _emailError = 'Please enter a valid email address.');
+      return false;
     }
+    _addInvite(email, null);
+    return true;
   }
 
   void _addInvite(String email, String? userId) {
-    if (!_invites.any((invite) => invite['email'] == email)) {
+    final key = email.toLowerCase();
+    if (!_invites.any((invite) => invite['email']!.toLowerCase() == key)) {
       setState(() {
         _invites.add({'email': email, 'userId': userId});
         _filteredUsers = [];
       });
     }
     _emailController.clear();
+    if (_emailError != null) setState(() => _emailError = null);
   }
 
   void _removeInvite(String email) {
@@ -81,7 +90,8 @@ class _InviteTeammatesModalState extends ConsumerState<InviteTeammatesModal> {
   }
 
   Future<void> _submit() async {
-    _addEmailFromInput(); // Catch any typed email not yet submitted
+    // Catch any typed email not yet submitted
+    if (!_addEmailFromInput()) return;
 
     if (_invites.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -142,28 +152,28 @@ class _InviteTeammatesModalState extends ConsumerState<InviteTeammatesModal> {
 
   Future<void> _addEveryone() async {
     setState(() => _isAddingEveryone = true);
-    final result = await ref.read(addEveryoneToGeneralProvider).call();
+    final result = await ref.read(addEveryoneToChannelProvider).call();
     if (!mounted) return;
     setState(() => _isAddingEveryone = false);
 
     final colors = context.colors;
     final messenger = ScaffoldMessenger.of(context);
     switch (result) {
-      case AddEveryoneAdded(:final count):
+      case AddEveryoneAdded(:final count, :final channelName):
         messenger.showSnackBar(
           SnackBar(
             content: Text(
-              'Added $count ${count == 1 ? 'person' : 'people'} to #general.',
+              'Added $count ${count == 1 ? 'person' : 'people'} to #$channelName.',
             ),
             backgroundColor: colors.success,
           ),
         );
         Navigator.pop(context);
-      case AddEveryoneNobodyToAdd():
+      case AddEveryoneNobodyToAdd(:final channelName):
         messenger.showSnackBar(
-          const SnackBar(
+          SnackBar(
             content: Text(
-              'Everyone in your organisation is already in #general.',
+              'Everyone in your organisation is already in #$channelName.',
             ),
           ),
         );
@@ -177,6 +187,7 @@ class _InviteTeammatesModalState extends ConsumerState<InviteTeammatesModal> {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final channelName = openChannelName(ref.watch(activeChatProvider));
 
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -191,14 +202,19 @@ class _InviteTeammatesModalState extends ConsumerState<InviteTeammatesModal> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  'Add people to #general',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: colors.textPrimary,
+                Expanded(
+                  child: Text(
+                    'Add people to #$channelName',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: colors.textPrimary,
+                    ),
                   ),
                 ),
+                const SizedBox(width: 12),
                 IconButton(
                   icon: Icon(Icons.close, color: colors.textHint),
                   onPressed: () => Navigator.pop(context),
@@ -261,7 +277,12 @@ class _InviteTeammatesModalState extends ConsumerState<InviteTeammatesModal> {
                         isDense: true,
                         contentPadding: const EdgeInsets.symmetric(vertical: 8),
                       ),
-                      onChanged: _onSearchChanged,
+                      onChanged: (value) {
+                        if (_emailError != null) {
+                          setState(() => _emailError = null);
+                        }
+                        _onSearchChanged(value);
+                      },
                       onSubmitted: (_) => _addEmailFromInput(),
                       onEditingComplete: _addEmailFromInput,
                     ),
@@ -269,6 +290,14 @@ class _InviteTeammatesModalState extends ConsumerState<InviteTeammatesModal> {
                 ],
               ),
             ),
+            if (_emailError != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Text(
+                  _emailError!,
+                  style: TextStyle(color: colors.error, fontSize: 12),
+                ),
+              ),
             if (_filteredUsers.isNotEmpty)
               Container(
                 margin: const EdgeInsets.only(top: 4),
@@ -316,7 +345,7 @@ class _InviteTeammatesModalState extends ConsumerState<InviteTeammatesModal> {
               ),
             const SizedBox(height: 8),
             Text(
-              'Search for people in your organisation and add them to #general.',
+              'Search for people in your organisation and add them to #$channelName.',
               style: TextStyle(fontSize: 12, color: colors.textHint),
             ),
             const SizedBox(height: 24),
