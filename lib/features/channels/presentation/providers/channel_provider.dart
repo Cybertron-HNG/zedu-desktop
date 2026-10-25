@@ -29,6 +29,27 @@ class ChannelNotifier extends AsyncNotifier<List<Channel>> {
     };
   }
 
+  /// Retries the channel load for the currently selected workspace after a
+  /// failed request. Used by the sidebar's retry action.
+  Future<void> retryLoad() async {
+    final orgId = ref.read(workspaceProvider).selectedWorkspace?.id;
+    if (orgId == null) {
+      state = const AsyncData(<Channel>[]);
+      return;
+    }
+
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(() async {
+      final result = await ref
+          .read(channelRepositoryProvider)
+          .fetchChannels(orgId);
+      return switch (result) {
+        Success<List<Channel>>(:final value) => value,
+        Failure<List<Channel>>(:final error) => throw error,
+      };
+    });
+  }
+
   bool _isCreating = false;
 
   /// Creates a channel and returns the outcome to the caller. The list state
@@ -137,6 +158,4 @@ class ChannelNotifier extends AsyncNotifier<List<Channel>> {
 
 final channelProvider = AsyncNotifierProvider<ChannelNotifier, List<Channel>>(
   ChannelNotifier.new,
-  // A failed load is shown once instead of being retried in the background.
-  retry: (_, _) => null,
 );
