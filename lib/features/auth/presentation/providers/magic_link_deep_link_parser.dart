@@ -17,9 +17,12 @@ class MagicLinkDeepLinkParser {
       return true;
     }
 
-    if ((scheme == 'https' || scheme == 'http') &&
-        path.endsWith('/auth/magick-link/verify')) {
-      return true;
+    if ((scheme == 'https' || scheme == 'http')) {
+      if (path.endsWith('/auth/magick-link/verify') ||
+          path.endsWith('/auth/login/magic-link') ||
+          path.endsWith('/auth/magic-link')) {
+        return true;
+      }
     }
 
     return false;
