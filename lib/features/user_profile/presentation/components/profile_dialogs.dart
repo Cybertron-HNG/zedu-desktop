@@ -310,7 +310,7 @@ Future<void> showEditOrganizationDialog(
     builder: (ctx) => AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       title: Text(
-        'Edit Organisation',
+        'Edit Organization',
         style: ctx.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
       ),
       content: SizedBox(
@@ -321,9 +321,9 @@ Future<void> showEditOrganizationDialog(
             mainAxisSize: MainAxisSize.min,
             children: [
               AppTextField(
-                label: 'Organisation Name',
+                label: 'Organization Name',
                 controller: nameCtrl,
-                hint: 'Enter organisation name',
+                hint: 'Enter organization name',
                 validator: (v) =>
                     (v == null || v.trim().isEmpty) ? 'Name is required' : null,
               ),
