@@ -5,6 +5,8 @@ import '../../../../../helpers/helpers.dart';
 
 class MockDmRepository extends Mock implements DmRepository {}
 
+class MockSecureStorageService extends Mock implements SecureStorageService {}
+
 class FakeAuthNotifier extends AuthNotifier {
   @override
   AuthState build() => AuthState(
@@ -42,12 +44,17 @@ Widget buildCallingDmChatArea() {
   when(
     () => repository.getMessages(any(), page: any(named: 'page')),
   ).thenAnswer((_) async => <Map<String, dynamic>>[]);
+  final storage = MockSecureStorageService();
+  when(() => storage.readData(any())).thenAnswer((_) async => null);
 
   return ProviderScope(
     overrides: [
       dmRepositoryProvider.overrideWithValue(repository),
       authNotifierProvider.overrideWith(FakeAuthNotifier.new),
       activeCallProvider.overrideWith(CallingActiveCallNotifier.new),
+      dmDraftStoreProvider.overrideWith(
+        (ref) => DmDraftStore(storage, userId: 'user-1', orgId: 'org-1'),
+      ),
     ],
     child: buildTestMaterialApp(
       Scaffold(
