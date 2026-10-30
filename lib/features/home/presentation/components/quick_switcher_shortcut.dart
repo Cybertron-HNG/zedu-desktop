@@ -6,7 +6,11 @@ import 'package:zedu/features/features.dart';
 class QuickSwitcherShortcut extends ConsumerStatefulWidget {
   final Widget child;
 
-  const QuickSwitcherShortcut({super.key, required this.child});
+  /// The router to open the switcher over and to navigate with. Defaults to
+  /// the app's router; tests pass their own.
+  final GoRouter? router;
+
+  const QuickSwitcherShortcut({super.key, required this.child, this.router});
 
   @override
   ConsumerState<QuickSwitcherShortcut> createState() =>
@@ -16,11 +20,12 @@ class QuickSwitcherShortcut extends ConsumerStatefulWidget {
 class _QuickSwitcherShortcutState extends ConsumerState<QuickSwitcherShortcut> {
   bool _open = false;
 
+  GoRouter get _router => widget.router ?? AppRouter.router;
+
   Future<void> _showSwitcher() async {
     final signedIn =
         ref.read(authNotifierProvider).status == AuthStatus.authenticated;
-    final navigatorContext =
-        AppRouter.router.routerDelegate.navigatorKey.currentContext;
+    final navigatorContext = _router.routerDelegate.navigatorKey.currentContext;
     if (_open || !signedIn || navigatorContext == null) return;
 
     _open = true;
@@ -37,8 +42,7 @@ class _QuickSwitcherShortcutState extends ConsumerState<QuickSwitcherShortcut> {
           .where((c) => !c.archived)
           .map((c) => QuickSwitcherEntry.channel(c.name));
       final dms = dmList.map(QuickSwitcherEntry.dm);
-      final rootContext =
-          AppRouter.router.routerDelegate.navigatorKey.currentContext;
+      final rootContext = _router.routerDelegate.navigatorKey.currentContext;
       if (!mounted || rootContext == null || !rootContext.mounted) return;
 
       await showDialog<void>(
@@ -66,9 +70,9 @@ class _QuickSwitcherShortcutState extends ConsumerState<QuickSwitcherShortcut> {
       ref.read(selectedDmProvider.notifier).select(conversation);
     }
 
-    final location = AppRouter.router.routerDelegate.currentConfiguration.uri;
+    final location = _router.routerDelegate.currentConfiguration.uri;
     if (location.path != AppRouter.home) {
-      AppRouter.router.go(AppRouter.home);
+      _router.go(AppRouter.home);
     }
   }
 
