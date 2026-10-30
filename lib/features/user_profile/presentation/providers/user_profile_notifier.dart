@@ -23,8 +23,10 @@ class UserProfileNotifier extends Notifier<UserProfileState> {
       },
     );
     // load() reads and writes state, which is not available until build()
-    // returns, so it starts right after.
-    Future.microtask(load);
+    // returns, so it starts right after, unless the provider was disposed.
+    Future.microtask(() {
+      if (ref.mounted) load();
+    });
     return const UserProfileState(isLoading: true);
   }
 

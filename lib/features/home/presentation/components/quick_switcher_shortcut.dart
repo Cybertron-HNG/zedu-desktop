@@ -31,13 +31,19 @@ class _QuickSwitcherShortcutState extends ConsumerState<QuickSwitcherShortcut> {
     _open = true;
     try {
       // Wait for the lists to load, so Cmd/Ctrl+K right after launch still
-      // finds every channel and DM.
-      final channelList = await ref
-          .read(channelProvider.future)
-          .catchError((_) => const <Channel>[]);
-      final dmList = await ref
-          .read(dmListProvider.future)
-          .catchError((_) => const <DmConversation>[]);
+      // finds every channel and DM. A list that fails to load is left out,
+      // and the user is told, so a short list isn't mistaken for all of them.
+      var loadFailed = false;
+      final channelList = await ref.read(channelProvider.future).catchError((
+        _,
+      ) {
+        loadFailed = true;
+        return const <Channel>[];
+      });
+      final dmList = await ref.read(dmListProvider.future).catchError((_) {
+        loadFailed = true;
+        return const <DmConversation>[];
+      });
       final channels = channelList
           .where((c) => !c.archived)
           .map((c) => QuickSwitcherEntry.channel(c.name));
@@ -47,13 +53,28 @@ class _QuickSwitcherShortcutState extends ConsumerState<QuickSwitcherShortcut> {
 
       await showDialog<void>(
         context: rootContext,
-        builder: (dialogContext) => QuickSwitcherDialog(
-          entries: [...channels, ...dms],
-          onSelected: (entry) {
-            Navigator.of(dialogContext).pop();
-            _openEntry(entry);
-          },
-        ),
+        builder: (dialogContext) {
+          // The dialog sits inside the navigator's overlay, so the toast is
+          // shown from its context once it is on screen.
+          if (loadFailed) {
+            loadFailed = false;
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (!dialogContext.mounted) return;
+              AppToastService.show(
+                dialogContext,
+                type: AppToastType.error,
+                message: "Couldn't load all your channels and DMs.",
+              );
+            });
+          }
+          return QuickSwitcherDialog(
+            entries: [...channels, ...dms],
+            onSelected: (entry) {
+              Navigator.of(dialogContext).pop();
+              _openEntry(entry);
+            },
+          );
+        },
       );
     } finally {
       _open = false;

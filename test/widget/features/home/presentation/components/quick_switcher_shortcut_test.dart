@@ -32,6 +32,11 @@ class _Dms extends DmListNotifier {
   ];
 }
 
+class _FailingChannels extends ChannelNotifier {
+  @override
+  Future<List<Channel>> build() async => throw Exception('offline');
+}
+
 /// The real notifier follows the selected workspace, which loads from the API.
 class _ActiveChat extends ActiveChatNotifier {
   @override
@@ -69,12 +74,15 @@ Future<ProviderContainer> _pump(
   WidgetTester tester, {
   AuthStatus status = AuthStatus.authenticated,
   bool withTextField = true,
+  bool channelsFail = false,
 }) async {
   final router = _router(withTextField: withTextField);
   final container = ProviderContainer(
     overrides: [
       authNotifierProvider.overrideWith(() => _Auth(status)),
-      channelProvider.overrideWith(_Channels.new),
+      channelProvider.overrideWith(
+        channelsFail ? _FailingChannels.new : _Channels.new,
+      ),
       dmListProvider.overrideWith(_Dms.new),
       activeChatProvider.overrideWith(_ActiveChat.new),
     ],
@@ -161,6 +169,25 @@ void main() {
       await _pressCtrlK(tester);
 
       expect(find.byType(QuickSwitcherDialog), findsOneWidget);
+    });
+
+    testWidgets('tells the user when the channels could not be loaded', (
+      tester,
+    ) async {
+      await _pump(tester, channelsFail: true);
+
+      await _pressCtrlK(tester);
+
+      expect(find.byType(QuickSwitcherDialog), findsOneWidget);
+      expect(find.text('Gideon'), findsOneWidget);
+      expect(
+        find.text("Couldn't load all your channels and DMs."),
+        findsOneWidget,
+      );
+
+      // Let the toast close itself before the test ends.
+      await tester.pump(const Duration(seconds: 5));
+      await tester.pumpAndSettle();
     });
 
     testWidgets('fires when nothing on the screen has focus', (tester) async {
