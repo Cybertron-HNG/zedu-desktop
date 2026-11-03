@@ -13,7 +13,12 @@ class App extends ConsumerWidget {
       routerConfig: AppRouter.router,
       builder: (context, child) => CreditsPaymentDeepLinkListener(
         child: AuthDeepLinkListener(
-          child: QuickSwitcherShortcut(child: child ?? const SizedBox.shrink()),
+          child: QuickSwitcherShortcut(
+            child: isDesktopApp
+                // Close-to-tray, the tray menu and desktop notifications.
+                ? DesktopManager(child: child ?? const SizedBox.shrink())
+                : child ?? const SizedBox.shrink(),
+          ),
         ),
       ),
     );
