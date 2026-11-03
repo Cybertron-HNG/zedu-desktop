@@ -71,14 +71,16 @@ class _DmChatAreaState extends ConsumerState<DmChatArea> {
         final confirmed = await _confirmConversationAction(
           title: 'Clear history?',
           message:
-              'Clear the loaded message history for ${conversation.displayName}?',
+              'Clear the message history with ${conversation.displayName} on '
+              'this device? ${conversation.displayName} can still see it, and '
+              'new messages will still appear.',
           confirmLabel: 'Clear history',
         );
         if (confirmed && mounted) {
           ref
               .read(chatHistoryProvider(conversation.channelId))
               .clearLocalHistory();
-          _showActionNotice('Loaded history cleared locally.');
+          _showActionNotice('History cleared on this device.');
         }
       case 'delete_conversation':
         final confirmed = await _confirmConversationAction(
@@ -285,9 +287,11 @@ class _DmChatAreaState extends ConsumerState<DmChatArea> {
                               ),
                             if (!historyState.hasMore)
                               SliverToBoxAdapter(
-                                child: DmProfileCard(
-                                  conversation: widget.conversation,
-                                ),
+                                child: historyState.historyCleared
+                                    ? const _HistoryClearedNote()
+                                    : DmProfileCard(
+                                        conversation: widget.conversation,
+                                      ),
                               ),
                           ],
                         ),
@@ -433,6 +437,25 @@ class _DmChatAreaState extends ConsumerState<DmChatArea> {
                 ),
               ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Shown at the top of a cleared conversation instead of [DmProfileCard],
+/// which is meant for the real start of a conversation.
+class _HistoryClearedNote extends StatelessWidget {
+  const _HistoryClearedNote();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 24),
+      child: Center(
+        child: Text(
+          'History cleared on this device',
+          style: TextStyle(color: context.colors.textHint, fontSize: 12),
         ),
       ),
     );

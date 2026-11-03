@@ -6,8 +6,21 @@ import 'package:zedu/features/features.dart';
 
 class MockDmRepository extends Mock implements DmRepository {}
 
+class _MemoryStorage extends Fake implements SecureStorageService {
+  final Map<String, String> values = {};
+
+  @override
+  Future<String?> readData(String key) async => values[key];
+
+  @override
+  Future<void> writeData(String key, String value) async {
+    values[key] = value;
+  }
+}
+
 void main() {
   _deleteTests();
+  _clearHistoryTests();
   group('ChatHistoryNotifier.saveEdit', () {
     late MockDmRepository mockRepository;
     late ProviderContainer container;
@@ -255,6 +268,104 @@ void _deleteTests() {
       await notifier.deleteMessage('m1');
 
       expect(notifier.messages.map((m) => m['id']), ['m1', 'm2']);
+    });
+  });
+}
+
+void _clearHistoryTests() {
+  group('ChatHistoryNotifier.clearLocalHistory', () {
+    late MockDmRepository mockRepository;
+    late _MemoryStorage storage;
+    var serverMessages = <Map<String, dynamic>>[];
+
+    final older = {
+      'id': 'm1',
+      'content': 'old',
+      'user_id': 'u2',
+      'created_at': '2026-11-01T09:00:00Z',
+    };
+    final newest = {
+      'id': 'm2',
+      'content': 'last before clear',
+      'user_id': 'u2',
+      'created_at': '2026-11-01T10:00:00Z',
+    };
+    final afterClear = {
+      'id': 'm3',
+      'content': 'after clear',
+      'user_id': 'u2',
+      'created_at': '2026-11-01T11:00:00Z',
+    };
+
+    setUp(() {
+      mockRepository = MockDmRepository();
+      storage = _MemoryStorage();
+      serverMessages = [newest, older];
+      when(
+        () => mockRepository.getMessages(any(), page: any(named: 'page')),
+      ).thenAnswer((_) async => List.of(serverMessages));
+    });
+
+    // Each container is a fresh app session sharing the same device storage.
+    Future<ChatHistoryNotifier> open() async {
+      final container = ProviderContainer(
+        overrides: [
+          dmRepositoryProvider.overrideWithValue(mockRepository),
+          dmHistoryClearStoreProvider.overrideWithValue(
+            DmHistoryClearStore(storage, userId: 'u1'),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+      final notifier = container.read(chatHistoryProvider('ch-1'));
+      await pumpEventQueue();
+      return notifier;
+    }
+
+    test('is not marked cleared before Clear history is used', () async {
+      final notifier = await open();
+
+      expect(notifier.historyCleared, isFalse);
+      expect(notifier.messages.map((m) => m['id']), ['m2', 'm1']);
+    });
+
+    test('empties the chat and marks it cleared', () async {
+      final notifier = await open();
+
+      await notifier.clearLocalHistory();
+
+      expect(notifier.messages, isEmpty);
+      expect(notifier.hasMore, isFalse);
+      expect(notifier.historyCleared, isTrue);
+    });
+
+    test('keeps cleared messages hidden after the DM is reopened', () async {
+      final first = await open();
+      await first.clearLocalHistory();
+
+      final reopened = await open();
+
+      expect(reopened.messages, isEmpty);
+      expect(reopened.historyCleared, isTrue);
+      expect(reopened.hasMore, isFalse);
+    });
+
+    test('still shows messages sent after the clear', () async {
+      final first = await open();
+      await first.clearLocalHistory();
+      serverMessages = [afterClear, newest, older];
+
+      final reopened = await open();
+
+      expect(reopened.messages.map((m) => m['id']), ['m3']);
+      expect(reopened.hasMore, isFalse);
+    });
+
+    test('stores the clear per user and conversation', () async {
+      final first = await open();
+      await first.clearLocalHistory();
+
+      expect(storage.values.keys, ['dm_history_cleared_u1_ch-1']);
     });
   });
 }

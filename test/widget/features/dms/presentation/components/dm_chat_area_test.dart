@@ -157,6 +157,80 @@ void main() {
     },
   );
 
+  testWidgets(
+    'Clear history shows a cleared note, not the start-of-conversation card',
+    (tester) async {
+      tester.view.physicalSize = const Size(1200, 900);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final repository = MockDmRepository();
+      when(
+        () => repository.getMessages(any(), page: any(named: 'page')),
+      ).thenAnswer(
+        (_) async => [
+          {
+            'id': 'm1',
+            'content': 'old message',
+            'user_id': 'u-2',
+            'created_at': '2026-10-17T08:00:00Z',
+          },
+        ],
+      );
+      final storage = MockSecureStorageService();
+      when(() => storage.readData(any())).thenAnswer((_) async => null);
+      when(() => storage.writeData(any(), any())).thenAnswer((_) async {});
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            dmRepositoryProvider.overrideWithValue(repository),
+            authNotifierProvider.overrideWith(FakeSignedInAuthNotifier.new),
+            dmDraftStoreProvider.overrideWith(
+              (ref) => DmDraftStore(storage, userId: 'user-1', orgId: 'org-1'),
+            ),
+            dmHistoryClearStoreProvider.overrideWithValue(
+              DmHistoryClearStore(storage, userId: 'user-1'),
+            ),
+          ],
+          child: buildTestMaterialApp(
+            Scaffold(
+              body: DmChatArea(
+                conversation: DmConversation(
+                  channelId: 'ch-1',
+                  username: 'Ada Lovelace',
+                  participantId: 'u-2',
+                  previewMessage: '',
+                  unreadCount: 0,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('View Profile'), findsOneWidget);
+
+      await tester.tap(find.byTooltip('More options'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Clear history'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(TextButton, 'Clear history'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('old message', findRichText: true), findsNothing);
+      expect(find.text('View Profile'), findsNothing);
+      expect(find.text('History cleared on this device'), findsOneWidget);
+      verify(
+        () => storage.writeData(
+          'dm_history_cleared_user-1_ch-1',
+          '2026-10-17T08:00:00.000Z',
+        ),
+      ).called(1);
+    },
+  );
+
   group('DmChatArea message text', () {
     Future<void> pumpChat(
       WidgetTester tester,

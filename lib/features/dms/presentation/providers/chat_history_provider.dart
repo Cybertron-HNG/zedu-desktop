@@ -11,7 +11,12 @@ class ChatHistoryNotifier extends ChangeNotifier {
   bool isLoading = true;
   bool hasMore = true;
   int page = 1;
-  bool _isHistoryClearedLocally = false;
+
+  /// Messages created at or before this time were cleared with "Clear
+  /// history" and stay hidden.
+  DateTime? _clearedAt;
+
+  bool get historyCleared => _clearedAt != null;
 
   String? editingMessageId;
   final Map<String, Future<void>> _saveEditChains = {};
@@ -63,9 +68,17 @@ class ChatHistoryNotifier extends ChangeNotifier {
 
   Future<void> _loadInitial() async {
     try {
+      _clearedAt = await ref
+          .read(dmHistoryClearStoreProvider)
+          .clearedAt(channelId);
+    } catch (_) {}
+    try {
       final repository = ref.read(dmRepositoryProvider);
-      messages = await repository.getMessages(channelId, page: 1);
-      hasMore = messages.length >= DmRepository.pageSize;
+      final loaded = await repository.getMessages(channelId, page: 1);
+      messages = loaded.where((m) => !_isCleared(m)).toList();
+      hasMore =
+          loaded.length >= DmRepository.pageSize &&
+          messages.length == loaded.length;
       page = 1;
     } catch (_) {
     } finally {
@@ -102,7 +115,6 @@ class ChatHistoryNotifier extends ChangeNotifier {
   }
 
   Future<void> _pollForNewMessages() async {
-    if (_isHistoryClearedLocally) return;
     try {
       final repository = ref.read(dmRepositoryProvider);
       final fresh = await repository.getMessages(channelId, page: 1);
@@ -110,7 +122,7 @@ class ChatHistoryNotifier extends ChangeNotifier {
       bool hadNew = false;
       for (final msg in fresh) {
         final id = msg['id']?.toString();
-        if (id == null || _seenIds.contains(id)) continue;
+        if (id == null || _seenIds.contains(id) || _isCleared(msg)) continue;
 
         _seenIds.add(id);
         hadNew = true;
@@ -131,7 +143,9 @@ class ChatHistoryNotifier extends ChangeNotifier {
         final newOnly = fresh
             .where(
               (m) =>
-                  !existingIds.contains(m['id']?.toString()) && !_isDeleted(m),
+                  !existingIds.contains(m['id']?.toString()) &&
+                  !_isDeleted(m) &&
+                  !_isCleared(m),
             )
             .toList();
         if (newOnly.isNotEmpty) {
@@ -169,8 +183,15 @@ class ChatHistoryNotifier extends ChangeNotifier {
         page: nextPage,
       );
 
-      messages = [...messages, ...newMessages.where((m) => !_isDeleted(m))];
-      hasMore = newMessages.length >= DmRepository.pageSize;
+      messages = [
+        ...messages,
+        ...newMessages.where((m) => !_isDeleted(m) && !_isCleared(m)),
+      ];
+      // Pages run newest first, so once a cleared message shows up every
+      // older page is cleared too.
+      hasMore =
+          newMessages.length >= DmRepository.pageSize &&
+          !newMessages.any(_isCleared);
       page = nextPage;
     } catch (_) {
     } finally {
@@ -200,7 +221,6 @@ class ChatHistoryNotifier extends ChangeNotifier {
     List<dynamic>? mentions,
     bool isChannel = false,
   }) async {
-    _isHistoryClearedLocally = false;
     final tempId = DateTime.now().millisecondsSinceEpoch.toString();
     final optimisticMessage = {
       "id": tempId,
@@ -303,12 +323,42 @@ class ChatHistoryNotifier extends ChangeNotifier {
     }
   }
 
-  void clearLocalHistory() {
-    _isHistoryClearedLocally = true;
+  static DateTime? _createdAt(Map<String, dynamic> message) =>
+      DateTime.tryParse(message['created_at']?.toString() ?? '');
+
+  bool _isCleared(Map<String, dynamic> message) {
+    final clearedAt = _clearedAt;
+    if (clearedAt == null) return false;
+    final createdAt = _createdAt(message);
+    return createdAt != null && !createdAt.isAfter(clearedAt);
+  }
+
+  /// Hides every message up to now in this conversation, on this device, and
+  /// remembers it so they stay hidden after the DM is reopened.
+  Future<void> clearLocalHistory() async {
+    // Cut off at the newest loaded message rather than this device's clock,
+    // so a clock running ahead can't hide messages sent after the clear.
+    DateTime? newest;
+    for (final message in messages) {
+      final createdAt = _createdAt(message);
+      if (createdAt != null && (newest == null || createdAt.isAfter(newest))) {
+        newest = createdAt;
+      }
+    }
+    final clearedAt = newest ?? DateTime.now();
+    _clearedAt = clearedAt;
     messages = [];
     hasMore = false;
     page = 1;
     notifyListeners();
+
+    try {
+      await ref
+          .read(dmHistoryClearStoreProvider)
+          .markCleared(channelId, clearedAt);
+    } catch (_) {
+      // The messages stay hidden for this session even if saving fails.
+    }
   }
 
   void startEditing(String messageId) {
