@@ -441,5 +441,45 @@ void main() {
       expect(find.text('hello\n---', findRichText: true), findsOneWidget);
       expect(find.byType(IntrinsicWidth), findsNothing);
     });
+
+    testWidgets(
+      'displays emoji initial without splitting surrogate pairs in header',
+      (tester) async {
+        final repository = MockDmRepository();
+        when(
+          () => repository.getMessages(any(), page: any(named: 'page')),
+        ).thenAnswer((_) => Completer<List<Map<String, dynamic>>>().future);
+        final storage = MockSecureStorageService();
+        when(() => storage.readData(any())).thenAnswer((_) async => null);
+
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              authNotifierProvider.overrideWith(FakeAuthNotifier.new),
+              dmRepositoryProvider.overrideWithValue(repository),
+              dmDraftStoreProvider.overrideWith(
+                (ref) => DmDraftStore(storage, userId: 'u', orgId: 'o'),
+              ),
+            ],
+            child: buildTestMaterialApp(
+              Scaffold(
+                body: DmChatArea(
+                  conversation: DmConversation(
+                    channelId: 'channel-1',
+                    username: '🎯 Sam',
+                    participantId: 'user-2',
+                    previewMessage: '',
+                    unreadCount: 0,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pump();
+
+        expect(find.text('🎯'), findsOneWidget);
+      },
+    );
   });
 }

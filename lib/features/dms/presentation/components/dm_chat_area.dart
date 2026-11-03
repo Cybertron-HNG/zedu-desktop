@@ -225,8 +225,9 @@ class _DmChatAreaState extends ConsumerState<DmChatArea> {
   }
 
   void _showActionNotice(String message) {
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -604,9 +605,10 @@ class _DmChatHeader extends StatelessWidget {
       ),
     );
 
-    final participantInitial = conversation.displayName.trim().isEmpty
+    final trimmedDisplayName = conversation.displayName.trim();
+    final participantInitial = trimmedDisplayName.isEmpty
         ? '?'
-        : conversation.displayName.trim()[0].toUpperCase();
+        : trimmedDisplayName.characters.first.toUpperCase();
 
     return Container(
       height: 58,
@@ -949,9 +951,10 @@ class _MessageBubble extends ConsumerWidget {
         ? history.currentUserAvatarUrl
         : conversation.effectiveAvatarUrl;
 
-    final senderInitial = senderName.isNotEmpty
-        ? senderName[0].toUpperCase()
-        : '?';
+    final trimmedSenderName = senderName.trim();
+    final senderInitial = trimmedSenderName.isEmpty
+        ? '?'
+        : trimmedSenderName.characters.first.toUpperCase();
 
     final List<dynamic> media = (message['media'] as List<dynamic>?) ?? [];
 
