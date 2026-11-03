@@ -38,7 +38,7 @@ class _HomeViewState extends ConsumerState<HomeView> {
                 Expanded(
                   child: Stack(
                     children: [
-                      const Positioned.fill(child: _ChatAreaSwitcher()),
+                      const Positioned.fill(child: HomeChatAreaSwitcher()),
                       if (showProfile)
                         const Positioned(
                           right: 0,
@@ -133,8 +133,10 @@ class _MainSidebarSwitcher extends ConsumerWidget {
   }
 }
 
-class _ChatAreaSwitcher extends ConsumerWidget {
-  const _ChatAreaSwitcher();
+/// The main pane of Home: the open DM, the new group chat form, or the
+/// channel picked in the sidebar.
+class HomeChatAreaSwitcher extends ConsumerWidget {
+  const HomeChatAreaSwitcher({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -147,6 +149,10 @@ class _ChatAreaSwitcher extends ConsumerWidget {
       } else {
         return const DmEmptyState();
       }
+    }
+    final chatType = ref.watch(activeChatProvider.select((s) => s.type));
+    if (chatType == ActiveChatType.newGroupChat) {
+      return const NewGroupChatView();
     }
     return const HomeChatArea();
   }

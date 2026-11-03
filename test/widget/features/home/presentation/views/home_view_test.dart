@@ -53,7 +53,62 @@ class _FakeWorkspaceNotifier extends WorkspaceNotifier {
   }
 }
 
+class _FakeUserProfileNotifier extends UserProfileNotifier {
+  @override
+  UserProfileState build() => const UserProfileState();
+}
+
 void main() {
+  group('HomeChatAreaSwitcher', () {
+    Future<void> pumpSwitcher(WidgetTester tester) async {
+      tester.view.physicalSize = const Size(1600, 1000);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            userProfileNotifierProvider.overrideWith(
+              _FakeUserProfileNotifier.new,
+            ),
+            channelProvider.overrideWith(_FakeChannelNotifier.new),
+            workspaceProvider.overrideWith(_FakeWorkspaceNotifier.new),
+            dmDraftStoreProvider.overrideWith(
+              (ref) => DmDraftStore(
+                FakeSecureStorageService(),
+                userId: 'user-1',
+                orgId: 'org-1',
+              ),
+            ),
+          ],
+          child: buildTestMaterialApp(
+            const Scaffold(body: HomeChatAreaSwitcher()),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('opens the new group chat view when it is selected', (
+      tester,
+    ) async {
+      await pumpSwitcher(tester);
+      expect(find.byType(HomeChatArea), findsOneWidget);
+      expect(find.byType(NewGroupChatView), findsNothing);
+
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(HomeChatAreaSwitcher)),
+      );
+      container.read(activeChatProvider.notifier).selectNewGroupChat();
+      await tester.pumpAndSettle();
+
+      expect(find.byType(NewGroupChatView), findsOneWidget);
+      expect(find.text('New Group Chat'), findsOneWidget);
+      expect(find.byType(HomeChatArea), findsNothing);
+    });
+  });
+
   group('HomeChatArea', () {
     Future<void> pumpSidebarAndChat(
       WidgetTester tester, {
