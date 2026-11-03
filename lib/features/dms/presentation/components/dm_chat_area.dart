@@ -80,24 +80,8 @@ class _DmChatAreaState extends ConsumerState<DmChatArea> {
       case 'view_profile':
         await showDialog<void>(
           context: context,
-          builder: (context) => AlertDialog(
-            title: Text(conversation.displayName),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (conversation.participantEmail?.isNotEmpty == true)
-                  Text(conversation.participantEmail!),
-                Text('User ID: ${conversation.participantId}'),
-              ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Close'),
-              ),
-            ],
-          ),
+          builder: (context) =>
+              DmParticipantProfileDialog(conversation: conversation),
         );
       case 'mute_notifications':
         final settings = ref.read(notificationSettingsProvider);
