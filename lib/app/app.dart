@@ -16,7 +16,10 @@ class App extends ConsumerWidget {
           child: AuthDeepLinkListener(
             child: SessionExpiryListener(
               child: QuickSwitcherShortcut(
-                child: child ?? const SizedBox.shrink(),
+                child: isDesktopApp
+                    // Close-to-tray, the tray menu and desktop notifications.
+                    ? DesktopManager(child: child ?? const SizedBox.shrink())
+                    : child ?? const SizedBox.shrink(),
               ),
             ),
           ),
