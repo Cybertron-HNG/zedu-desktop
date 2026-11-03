@@ -55,7 +55,31 @@ class GroupDmNotifier extends Notifier<List<GroupDM>> {
   List<GroupDM> build() {
     _listenToWebsockets();
     _listenToNetwork();
+    // Groups live on the server, so they come back after a restart and the
+    // list starts over when the workspace or the signed-in user changes.
+    final orgId = ref.watch(currentOrgIdProvider);
+    final userId = ref.watch(groupDmUserIdProvider);
+    if (orgId.isNotEmpty) unawaited(_load(orgId, userId));
     return [];
+  }
+
+  Future<void> _load(String orgId, String? userId) async {
+    try {
+      final groups = await ref
+          .read(groupDmRepositoryProvider)
+          .list(orgId: orgId, currentUserId: userId);
+      if (!ref.mounted) return;
+      // Keep groups created while the list was loading.
+      final loadedIds = groups.map((g) => g.id).toSet();
+      state = [...groups, ...state.where((g) => !loadedIds.contains(g.id))];
+      _connectWebsocket();
+    } catch (_) {
+      // Without the list the sidebar stays empty; creating a group still works.
+    }
+  }
+
+  void _connectWebsocket() {
+    ref.read(chatWebsocketProvider).connect(state.map((g) => g.id).toList());
   }
 
   void _listenToWebsockets() {
@@ -96,8 +120,6 @@ class GroupDmNotifier extends Notifier<List<GroupDM>> {
   Future<Result<GroupDM>> createGroupDm(
     List<TeamMember> selectedMembers,
   ) async {
-    await Future<void>.delayed(const Duration(milliseconds: 800));
-
     final selectedIds = selectedMembers.map((m) => m.id).toSet();
     for (final group in state) {
       final groupIds = group.members.map((m) => m.id).toSet();
@@ -107,25 +129,54 @@ class GroupDmNotifier extends Notifier<List<GroupDM>> {
       }
     }
 
-    final name = selectedMembers
-        .map((m) => m.name ?? m.email.split('@').first)
-        .join(', ');
+    final orgId = ref.read(currentOrgIdProvider);
+    if (orgId.isEmpty) {
+      return const Failure(
+        ApiFailure(
+          message: 'Select a workspace to start a group chat.',
+          kind: ApiFailureKind.client,
+        ),
+      );
+    }
 
-    final newGroup = GroupDM(
-      id: 'group-dm-${DateTime.now().millisecondsSinceEpoch}',
-      name: name,
-      members: selectedMembers,
-      unreadCount: 0,
-      messages: ['Group DM created with $name.'],
+    final GroupDM created;
+    try {
+      created = await ref
+          .read(groupDmRepositoryProvider)
+          .create(
+            orgId: orgId,
+            memberIds: selectedIds.toList(),
+            currentUserId: ref.read(groupDmUserIdProvider),
+          );
+    } catch (error) {
+      // Nothing is added, so a failed create leaves no group in the sidebar.
+      return Failure(_failureFrom(error, 'Could not create the group chat.'));
+    }
+    if (!ref.mounted) return Success(created);
+
+    // The server returns the members it added; fall back to the ones picked
+    // when it sends none back.
+    final members = created.members.isNotEmpty
+        ? created.members
+        : selectedMembers;
+    final newGroup = created.copyWith(
+      name: groupDmName(members),
+      members: members,
     );
 
-    state = [...state, newGroup];
-
-    // Tell websocket we are in this group now
-    final activeIds = state.map((g) => g.id).toList();
-    ref.read(chatWebsocketProvider).connect(activeIds);
+    state = [...state.where((g) => g.id != newGroup.id), newGroup];
+    _connectWebsocket();
 
     return Success(newGroup);
+  }
+
+  ApiFailure _failureFrom(Object error, String fallback) {
+    if (error is ApiFailure) return error;
+    if (error is DioException) {
+      final inner = error.error;
+      return inner is ApiFailure ? inner : ApiFailure.fromDioException(error);
+    }
+    return ApiFailure(message: fallback, kind: ApiFailureKind.client);
   }
 
   Future<void> sendMessage(String groupDmId, String messageText) async {
@@ -147,8 +198,24 @@ class GroupDmNotifier extends Notifier<List<GroupDM>> {
       return;
     }
 
-    // Simulate API delay
-    await Future<void>.delayed(const Duration(milliseconds: 300));
+    try {
+      await ref
+          .read(groupDmRepositoryProvider)
+          .sendMessage(groupDmId, messageText);
+    } catch (_) {
+      if (!ref.mounted) return;
+      state = [
+        for (final group in state)
+          if (group.id == groupDmId)
+            group.copyWith(
+              messages: [...group.messages, '$messageText (Not sent)'],
+            )
+          else
+            group,
+      ];
+      return;
+    }
+    if (!ref.mounted) return;
 
     state = [
       for (final group in state)
