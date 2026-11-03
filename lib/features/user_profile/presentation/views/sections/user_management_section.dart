@@ -180,6 +180,10 @@ class _UserManagementSectionState extends State<UserManagementSection> {
               if (filtered.isEmpty)
                 _MembersEmptyState(
                   isFiltering: query.isNotEmpty || _roleFilter != 'All Roles',
+                  onClearFilters: () => setState(() {
+                    _searchController.clear();
+                    _roleFilter = 'All Roles';
+                  }),
                 ),
               const Divider(height: 1),
               Padding(
@@ -293,8 +297,12 @@ class _TabLabel extends StatelessWidget {
 }
 
 class _MembersEmptyState extends StatelessWidget {
-  const _MembersEmptyState({required this.isFiltering});
+  const _MembersEmptyState({
+    required this.isFiltering,
+    required this.onClearFilters,
+  });
   final bool isFiltering;
+  final VoidCallback onClearFilters;
 
   @override
   Widget build(BuildContext context) {
@@ -325,6 +333,13 @@ class _MembersEmptyState extends StatelessWidget {
                 color: context.colors.textHint,
               ),
             ),
+            if (isFiltering) ...[
+              const SizedBox(height: 8),
+              TextButton(
+                onPressed: onClearFilters,
+                child: const Text('Clear filters'),
+              ),
+            ],
           ],
         ),
       ),

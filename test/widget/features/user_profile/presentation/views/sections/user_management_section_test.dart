@@ -86,6 +86,13 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('No results found'), findsOneWidget);
+
+      await tester.tap(find.text('Clear filters'));
+      await tester.pump();
+
+      expect(find.text('No results found'), findsNothing);
+      expect(find.text('a@z.co'), findsOneWidget);
+      expect(find.text('All Roles'), findsOneWidget);
     });
 
     testWidgets('an empty team shows "No team members yet"', (tester) async {
@@ -93,6 +100,7 @@ void main() {
 
       expect(find.text('No team members yet'), findsOneWidget);
       expect(find.text('No results found'), findsNothing);
+      expect(find.text('Clear filters'), findsNothing);
     });
   });
 }
