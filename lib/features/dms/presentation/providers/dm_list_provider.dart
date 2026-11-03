@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:zedu/core/core.dart';
 import 'package:zedu/features/features.dart';
 
@@ -44,13 +46,36 @@ class DmConversationActions {
 }
 
 class DmConversationActionsNotifier extends Notifier<DmConversationActions> {
+  /// Where this user's pins are remembered (null while signed out).
+  String? _pinnedKey;
+
   @override
-  DmConversationActions build() => const DmConversationActions();
+  DmConversationActions build() {
+    // Rebuilt for each signed-in user, so one account never sees another's pins.
+    final userId = dmPreferencesUserId(ref);
+    _pinnedKey = userId == null || userId.isEmpty
+        ? null
+        : DmPreferencesStore.pinnedKey(userId);
+    final key = _pinnedKey;
+    if (key != null) _restorePinned(key);
+    return const DmConversationActions();
+  }
+
+  Future<void> _restorePinned(String key) async {
+    final saved = await ref.read(dmPreferencesStoreProvider).read(key);
+    if (!ref.mounted || _pinnedKey != key || saved.isEmpty) return;
+    // Keep anything pinned while the saved list was loading.
+    state = state.copyWith(pinnedIds: {...saved, ...state.pinnedIds});
+  }
 
   void togglePinned(String channelId) {
     final ids = Set<String>.from(state.pinnedIds);
     ids.contains(channelId) ? ids.remove(channelId) : ids.add(channelId);
     state = state.copyWith(pinnedIds: ids);
+    final key = _pinnedKey;
+    if (key != null) {
+      unawaited(ref.read(dmPreferencesStoreProvider).write(key, ids));
+    }
   }
 
   /// Deletes the conversation on the server, then hides it from the list
