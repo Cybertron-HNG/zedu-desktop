@@ -11,6 +11,7 @@ import 'composer/composer.dart';
 
 class DmMessageComposer extends ConsumerStatefulWidget {
   final String recipientName;
+  final String? hintText;
   final String channelId;
   final List<DmParticipant> participants;
   final ValueChanged<String>? onSend;
@@ -19,6 +20,7 @@ class DmMessageComposer extends ConsumerStatefulWidget {
   const DmMessageComposer({
     super.key,
     required this.recipientName,
+    this.hintText,
     required this.channelId,
     this.participants = const [],
     this.onSend,
@@ -217,7 +219,10 @@ class DmMessageComposerState extends ConsumerState<DmMessageComposer> {
       return;
     }
     final before = text.substring(0, sel.baseOffset);
-    final atMatch = RegExp(r'@(\w*)$').firstMatch(before);
+    // Match an @-mention only when it appears at the start of the text or
+    // after whitespace. This prevents matching email addresses like
+    // "user@domain.com" while the user is typing an email.
+    final atMatch = RegExp(r'(?:^|\s)@(\w*)$').firstMatch(before);
     if (atMatch == null) {
       setState(() {
         _mentionSuggestions = [];
@@ -951,8 +956,9 @@ class DmMessageComposerState extends ConsumerState<DmMessageComposer> {
                       decoration: InputDecoration(
                         hintText: _isEditMode
                             ? 'Editing message…'
-                            : 'Message ${widget.recipientName} · '
-                                  'Enter to send, Shift+Enter for a new line',
+                            : widget.hintText ??
+                                  'Message ${widget.recipientName} · '
+                                      'Enter to send, Shift+Enter for a new line',
                         hintStyle: TextStyle(
                           color: colors.textHint.withValues(alpha: 0.75),
                           fontSize: 12,

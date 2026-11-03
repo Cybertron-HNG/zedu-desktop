@@ -11,6 +11,12 @@ Channel _channel(String name) => Channel(
   ownerId: 'user-1',
 );
 
+class _EmptyChannelRepository extends Mock implements ChannelRepository {
+  @override
+  Future<Result<List<ChannelMessage>>> fetchChannelMessages(String id) async =>
+      const Success(<ChannelMessage>[]);
+}
+
 class FakeSecureStorageService extends Fake implements SecureStorageService {
   final _values = <String, String>{};
 
@@ -70,6 +76,9 @@ void main() {
           overrides: [
             channelProvider.overrideWith(channels),
             workspaceProvider.overrideWith(_FakeWorkspaceNotifier.new),
+            channelRepositoryProvider.overrideWithValue(
+              _EmptyChannelRepository(),
+            ),
             dmDraftStoreProvider.overrideWith(
               (ref) => DmDraftStore(
                 FakeSecureStorageService(),
@@ -148,5 +157,60 @@ void main() {
       expect(find.text('# $_longName'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
+  });
+
+  group('ResizableSidebar', () {
+    testWidgets(
+      'respects the minimum and maximum width limits while dragging',
+      (tester) async {
+        await tester.pumpWidget(
+          buildTestMaterialApp(
+            Scaffold(
+              body: ResizableSidebar(
+                child: Container(
+                  color: Colors.blue,
+                  child: const Center(child: Text('Sidebar content')),
+                ),
+              ),
+            ),
+          ),
+        );
+
+        final resizableSidebar = find.byKey(
+          const ValueKey('resizable-sidebar'),
+        );
+        final resizeHandle = find.byKey(
+          const ValueKey('resizable-sidebar-handle'),
+        );
+
+        expect(tester.getSize(resizableSidebar).width, 320);
+
+        final handleCenter = tester.getCenter(resizeHandle);
+        final drag = await tester.startGesture(handleCenter);
+        await drag.moveBy(const Offset(-1000, 0));
+        await tester.pump();
+
+        expect(
+          tester.getSize(resizableSidebar).width,
+          greaterThanOrEqualTo(ResizableSidebar.defaultMinWidth),
+        );
+        expect(
+          tester.getSize(resizableSidebar).width,
+          lessThanOrEqualTo(ResizableSidebar.defaultMaxWidth),
+        );
+
+        await drag.moveBy(const Offset(1000, 0));
+        await tester.pump();
+
+        expect(
+          tester.getSize(resizableSidebar).width,
+          lessThanOrEqualTo(ResizableSidebar.defaultMaxWidth),
+        );
+        expect(
+          tester.getSize(resizableSidebar).width,
+          greaterThanOrEqualTo(ResizableSidebar.defaultMinWidth),
+        );
+      },
+    );
   });
 }

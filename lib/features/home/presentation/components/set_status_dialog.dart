@@ -49,8 +49,8 @@ class _SetStatusDialogState extends ConsumerState<SetStatusDialog> {
     super.dispose();
   }
 
-  /// The preset whose emoji, text and timeout all match the current form
-  /// values, or null once the user edits them into a custom status.
+  /// The suggestion that matches the current emoji, text and expiry, if any.
+  /// Editing any of them clears the selection; restoring them reselects it.
   _StatusPreset? get _selectedPreset {
     final text = _textCtrl.text.trim();
     for (final preset in _presets) {
@@ -75,7 +75,6 @@ class _SetStatusDialogState extends ConsumerState<SetStatusDialog> {
     if (_isSaving) return;
     setState(() => _isSaving = true);
 
-    final online = ref.read(authNotifierProvider).user?.status.online ?? true;
     final success = await ref
         .read(authNotifierProvider.notifier)
         .changeStatus(
@@ -83,7 +82,6 @@ class _SetStatusDialogState extends ConsumerState<SetStatusDialog> {
           text: _textCtrl.text.trim(),
           timeout: _timeout,
           pauseNotifications: _pauseNotifications,
-          online: online,
         );
 
     if (!mounted) return;
@@ -151,26 +149,30 @@ class _SetStatusDialogState extends ConsumerState<SetStatusDialog> {
                 child: Row(
                   children: [
                     // Emoji picker trigger
-                    InkWell(
-                      onTap: _pickEmoji,
-                      borderRadius: const BorderRadius.horizontal(
-                        left: Radius.circular(8),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 10,
+                    Semantics(
+                      label: 'Choose status emoji',
+                      button: true,
+                      child: InkWell(
+                        onTap: _pickEmoji,
+                        borderRadius: const BorderRadius.horizontal(
+                          left: Radius.circular(8),
                         ),
-                        child: _selectedEmoji != null
-                            ? Text(
-                                _selectedEmoji!,
-                                style: const TextStyle(fontSize: 20),
-                              )
-                            : Icon(
-                                Icons.sentiment_satisfied_alt_outlined,
-                                color: colors.textHint,
-                                size: 22,
-                              ),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 10,
+                          ),
+                          child: _selectedEmoji != null
+                              ? Text(
+                                  _selectedEmoji!,
+                                  style: const TextStyle(fontSize: 20),
+                                )
+                              : Icon(
+                                  Icons.sentiment_satisfied_alt_outlined,
+                                  color: colors.textHint,
+                                  size: 22,
+                                ),
+                        ),
                       ),
                     ),
                     Container(
@@ -182,7 +184,6 @@ class _SetStatusDialogState extends ConsumerState<SetStatusDialog> {
                     Expanded(
                       child: TextField(
                         controller: _textCtrl,
-                        onChanged: (_) => setState(() {}),
                         decoration: InputDecoration(
                           hintText: "What's your status?",
                           hintStyle: context.textTheme.bodyMedium?.copyWith(
@@ -199,6 +200,8 @@ class _SetStatusDialogState extends ConsumerState<SetStatusDialog> {
                           color: colors.textPrimary,
                         ),
                         maxLength: 100,
+                        // Rebuild so the clear button and the selected suggestion follow the text.
+                        onChanged: (_) => setState(() {}),
                         buildCounter:
                             (
                               _, {
@@ -352,6 +355,7 @@ class _StatusPreset {
   final StatusTimeout timeout;
 }
 
+/// One suggested status. The selected one is highlighted and has a check mark.
 class _PresetTile extends StatelessWidget {
   const _PresetTile({
     required this.preset,
@@ -367,41 +371,45 @@ class _PresetTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.colors;
     final radius = BorderRadius.circular(8);
-    return Material(
-      color: selected ? colors.primaryBg : Colors.transparent,
-      shape: RoundedRectangleBorder(
-        borderRadius: radius,
-        side: selected ? BorderSide(color: colors.primary) : BorderSide.none,
-      ),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: radius,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 7, horizontal: 8),
-          child: Row(
-            children: [
-              Text(preset.emoji, style: const TextStyle(fontSize: 18)),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  preset.label,
-                  style: context.textTheme.bodyMedium?.copyWith(
-                    color: colors.textPrimary,
-                    fontWeight: selected ? FontWeight.w600 : null,
+    return Semantics(
+      button: true,
+      selected: selected,
+      child: Material(
+        color: selected ? colors.primaryBg : Colors.transparent,
+        shape: RoundedRectangleBorder(
+          borderRadius: radius,
+          side: selected ? BorderSide(color: colors.primary) : BorderSide.none,
+        ),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: radius,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 7, horizontal: 8),
+            child: Row(
+              children: [
+                Text(preset.emoji, style: const TextStyle(fontSize: 18)),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    preset.label,
+                    style: context.textTheme.bodyMedium?.copyWith(
+                      color: colors.textPrimary,
+                      fontWeight: selected ? FontWeight.w600 : null,
+                    ),
                   ),
                 ),
-              ),
-              Text(
-                '– ${preset.timeout.label}',
-                style: context.textTheme.bodySmall?.copyWith(
-                  color: selected ? colors.primary : colors.textHint,
+                Text(
+                  '– ${preset.timeout.label}',
+                  style: context.textTheme.bodySmall?.copyWith(
+                    color: selected ? colors.primary : colors.textHint,
+                  ),
                 ),
-              ),
-              if (selected) ...[
-                const SizedBox(width: 8),
-                Icon(Icons.check_circle, size: 18, color: colors.primary),
+                if (selected) ...[
+                  const SizedBox(width: 8),
+                  Icon(Icons.check_circle, size: 18, color: colors.primary),
+                ],
               ],
-            ],
+            ),
           ),
         ),
       ),

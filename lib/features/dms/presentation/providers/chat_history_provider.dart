@@ -211,6 +211,7 @@ class ChatHistoryNotifier extends ChangeNotifier {
       "type": "user",
       "created_at": DateTime.now().toIso8601String(),
       "status": "sending",
+      "is_channel": isChannel,
       if (media != null && media.isNotEmpty)
         "media": [
           for (final file in media) {"file_name": file.name},
@@ -275,7 +276,8 @@ class ChatHistoryNotifier extends ChangeNotifier {
         channelId,
         content,
         media: options?.media,
-        isChannel: options?.isChannel ?? false,
+        isChannel:
+            failedMsg['is_channel'] as bool? ?? options?.isChannel ?? false,
       );
       _sendOptions.remove(messageId);
       _deleteRecordings(options?.media);

@@ -1,0 +1,365 @@
+import 'package:zedu/core/core.dart';
+import 'package:zedu/features/features.dart';
+
+/// Main area of the Files tab: the folders and files of the list picked in
+/// [FilesSidebar].
+class FilesView extends ConsumerWidget {
+  const FilesView({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final colors = context.colors;
+    final state = ref.watch(filesProvider);
+    final title = state.folderPath.isEmpty
+        ? state.view.label
+        : state.folderPath.last.name;
+
+    return Container(
+      color: colors.onPrimary,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            height: 60,
+            padding: const EdgeInsets.only(left: 24, right: 12),
+            decoration: BoxDecoration(
+              border: Border(bottom: BorderSide(color: colors.divider)),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: context.textTheme.titleMedium?.copyWith(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color: colors.textPrimary,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'Refresh',
+                  icon: Icon(Icons.refresh, color: colors.textSecondary),
+                  onPressed: () {
+                    ref.invalidate(foldersListProvider);
+                    ref.invalidate(filesListProvider);
+                  },
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
+              children: [
+                const FilesToolbar(),
+                if (state.folderPath.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  _Breadcrumbs(state: state),
+                ],
+                const SizedBox(height: 16),
+                _Tabs(selected: state.tab),
+                const SizedBox(height: 24),
+                Text(
+                  state.tab == FilesTab.folders ? 'Folders' : 'Files',
+                  style: context.textTheme.titleMedium?.copyWith(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: colors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                if (state.tab == FilesTab.folders)
+                  const _FoldersSection()
+                else
+                  const _FilesSection(),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// `All files › docs › drafts`, each part going back to that level.
+class _Breadcrumbs extends ConsumerWidget {
+  const _Breadcrumbs({required this.state});
+
+  final FilesState state;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final colors = context.colors;
+    final notifier = ref.read(filesProvider.notifier);
+    final parts = [state.view.label, ...state.folderPath.map((f) => f.name)];
+
+    return Wrap(
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        for (var i = 0; i < parts.length; i++) ...[
+          if (i > 0)
+            Icon(Icons.chevron_right, size: 18, color: colors.textHint),
+          if (i == parts.length - 1)
+            Text(
+              parts[i],
+              style: context.textTheme.bodyMedium?.copyWith(
+                fontSize: 13,
+                color: colors.textPrimary,
+                fontWeight: FontWeight.w600,
+              ),
+            )
+          else
+            TextButton(
+              onPressed: () => notifier.goToDepth(i),
+              child: Text(parts[i]),
+            ),
+        ],
+      ],
+    );
+  }
+}
+
+class _Tabs extends ConsumerWidget {
+  const _Tabs({required this.selected});
+
+  final FilesTab selected;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final colors = context.colors;
+
+    Widget tab(FilesTab tab, String label) {
+      final isSelected = tab == selected;
+      return InkWell(
+        onTap: () => ref.read(filesProvider.notifier).setTab(tab),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          decoration: BoxDecoration(
+            border: Border(
+              bottom: BorderSide(
+                color: isSelected ? colors.primary : Colors.transparent,
+                width: 2,
+              ),
+            ),
+          ),
+          child: Text(
+            label,
+            style: context.textTheme.bodyMedium?.copyWith(
+              color: isSelected ? colors.primary : colors.textPrimary,
+              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+            ),
+          ),
+        ),
+      );
+    }
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: colors.divider)),
+      ),
+      child: Row(
+        children: [
+          tab(FilesTab.folders, 'Folders'),
+          tab(FilesTab.files, 'Files'),
+        ],
+      ),
+    );
+  }
+}
+
+/// Looks up team members' names by user id, for the Owner column.
+String Function(String) _ownerNames(WidgetRef ref) {
+  final members = ref.watch(userProfileNotifierProvider).teamMembers;
+  final names = {
+    for (final m in members)
+      if ((m.name ?? '').trim().isNotEmpty) m.id: m.name!.trim(),
+  };
+  return (userId) => names[userId] ?? 'Unknown';
+}
+
+class _FoldersSection extends ConsumerWidget {
+  const _FoldersSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final folders = ref.watch(foldersListProvider);
+    final ownerName = _ownerNames(ref);
+
+    return folders.when(
+      loading: () => const _Loading(),
+      error: (_, _) => _Message(
+        icon: Icons.error_outline,
+        title: 'Could not load folders',
+        body: 'Check your connection and try again.',
+        onRetry: () => ref.invalidate(foldersListProvider),
+      ),
+      data: (folders) => folders.isEmpty
+          ? const _Message(
+              icon: Icons.folder_open_outlined,
+              title: 'No folders',
+              body: 'Folders in this list appear here.',
+            )
+          : FoldersTable(
+              folders: folders,
+              ownerNameOf: ownerName,
+              onOpen: ref.read(filesProvider.notifier).openFolder,
+            ),
+    );
+  }
+}
+
+class _FilesSection extends ConsumerWidget {
+  const _FilesSection();
+
+  Future<void> _open(WorkspaceFile file) async {
+    final uri = Uri.tryParse(file.link);
+    if (uri != null && await canLaunchUrl(uri)) {
+      await launchUrl(uri);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final page = ref.watch(filesListProvider);
+    final sort = ref.watch(filesProvider.select((s) => s.sort));
+    final ownerName = _ownerNames(ref);
+
+    return page.when(
+      loading: () => const _Loading(),
+      error: (_, _) => _Message(
+        icon: Icons.error_outline,
+        title: 'Could not load files',
+        body: 'Check your connection and try again.',
+        onRetry: () => ref.invalidate(filesListProvider),
+      ),
+      data: (page) {
+        if (page.files.isEmpty) {
+          return const _Message(
+            icon: Icons.insert_drive_file_outlined,
+            title: 'No files',
+            body:
+                'Files in this list, or that match your filters, appear here.',
+          );
+        }
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            FilesTable(
+              files: sort.apply(page.files),
+              ownerNameOf: (file) =>
+                  file.owner.isNotEmpty ? file.owner : ownerName(file.userId),
+              onOpen: _open,
+            ),
+            if (page.totalPages > 1) _Pagination(page: page),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _Pagination extends ConsumerWidget {
+  const _Pagination({required this.page});
+
+  final FilesPage page;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final colors = context.colors;
+    final notifier = ref.read(filesProvider.notifier);
+    final current = page.currentPage;
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 16),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          IconButton(
+            tooltip: 'Previous page',
+            icon: const Icon(Icons.chevron_left),
+            onPressed: current > 1 ? () => notifier.setPage(current - 1) : null,
+          ),
+          Text(
+            'Page $current of ${page.totalPages}',
+            style: context.textTheme.bodyMedium?.copyWith(
+              fontSize: 13,
+              color: colors.textPrimary,
+            ),
+          ),
+          IconButton(
+            tooltip: 'Next page',
+            icon: const Icon(Icons.chevron_right),
+            onPressed: current < page.totalPages
+                ? () => notifier.setPage(current + 1)
+                : null,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Loading extends StatelessWidget {
+  const _Loading();
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 48),
+    child: Center(
+      child: CircularProgressIndicator(color: context.colors.primary),
+    ),
+  );
+}
+
+class _Message extends StatelessWidget {
+  const _Message({
+    required this.icon,
+    required this.title,
+    required this.body,
+    this.onRetry,
+  });
+
+  final IconData icon;
+  final String title;
+  final String body;
+  final VoidCallback? onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 48),
+      child: Column(
+        children: [
+          Icon(icon, size: 40, color: colors.textHint),
+          const SizedBox(height: 12),
+          Text(
+            title,
+            textAlign: TextAlign.center,
+            style: context.textTheme.titleMedium?.copyWith(
+              fontSize: 15,
+              color: colors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            body,
+            textAlign: TextAlign.center,
+            style: context.textTheme.bodyMedium?.copyWith(
+              fontSize: 13,
+              color: colors.textHint,
+            ),
+          ),
+          if (onRetry != null) ...[
+            const SizedBox(height: 12),
+            TextButton(onPressed: onRetry, child: const Text('Retry')),
+          ],
+        ],
+      ),
+    );
+  }
+}

@@ -4,12 +4,14 @@ import 'package:zedu/features/features.dart';
 class ThreadPanel extends StatefulWidget {
   final String parentMessage;
   final String parentAuthor;
+  final String parentTimestamp;
   final VoidCallback onClose;
 
   const ThreadPanel({
     super.key,
     required this.parentMessage,
     required this.parentAuthor,
+    this.parentTimestamp = '',
     required this.onClose,
   });
 
@@ -65,7 +67,7 @@ class _ThreadPanelState extends State<ThreadPanel> {
                 MessageBubble(
                   author: widget.parentAuthor,
                   text: widget.parentMessage,
-                  timestamp: '3:15 PM',
+                  timestamp: widget.parentTimestamp,
                 ),
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 16),

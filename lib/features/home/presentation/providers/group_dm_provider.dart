@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:zedu/core/core.dart';
 import 'package:zedu/features/features.dart';
 
@@ -47,6 +49,7 @@ class GroupDM {
 
 class GroupDmNotifier extends Notifier<List<GroupDM>> {
   final Map<String, List<String>> _offlineQueue = {};
+  StreamSubscription<ChatWebsocketMessage>? _wsSubscription;
 
   @override
   List<GroupDM> build() {
@@ -56,11 +59,15 @@ class GroupDmNotifier extends Notifier<List<GroupDM>> {
   }
 
   void _listenToWebsockets() {
+    _wsSubscription?.cancel();
     final ws = ref.read(chatWebsocketProvider);
-    // In a real app we'd listen indefinitely and clean up on dispose.
-    // For this mock, we just listen to the stream.
-    ws.messageStream.listen((msg) {
+    _wsSubscription = ws.messageStream.listen((msg) {
+      if (!ref.mounted) return;
       _handleIncomingMessage(msg.groupDmId, msg.text);
+    });
+    ref.onDispose(() {
+      _wsSubscription?.cancel();
+      _wsSubscription = null;
     });
   }
 
@@ -73,6 +80,7 @@ class GroupDmNotifier extends Notifier<List<GroupDM>> {
   }
 
   void _handleIncomingMessage(String groupId, String text) {
+    if (!ref.mounted) return;
     state = [
       for (final group in state)
         if (group.id == groupId)

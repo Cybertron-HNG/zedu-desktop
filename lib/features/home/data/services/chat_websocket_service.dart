@@ -19,28 +19,44 @@ class ChatWebsocketMessage {
 class ChatWebsocketService {
   final _messageController = StreamController<ChatWebsocketMessage>.broadcast();
   Timer? _mockTimer;
+  Timer? _connectTimer;
+  bool _isDisposed = false;
 
   Stream<ChatWebsocketMessage> get messageStream => _messageController.stream;
+  bool get isDisposed => _isDisposed;
+  bool get hasPendingConnect => _connectTimer?.isActive ?? false;
 
   void connect(List<String> activeGroupDmIds) {
+    if (_isDisposed) return;
+    _connectTimer?.cancel();
     // Simulate connection establishing
-    Future<void>.delayed(const Duration(milliseconds: 500), () {
+    _connectTimer = Timer(const Duration(milliseconds: 500), () {
+      if (_isDisposed || _messageController.isClosed) return;
       debugPrint('Mock WebSocket Connected');
       _startMockingMessages(activeGroupDmIds);
     });
   }
 
   void disconnect() {
+    _connectTimer?.cancel();
     _mockTimer?.cancel();
     debugPrint('Mock WebSocket Disconnected');
   }
 
   void _startMockingMessages(List<String> activeGroupDmIds) {
-    if (activeGroupDmIds.isEmpty) return;
+    if (_isDisposed ||
+        _messageController.isClosed ||
+        activeGroupDmIds.isEmpty) {
+      return;
+    }
 
     // Periodically send a fake incoming message to simulate real-time activity
     _mockTimer?.cancel();
     _mockTimer = Timer.periodic(const Duration(seconds: 15), (timer) {
+      if (_isDisposed || _messageController.isClosed) {
+        timer.cancel();
+        return;
+      }
       // Pick a random group DM
       final groupId = activeGroupDmIds[timer.tick % activeGroupDmIds.length];
 
@@ -62,8 +78,12 @@ class ChatWebsocketService {
   }
 
   void dispose() {
+    _isDisposed = true;
+    _connectTimer?.cancel();
     _mockTimer?.cancel();
-    _messageController.close();
+    if (!_messageController.isClosed) {
+      _messageController.close();
+    }
   }
 }
 

@@ -13,6 +13,30 @@ void main() {
     expect(options.receiveTimeout, const Duration(seconds: 30));
   });
 
+  group('normalizePath', () {
+    test('trims single and multiple leading slashes from relative path', () {
+      expect(ApiBaseService.normalizePath('/auth/login'), 'auth/login');
+      expect(ApiBaseService.normalizePath('///auth/login'), 'auth/login');
+      expect(ApiBaseService.normalizePath('/'), '');
+    });
+
+    test('preserves already normalized relative paths', () {
+      expect(ApiBaseService.normalizePath('auth/login'), 'auth/login');
+      expect(ApiBaseService.normalizePath(''), '');
+    });
+
+    test('preserves absolute URLs with scheme', () {
+      expect(
+        ApiBaseService.normalizePath('https://api.zedu.dev/v1/health'),
+        'https://api.zedu.dev/v1/health',
+      );
+      expect(
+        ApiBaseService.normalizePath('http://127.0.0.1:8080/v1/test'),
+        'http://127.0.0.1:8080/v1/test',
+      );
+    });
+  });
+
   group('HTTP requests', () {
     late HttpServer server;
     late String baseUrl;
@@ -43,27 +67,44 @@ void main() {
       expect(response.data, {'ok': true});
     });
 
-    test(
-      'fallback client times out when a server never responds',
-      () async {
-        server.listen((request) {});
-        final api = ApiBaseService(
-          config: AppConfig(apiBaseUrl: baseUrl, usesMockData: false),
-        );
+    test('leading slash does not strip baseUrl prefix', () async {
+      String? requestedPath;
+      server.listen((request) {
+        requestedPath = request.uri.path;
+        request.response
+          ..headers.contentType = ContentType.json
+          ..write('{"received":true}');
+        request.response.close();
+      });
 
-        await expectLater(
-          api.get<Map<String, dynamic>>(path: 'auth/me'),
-          throwsA(
-            isA<ApiFailure>().having(
-              (failure) => failure.kind,
-              'kind',
-              ApiFailureKind.timeout,
-            ),
+      final prefixedBaseUrl = 'http://127.0.0.1:${server.port}/api/v1/';
+      final api = ApiBaseService(
+        config: AppConfig(apiBaseUrl: prefixedBaseUrl, usesMockData: false),
+      );
+
+      final response = await api.get<Map<String, dynamic>>(path: '/auth/me');
+
+      expect(response.statusCode, 200);
+      expect(requestedPath, '/api/v1/auth/me');
+    });
+
+    test('fallback client times out when a server never responds', () async {
+      server.listen((request) {});
+      final api = ApiBaseService(
+        config: AppConfig(apiBaseUrl: baseUrl, usesMockData: false),
+      );
+
+      await expectLater(
+        api.get<Map<String, dynamic>>(path: 'auth/me'),
+        throwsA(
+          isA<ApiFailure>().having(
+            (failure) => failure.kind,
+            'kind',
+            ApiFailureKind.timeout,
           ),
-        );
-      },
-      timeout: const Timeout(Duration(seconds: 45)),
-    );
+        ),
+      );
+    }, timeout: const Timeout(Duration(seconds: 45)));
 
     test('an injected client preserves its shorter timeout', () async {
       server.listen((request) {});

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:zedu/core/core.dart';
 import 'package:zedu/features/features.dart';
+
 import '../../../../../helpers/helpers.dart';
 
 class FakeAuthNotifier extends AuthNotifier {
@@ -200,6 +201,153 @@ void main() {
       );
       await tester.pumpAndSettle();
     }
+
+    testWidgets('own space explains privacy and hides its system event', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(1200, 900);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final repository = MockDmRepository();
+      when(
+        () => repository.getMessages(any(), page: any(named: 'page')),
+      ).thenAnswer(
+        (_) async => [
+          {
+            'id': 'system-1',
+            'type': 'system',
+            'content': 'You started a conversation with yourself',
+            'created_at': '2026-10-17T08:00:00Z',
+          },
+          {
+            'id': 'note-1',
+            'type': 'user',
+            'content': 'A private note',
+            'user_id': 'user-1',
+            'created_at': '2026-10-17T08:01:00Z',
+          },
+        ],
+      );
+      final storage = MockSecureStorageService();
+      when(() => storage.readData(any())).thenAnswer((_) async => null);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            authNotifierProvider.overrideWith(FakeSignedInAuthNotifier.new),
+            dmRepositoryProvider.overrideWithValue(repository),
+            dmDraftStoreProvider.overrideWith(
+              (ref) => DmDraftStore(storage, userId: 'user-1', orgId: 'org-1'),
+            ),
+          ],
+          child: buildTestMaterialApp(
+            Scaffold(
+              body: DmChatArea(
+                conversation: DmConversation(
+                  channelId: 'own-space',
+                  username: 'Test User',
+                  participantId: 'user-1',
+                  previewMessage: '',
+                  unreadCount: 0,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byType(OwnSpaceIntro), findsOneWidget);
+      expect(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is RichText &&
+              widget.text.toPlainText().contains('Only you can see this.'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is RichText &&
+              widget.text.toPlainText().contains('Test User (you)'),
+        ),
+        findsNWidgets(2),
+      );
+      expect(find.text('A private note', findRichText: true), findsOneWidget);
+      expect(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is RichText &&
+              widget.text.toPlainText().contains(
+                'You started a conversation with yourself',
+              ),
+        ),
+        findsNothing,
+      );
+      expect(
+        tester
+            .widget<TextField>(find.byType(TextField).last)
+            .decoration!
+            .hintText,
+        'Write a note to yourself',
+      );
+      expect(find.text('Edit profile'), findsOneWidget);
+    });
+
+    testWidgets('other DMs retain their regular intro and composer hint', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(1200, 900);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final repository = MockDmRepository();
+      when(
+        () => repository.getMessages(any(), page: any(named: 'page')),
+      ).thenAnswer((_) async => []);
+      final storage = MockSecureStorageService();
+      when(() => storage.readData(any())).thenAnswer((_) async => null);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            authNotifierProvider.overrideWith(FakeSignedInAuthNotifier.new),
+            dmRepositoryProvider.overrideWithValue(repository),
+            dmDraftStoreProvider.overrideWith(
+              (ref) => DmDraftStore(storage, userId: 'user-1', orgId: 'org-1'),
+            ),
+          ],
+          child: buildTestMaterialApp(
+            Scaffold(
+              body: DmChatArea(
+                conversation: DmConversation(
+                  channelId: 'other-dm',
+                  username: 'Bola',
+                  participantId: 'user-2',
+                  previewMessage: '',
+                  unreadCount: 0,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Bola'), findsWidgets);
+      expect(find.text('Edit profile'), findsNothing);
+      expect(
+        tester
+            .widget<TextField>(find.byType(TextField).last)
+            .decoration!
+            .hintText,
+        startsWith('Message @Bola'),
+      );
+    });
 
     Map<String, dynamic> message(String id, String content) => {
       'id': id,
