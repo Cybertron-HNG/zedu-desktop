@@ -177,6 +177,10 @@ class _UserManagementSectionState extends State<UserManagementSection> {
                   ),
                 ),
               ),
+              if (filtered.isEmpty)
+                _MembersEmptyState(
+                  isFiltering: query.isNotEmpty || _roleFilter != 'All Roles',
+                ),
               const Divider(height: 1),
               Padding(
                 padding: const EdgeInsets.all(16),
@@ -284,6 +288,46 @@ class _TabLabel extends StatelessWidget {
           Container(height: 2, width: 80, color: context.colors.sidebar),
         ],
       ],
+    );
+  }
+}
+
+class _MembersEmptyState extends StatelessWidget {
+  const _MembersEmptyState({required this.isFiltering});
+  final bool isFiltering;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 20),
+      child: Center(
+        child: Column(
+          children: [
+            Icon(
+              isFiltering ? Icons.search_off : Icons.group_outlined,
+              size: 32,
+              color: context.colors.textHint,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              isFiltering ? 'No results found' : 'No team members yet',
+              style: context.textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              isFiltering
+                  ? 'Try a different search term or role filter.'
+                  : 'Invite people to start building your team.',
+              textAlign: TextAlign.center,
+              style: context.textTheme.bodySmall?.copyWith(
+                color: context.colors.textHint,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
