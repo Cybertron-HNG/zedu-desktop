@@ -319,8 +319,12 @@ class PersonalProfilePanel extends ConsumerWidget {
     WidgetRef ref,
     ProfileAccount account,
   ) {
-    showEditProfileDialog(context, account, (updated) {
-      ref.read(userProfileNotifierProvider.notifier).updateAccount(updated);
+    showEditProfileDialog(context, account, (updated) async {
+      await ref
+          .read(userProfileNotifierProvider.notifier)
+          .updateAccount(updated);
+      // updateAccount clears the error when it starts and sets it on failure.
+      return ref.read(userProfileNotifierProvider).error;
     });
   }
 }
