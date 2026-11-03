@@ -23,4 +23,7 @@ abstract class ChannelRepository {
     required String channelId,
     required List<String> userIds,
   });
+
+  /// The latest messages of a channel, newest first.
+  Future<Result<List<ChannelMessage>>> fetchChannelMessages(String channelId);
 }

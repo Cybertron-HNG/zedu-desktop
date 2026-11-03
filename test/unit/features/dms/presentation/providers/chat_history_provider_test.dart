@@ -8,6 +8,7 @@ class MockDmRepository extends Mock implements DmRepository {}
 
 void main() {
   _deleteTests();
+  _retryTests();
   group('ChatHistoryNotifier.saveEdit', () {
     late MockDmRepository mockRepository;
     late ProviderContainer container;
@@ -256,5 +257,146 @@ void _deleteTests() {
 
       expect(notifier.messages.map((m) => m['id']), ['m1', 'm2']);
     });
+  });
+}
+
+class _FakeAuthNotifier extends AuthNotifier {
+  @override
+  AuthState build() => AuthState(
+    status: AuthStatus.authenticated,
+    user: User(
+      id: 'user-1',
+      firstName: 'Test',
+      lastName: 'User',
+      email: 'test@example.com',
+      phone: '',
+      username: 'testuser',
+      isVerified: true,
+      isOnboarded: true,
+      createdAt: DateTime(2026),
+      currentOrg: 'org-1',
+      currentOrganisationSlug: 'org-slug',
+      avatarUrl: '',
+      defaultAvatarUrl: '',
+    ),
+  );
+}
+
+void _retryTests() {
+  group('ChatHistoryNotifier.retryMessage', () {
+    late MockDmRepository mockRepository;
+    late ProviderContainer container;
+    late ChatHistoryNotifier notifier;
+
+    setUp(() async {
+      mockRepository = MockDmRepository();
+      when(
+        () => mockRepository.getMessages(any(), page: any(named: 'page')),
+      ).thenAnswer((_) async => []);
+
+      container = ProviderContainer(
+        overrides: [
+          dmRepositoryProvider.overrideWithValue(mockRepository),
+          authNotifierProvider.overrideWith(_FakeAuthNotifier.new),
+        ],
+      );
+      notifier = container.read(chatHistoryProvider('channel-xyz'));
+      await pumpEventQueue();
+    });
+
+    tearDown(() => container.dispose());
+
+    test(
+      'stores is_channel in optimistic message when sending channel message',
+      () async {
+        when(
+          () => mockRepository.sendMessage(
+            any(),
+            any(),
+            media: any(named: 'media'),
+            mentions: any(named: 'mentions'),
+            isChannel: any(named: 'isChannel'),
+          ),
+        ).thenAnswer((_) async => 'thread-1');
+
+        await notifier.sendMessage('test content', isChannel: true);
+
+        expect(notifier.messages.isNotEmpty, isTrue);
+        expect(notifier.messages.first['is_channel'], isTrue);
+      },
+    );
+
+    test(
+      'retryMessage reads is_channel directly from failed message payload even when sendOptions are absent',
+      () async {
+        when(
+          () => mockRepository.sendMessage(
+            any(),
+            any(),
+            media: any(named: 'media'),
+            mentions: any(named: 'mentions'),
+            isChannel: any(named: 'isChannel'),
+          ),
+        ).thenAnswer((_) async => 'thread-retry');
+
+        notifier.messages = [
+          {
+            'id': 'failed-msg-1',
+            'content': 'Retrying channel message',
+            'channel_id': 'channel-xyz',
+            'status': 'failed',
+            'is_channel': true,
+          },
+        ];
+
+        await notifier.retryMessage('failed-msg-1');
+
+        verify(
+          () => mockRepository.sendMessage(
+            'channel-xyz',
+            'Retrying channel message',
+            media: null,
+            isChannel: true,
+          ),
+        ).called(1);
+        expect(notifier.messages.first['status'], isNull);
+        expect(notifier.messages.first['thread_id'], 'thread-retry');
+      },
+    );
+
+    test(
+      'retryMessage falls back to isChannel: false when message is a DM and has no is_channel flag',
+      () async {
+        when(
+          () => mockRepository.sendMessage(
+            any(),
+            any(),
+            media: any(named: 'media'),
+            mentions: any(named: 'mentions'),
+            isChannel: any(named: 'isChannel'),
+          ),
+        ).thenAnswer((_) async => 'thread-dm');
+
+        notifier.messages = [
+          {
+            'id': 'failed-dm-1',
+            'content': 'Retrying DM message',
+            'channel_id': 'channel-xyz',
+            'status': 'failed',
+          },
+        ];
+
+        await notifier.retryMessage('failed-dm-1');
+
+        verify(
+          () => mockRepository.sendMessage(
+            'channel-xyz',
+            'Retrying DM message',
+            media: null,
+            isChannel: false,
+          ),
+        ).called(1);
+      },
+    );
   });
 }

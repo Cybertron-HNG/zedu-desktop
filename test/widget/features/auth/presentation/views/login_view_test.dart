@@ -18,12 +18,18 @@ class FakeAuthNotifier extends AuthNotifier {
   final AuthState _initial;
   final void Function(String email, String password)? _onLogin;
   final Future<void>? _pendingLogin;
+  bool? lastRememberMe;
 
   @override
   AuthState build() => _initial;
 
   @override
-  Future<void> login({required String email, required String password}) async {
+  Future<void> login({
+    required String email,
+    required String password,
+    bool rememberMe = true,
+  }) async {
+    lastRememberMe = rememberMe;
     state = state.copyWith(isLoading: true);
     _onLogin?.call(email, password);
     await _pendingLogin;
@@ -387,6 +393,51 @@ void main() {
         ),
         findsNothing,
       );
+    });
+
+    for (final ticked in [false, true]) {
+      testWidgets('passes Remember me = $ticked to login', (tester) async {
+        final notifier = FakeAuthNotifier();
+        await pumpDesktopLogin(tester, notifier);
+
+        await tester.enterText(
+          find.byType(TextFormField).at(0),
+          'user@example.com',
+        );
+        await tester.enterText(find.byType(TextFormField).at(1), 'Secret123');
+        if (ticked) {
+          await tester.ensureVisible(find.byType(Checkbox));
+          await tester.tap(find.byType(Checkbox));
+          await tester.pump();
+        }
+
+        final loginButton = find.widgetWithText(ElevatedButton, 'Login');
+        await tester.ensureVisible(loginButton);
+        await tester.tap(loginButton);
+        await tester.pumpAndSettle();
+
+        expect(notifier.lastRememberMe, ticked);
+      });
+    }
+
+    testWidgets('Tab moves directly from email to password', (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1440, 1024));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      await tester.pumpWidget(buildLoginViewUnderTest());
+      await tester.pump();
+
+      await tester.tap(find.byType(TextFormField).at(0));
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pump();
+
+      final passwordField = tester.widget<EditableText>(
+        find.descendant(
+          of: find.byType(TextFormField).at(1),
+          matching: find.byType(EditableText),
+        ),
+      );
+      expect(passwordField.focusNode.hasFocus, isTrue);
     });
   });
 }

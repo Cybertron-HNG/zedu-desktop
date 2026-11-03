@@ -90,6 +90,24 @@ void main() {
       await tester.enterText(find.byType(TextFormField).at(2), 'Record123');
     }
 
+    testWidgets('legal line reads "By signing up" in sentence case', (
+      tester,
+    ) async {
+      await pumpDesktopSignUp(tester, FakeAuthNotifier());
+
+      expect(
+        find.textContaining(
+          'By signing up, you agree to our terms of service',
+          findRichText: true,
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.textContaining('By Signing up', findRichText: true),
+        findsNothing,
+      );
+    });
+
     testWidgets('navigates to home after a successful sign-up', (tester) async {
       await pumpDesktopSignUp(tester, FakeAuthNotifier());
       await fillValidForm(tester);

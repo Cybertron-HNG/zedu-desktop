@@ -37,13 +37,14 @@ class _FakeAuth extends AuthNotifier {
       AuthState(status: AuthStatus.authenticated, user: _user());
 
   @override
-  Future<void> toggleOnlineStatus() async {
-    if (fails) return;
+  Future<PresenceToggleResult> toggleOnlineStatus() async {
+    if (fails) return const PresenceFailed('Status update failed');
     final online = !state.user!.status.online;
     state = AuthState(
       status: AuthStatus.authenticated,
       user: _user(online: online),
     );
+    return const PresenceConfirmed();
   }
 }
 

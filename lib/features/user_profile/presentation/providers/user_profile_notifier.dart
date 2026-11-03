@@ -6,10 +6,27 @@ import 'package:zedu/features/features.dart';
 class UserProfileNotifier extends Notifier<UserProfileState> {
   late final UserProfileRepository _repository;
 
+  /// Identifies the latest [load]. A load that is no longer the latest drops
+  /// its result, even when the selected workspace is the same one again
+  /// (switching A to B and back to A).
+  int _loadCounter = 0;
+
   @override
   UserProfileState build() {
     _repository = ref.read(userProfileRepositoryProvider);
-    load();
+    // The profile can stay open while the workspace is switched, so reload
+    // the workspace-dependent details (organization, members) for the new one.
+    ref.listen(
+      workspaceProvider.select((state) => state.selectedWorkspace?.id),
+      (previous, next) {
+        if (previous != next) load();
+      },
+    );
+    // load() reads and writes state, which is not available until build()
+    // returns, so it starts right after, unless the provider was disposed.
+    Future.microtask(() {
+      if (ref.mounted) load();
+    });
     return const UserProfileState(isLoading: true);
   }
 
@@ -109,45 +126,27 @@ class UserProfileNotifier extends Notifier<UserProfileState> {
     }
   }
 
+  /// Saves [preferences] and makes them the new saved baseline on success.
+  /// A failed save leaves the baseline alone, so the screen keeps the edits.
   Future<void> updateNotificationPreferences(
     NotificationPreferences preferences,
   ) async {
+    if (state.isSaving) return;
     state = state.copyWith(
       isSaving: true,
       clearError: true,
       clearSuccess: true,
     );
-    final result = await _repository.updateNotificationPreferences(preferences);
+    final result = await _repository.updateNotificationPreferences(
+      orgId: ref.read(workspaceProvider).selectedWorkspace?.id,
+      preferences: preferences,
+    );
     switch (result) {
       case Success<NotificationPreferences>():
         state = state.copyWith(
           notifications: result.value,
           isSaving: false,
           successMessage: 'Notification preferences saved successfully.',
-        );
-      case Failure<NotificationPreferences>():
-        state = state.copyWith(
-          isSaving: false,
-          error: result.error.friendlyMessage,
-        );
-    }
-  }
-
-  Future<void> revertNotificationPreferences(
-    NotificationPreferences preferences,
-  ) async {
-    state = state.copyWith(
-      isSaving: true,
-      clearError: true,
-      clearSuccess: true,
-    );
-    final result = await _repository.updateNotificationPreferences(preferences);
-    switch (result) {
-      case Success<NotificationPreferences>():
-        state = state.copyWith(
-          notifications: result.value,
-          isSaving: false,
-          successMessage: 'Changes reverted successfully.',
         );
       case Failure<NotificationPreferences>():
         state = state.copyWith(
@@ -190,7 +189,10 @@ class UserProfileNotifier extends Notifier<UserProfileState> {
       clearError: true,
       clearSuccess: true,
     );
-    final result = await _repository.updateOrganization(organization);
+    final result = await _repository.updateOrganization(
+      organization,
+      orgId: ref.read(workspaceProvider).selectedWorkspace?.id,
+    );
     switch (result) {
       case Success<OrganizationProfile>():
         state = state.copyWith(
@@ -248,14 +250,20 @@ class UserProfileNotifier extends Notifier<UserProfileState> {
   }
 
   Future<void> deleteOrganization() async {
+    final orgId = ref.read(workspaceProvider).selectedWorkspace?.id;
+    if (orgId == null) {
+      state = state.copyWith(error: 'No organisation is selected.');
+      return;
+    }
     state = state.copyWith(
       isSaving: true,
       clearError: true,
       clearSuccess: true,
     );
-    final result = await _repository.deleteOrganization();
+    final result = await _repository.deleteOrganization(orgId: orgId);
     switch (result) {
       case Success<void>():
+        ref.read(workspaceProvider.notifier).removeWorkspace(orgId);
         state = state.copyWith(
           isSaving: false,
           successMessage: 'Organization deleted successfully.',
@@ -301,20 +309,75 @@ class UserProfileNotifier extends Notifier<UserProfileState> {
     }
   }
 
-  Future<String> _getRoleId(String? orgId) async {
+  /// Fetches the organisation's roles from `/organisations/{orgId}/roles`.
+  ///
+  /// Returns the raw role records so callers can resolve a role the user picked
+  /// in the UI to its backend `id` *and* keep the human-readable `name` for
+  /// display. The backend returns records shaped like
+  /// `{"id": "<uuid>", "name": "Manager", ...}`.
+  Future<List<Map<String, dynamic>>> _fetchOrganisationRoles(
+    String? orgId,
+  ) async {
+    if (orgId == null || orgId.isEmpty) return const [];
     try {
-      if (orgId == null) return '019700d8-9085-7f7b-839a-fcbd08b9e26d';
       final api = locator<ApiBaseService>();
       final response = await api.get<Map<String, dynamic>>(
         path: '/organisations/$orgId/roles',
       );
       final data = response.data['data'] as List<dynamic>?;
-      if (data != null && data.isNotEmpty) {
-        return data.last['id']
-            as String; // Just pick a valid role ID to avoid 404
-      }
+      if (data == null) return const [];
+      return data
+          .whereType<Map<dynamic, dynamic>>()
+          .map((role) => role.cast<String, dynamic>())
+          .toList();
     } catch (e) {
-      // ignore
+      return const [];
+    }
+  }
+
+  /// Resolves the role the user picked in the invite dialog to the backend
+  /// role `id`, without discarding the selected role name.
+  ///
+  /// Matching order:
+  /// 1. exact `id` (selection already carries an id),
+  /// 2. case-insensitive `name` (the invite dialog passes a role label),
+  /// 3. the role stored in local state that shares the label.
+  ///
+  /// Returns `null` when nothing matches so callers can surface a visible error
+  /// instead of silently assigning an arbitrary role.
+  String? _resolveRoleId(
+    List<Map<String, dynamic>> roles,
+    String selectedRole,
+  ) {
+    final trimmed = selectedRole.trim();
+    if (trimmed.isEmpty) return null;
+
+    for (final role in roles) {
+      if (role['id']?.toString() == trimmed) return trimmed;
+    }
+
+    final lower = trimmed.toLowerCase();
+    for (final role in roles) {
+      final name = role['name']?.toString();
+      if (name != null && name.toLowerCase() == lower) {
+        return role['id']?.toString();
+      }
+    }
+
+    for (final role in state.rolesAndPermissions) {
+      if (role.role.toLowerCase() == lower) return role.role;
+    }
+
+    return null;
+  }
+
+  Future<String> _getRoleId(String? orgId) async {
+    final roles = await _fetchOrganisationRoles(orgId);
+    if (roles.isNotEmpty) {
+      final id = roles.last['id']?.toString();
+      if (id != null && id.isNotEmpty) {
+        return id;
+      }
     }
     return '019700d8-9085-7f7b-839a-fcbd08b9e26d';
   }
@@ -369,13 +432,27 @@ class UserProfileNotifier extends Notifier<UserProfileState> {
       orgId = '019700db-4e22-7f90-a20e-f9116291ef24';
     }
 
-    // Map human readable role to a valid UUID role_id by fetching from backend
-    String roleId = await _getRoleId(orgId);
-
     if (orgId == null) {
       state = state.copyWith(
         isSaving: false,
         error: 'No active workspace selected to invite members.',
+      );
+      return;
+    }
+
+    // Resolve the role the user actually selected to the backend role id.
+    // `role` is the human-readable label from the invite dialog; the request
+    // contract requires a role UUID (`role_id`).
+    final roles = await _fetchOrganisationRoles(orgId);
+    final roleName = role.trim();
+    final roleId = _resolveRoleId(roles, roleName);
+
+    if (roleId == null) {
+      state = state.copyWith(
+        isSaving: false,
+        error: roleName.isEmpty
+            ? 'Select a role before inviting a member.'
+            : 'Could not assign the selected role. Refresh roles and try again.',
       );
       return;
     }
@@ -387,7 +464,12 @@ class UserProfileNotifier extends Notifier<UserProfileState> {
     );
     switch (result) {
       case Success<TeamMember>():
-        final newTeamMembers = [...state.teamMembers, result.value];
+        final newTeamMembers = [
+          ...state.teamMembers,
+          // Keep the human-readable role name for the table instead of the
+          // backend UUID returned by the invitation response.
+          result.value.copyWith(role: roleName.isEmpty ? roleId : roleName),
+        ];
         state = state.copyWith(
           teamMembers: newTeamMembers,
           isSaving: false,
@@ -475,18 +557,41 @@ class UserProfileNotifier extends Notifier<UserProfileState> {
     }
   }
 
+  bool _isObsoleteLoad(int loadId, String? orgId) {
+    if (!ref.mounted) return true;
+    final currentOrgId = ref.read(workspaceProvider).selectedWorkspace?.id;
+    return loadId != _loadCounter || currentOrgId != orgId;
+  }
+
   Future<void> load() async {
+    final loadId = ++_loadCounter;
     state = state.copyWith(isLoading: true, clearError: true);
     final orgId = ref.read(workspaceProvider).selectedWorkspace?.id;
+    try {
+      await _loadProfile(loadId, orgId);
+    } catch (_) {
+      if (_isObsoleteLoad(loadId, orgId)) return;
+      state = state.copyWith(
+        isLoading: false,
+        error: 'Could not load your profile. Please try again.',
+      );
+    }
+  }
+
+  Future<void> _loadProfile(int loadId, String? orgId) async {
     final results = await Future.wait([
       _repository.getAccount(),
-      _repository.getNotificationPreferences(),
+      _repository.getNotificationPreferences(orgId: orgId),
       _repository.getSecuritySessions(),
-      _repository.getOrganization(),
+      _repository.getOrganization(orgId: orgId),
       _repository.getTeamMembers(orgId: orgId),
       _repository.getRolesAndPermissions(),
       _repository.getBillingInfo(),
     ]);
+
+    // A newer load started, or the workspace changed, while this was loading:
+    // drop the stale result, the newer load will fill the screen.
+    if (_isObsoleteLoad(loadId, orgId)) return;
 
     final accountResult = results[0] as Result<ProfileAccount>;
     final notificationResult = results[1] as Result<NotificationPreferences>;
@@ -526,6 +631,10 @@ class UserProfileNotifier extends Notifier<UserProfileState> {
         } catch (_) {}
       }
     }
+
+    // The secure-storage read above can take long enough for another load to
+    // start, so check again right before writing the state.
+    if (_isObsoleteLoad(loadId, orgId)) return;
 
     state = state.copyWith(
       account: _valueOrNull(accountResult),

@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:zedu/core/core.dart';
 import 'package:zedu/features/features.dart';
 
@@ -96,8 +97,10 @@ class _WorkspaceSwitcherHeaderState
             ),
           ),
           IconButton(
+            tooltip: 'New conversation',
             onPressed: () {
-              // Add action
+              ref.read(selectedDmProvider.notifier).select(null);
+              ref.read(activeChatProvider.notifier).selectNewGroupChat();
             },
             icon: Icon(
               Icons.add,
@@ -183,7 +186,8 @@ class _AnchoredWorkspaceMenu extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    final maxHeight = MediaQuery.sizeOf(context).height - top - 16;
+    final screenHeight = MediaQuery.sizeOf(context).height;
+    final maxHeight = math.max(120.0, screenHeight - top - 16);
 
     return Stack(
       children: [
@@ -191,9 +195,7 @@ class _AnchoredWorkspaceMenu extends StatelessWidget {
           left: left,
           top: top,
           child: ConstrainedBox(
-            constraints: BoxConstraints(
-              maxHeight: maxHeight < 0 ? 0 : maxHeight,
-            ),
+            constraints: BoxConstraints(maxHeight: maxHeight),
             child: AnimatedBuilder(
               animation: animation,
               builder: (context, child) {

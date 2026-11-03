@@ -26,6 +26,48 @@ class _DmChatAreaState extends ConsumerState<DmChatArea> {
     return '@${parts.first}_${parts.last}';
   }
 
+  bool get _isOwnSpace {
+    final userId = ref.read(authNotifierProvider).user?.id;
+    return userId != null &&
+        userId.isNotEmpty &&
+        widget.conversation.participantId == userId;
+  }
+
+  bool _isOwnSpaceSystemEvent(Map<String, dynamic> message) {
+    final type =
+        (message['type'] ??
+                message['message_type'] ??
+                message['event_type'] ??
+                '')
+            .toString()
+            .toLowerCase();
+    final isSystemEvent =
+        message['is_system'] == true ||
+        const {'system', 'event', 'notification'}.contains(type);
+    final content = (message['content'] ?? '').toString();
+    return isSystemEvent &&
+        RegExp(
+          r'\bstarted a conversation with yourself\b',
+          caseSensitive: false,
+        ).hasMatch(content);
+  }
+
+  Future<void> _editOwnProfile() async {
+    final notifier = ref.read(userProfileNotifierProvider.notifier);
+    if (ref.read(userProfileNotifierProvider).account == null) {
+      await notifier.load();
+    }
+    if (!mounted) return;
+
+    final account = ref.read(userProfileNotifierProvider).account;
+    if (account == null) {
+      _showActionNotice('Could not load your profile. Try again.');
+      return;
+    }
+
+    await showEditProfileDialog(context, account, notifier.updateAccount);
+  }
+
   Future<void> _handleMenuAction(String action) async {
     final conversation = widget.conversation;
     switch (action) {
@@ -221,6 +263,7 @@ class _DmChatAreaState extends ConsumerState<DmChatArea> {
               children: [
                 _DmChatHeader(
                   conversation: widget.conversation,
+                  isOwnSpace: _isOwnSpace,
                   isMuted: isMuted,
                   isPinned: isPinned,
                   onMenuAction: _handleMenuAction,
@@ -231,7 +274,14 @@ class _DmChatAreaState extends ConsumerState<DmChatArea> {
                       final historyState = ref.watch(
                         chatHistoryProvider(widget.conversation.channelId),
                       );
-                      final messages = historyState.messages;
+                      final isOwnSpace = _isOwnSpace;
+                      final messages = isOwnSpace
+                          ? historyState.messages
+                                .where(
+                                  (message) => !_isOwnSpaceSystemEvent(message),
+                                )
+                                .toList()
+                          : historyState.messages;
 
                       return NotificationListener<ScrollNotification>(
                         onNotification: (ScrollNotification scrollInfo) {
@@ -285,9 +335,14 @@ class _DmChatAreaState extends ConsumerState<DmChatArea> {
                               ),
                             if (!historyState.hasMore)
                               SliverToBoxAdapter(
-                                child: DmProfileCard(
-                                  conversation: widget.conversation,
-                                ),
+                                child: isOwnSpace
+                                    ? OwnSpaceIntro(
+                                        conversation: widget.conversation,
+                                        onEditProfile: _editOwnProfile,
+                                      )
+                                    : DmProfileCard(
+                                        conversation: widget.conversation,
+                                      ),
                               ),
                           ],
                         ),
@@ -298,6 +353,7 @@ class _DmChatAreaState extends ConsumerState<DmChatArea> {
                 DmMessageComposer(
                   key: _composerKey,
                   recipientName: _recipientHandle,
+                  hintText: _isOwnSpace ? 'Write a note to yourself' : null,
                   channelId: widget.conversation.channelId,
                   participants: widget.conversation.participants,
                 ),
@@ -388,6 +444,7 @@ class _DmChatAreaState extends ConsumerState<DmChatArea> {
                             ),
                             IconButton(
                               icon: const Icon(Icons.call_end),
+                              tooltip: 'Cancel call',
                               color: Colors.red,
                               onPressed: () {
                                 ref
@@ -513,12 +570,14 @@ class _ConversationSearchDialogState extends State<_ConversationSearchDialog> {
 
 class _DmChatHeader extends StatelessWidget {
   final DmConversation conversation;
+  final bool isOwnSpace;
   final bool isMuted;
   final bool isPinned;
   final ValueChanged<String> onMenuAction;
 
   const _DmChatHeader({
     required this.conversation,
+    required this.isOwnSpace,
     required this.isMuted,
     required this.isPinned,
     required this.onMenuAction,
@@ -527,6 +586,25 @@ class _DmChatHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final menuTextStyle = AppTypography.textTheme.bodyLarge!.copyWith(
+      color: colors.textPrimary,
+    );
+    PopupMenuItem<String> menuItem(
+      String value,
+      String label, {
+      bool destructive = false,
+    }) => PopupMenuItem<String>(
+      value: value,
+      height: 48,
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Text(
+        label,
+        style: destructive
+            ? menuTextStyle.copyWith(color: colors.error)
+            : menuTextStyle,
+      ),
+    );
+
     final participantInitial = conversation.displayName.trim().isEmpty
         ? '?'
         : conversation.displayName.trim()[0].toUpperCase();
@@ -557,14 +635,35 @@ class _DmChatHeader extends StatelessWidget {
                 : null,
           ),
           const SizedBox(width: 12),
-          Text(
-            conversation.displayName,
-            style: TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w500,
-              color: colors.textPrimary,
+          if (isOwnSpace)
+            RichText(
+              text: TextSpan(
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500,
+                  color: colors.textPrimary,
+                ),
+                children: [
+                  TextSpan(text: conversation.displayName),
+                  TextSpan(
+                    text: ' (you)',
+                    style: TextStyle(
+                      color: colors.textHint,
+                      fontWeight: FontWeight.normal,
+                    ),
+                  ),
+                ],
+              ),
+            )
+          else
+            Text(
+              conversation.displayName,
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w500,
+                color: colors.textPrimary,
+              ),
             ),
-          ),
           const Spacer(),
           Consumer(
             builder: (context, ref, child) {
@@ -600,58 +699,42 @@ class _DmChatHeader extends StatelessWidget {
           PopupMenuButton<String>(
             tooltip: 'More options',
             position: PopupMenuPosition.under,
-            icon: Icon(Icons.more_vert, color: colors.textHint),
+            offset: const Offset(0, 8),
+            color: colors.onPrimary,
+            surfaceTintColor: Colors.transparent,
+            elevation: 8,
+            shadowColor: colors.textPrimary.withValues(alpha: 0.16),
+            menuPadding: const EdgeInsets.symmetric(vertical: 4),
+            constraints: const BoxConstraints.tightFor(width: 240),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+              side: BorderSide(color: colors.divider),
+            ),
+            style: IconButton.styleFrom(
+              backgroundColor: colors.background,
+              foregroundColor: colors.textPrimary,
+              fixedSize: const Size(40, 40),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+                side: BorderSide(color: colors.divider),
+              ),
+            ),
+            icon: const Icon(Icons.more_vert),
             onSelected: onMenuAction,
             itemBuilder: (context) => [
-              PopupMenuItem(
-                value: 'view_profile',
-                child: Text(
-                  'View profile',
-                  style: TextStyle(color: colors.textPrimary),
-                ),
-              ),
-              PopupMenuItem(
-                value: 'mute_notifications',
-                child: Text(
-                  isMuted ? 'Unmute notifications' : 'Mute notifications',
-                  style: TextStyle(color: colors.textPrimary),
-                ),
-              ),
-              PopupMenuItem(
-                value: 'pin_conversation',
-                child: Text(
-                  isPinned ? 'Unpin conversation' : 'Pin conversation',
-                  style: TextStyle(color: colors.textPrimary),
-                ),
-              ),
-              PopupMenuItem(
-                value: 'search_in_conversation',
-                child: Text(
-                  'Search in conversation',
-                  style: TextStyle(color: colors.textPrimary),
-                ),
-              ),
-              PopupMenuItem(
-                value: 'view_files',
-                child: Text(
-                  'View files',
-                  style: TextStyle(color: colors.textPrimary),
-                ),
-              ),
-              const PopupMenuDivider(),
-              PopupMenuItem(
-                value: 'clear_history',
-                child: Text(
-                  'Clear history',
-                  style: TextStyle(color: colors.textPrimary),
-                ),
-              ),
-              PopupMenuItem(
-                value: 'delete_conversation',
-                child: Text(
-                  'Delete conversation',
-                  style: TextStyle(color: colors.error),
-                ),
+              menuItem('view_profile', 'View profile'),
+              menuItem('mute_notifications', 'Mute notifications'),
+              menuItem('pin_conversation', 'Pin conversation'),
+              menuItem('pinned_messages', 'Pinned messages'),
+              menuItem('search_in_conversation', 'Search in conversation'),
+              menuItem('view_files', 'View files'),
+              const PopupMenuDivider(height: 1),
+              menuItem('clear_history', 'Clear history'),
+              menuItem('block_user', 'Block User'),
+              menuItem(
+                'delete_conversation',
+                'Delete conversation',
+                destructive: true,
               ),
             ],
           ),
