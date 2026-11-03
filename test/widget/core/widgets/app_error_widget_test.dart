@@ -63,6 +63,7 @@ void main() {
         expect(find.byType(AppErrorWidget), findsOneWidget);
         expect(find.text('Something went wrong here.'), findsOneWidget);
         expect(find.text('Sidebar still here'), findsOneWidget);
+        expect(find.text('Back to home'), findsOneWidget);
 
         fail = false;
         await tester.tap(find.text('Try again'));

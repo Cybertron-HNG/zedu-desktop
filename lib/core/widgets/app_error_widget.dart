@@ -4,7 +4,8 @@ import 'package:zedu/core/core.dart';
 /// (installed as [ErrorWidget.builder] by `installGlobalErrorHandlers`).
 ///
 /// Keeps the failure contained to the broken region and offers a retry that
-/// rebuilds the widget that failed. Error details are only shown in debug.
+/// rebuilds the widget that failed, or a way back to home. Error details are
+/// only shown in debug.
 class AppErrorWidget extends StatelessWidget {
   const AppErrorWidget({super.key, required this.details});
 
@@ -43,9 +44,19 @@ class AppErrorWidget extends StatelessWidget {
                 ),
               ],
               const SizedBox(height: 4),
-              TextButton(
-                onPressed: () => _retry(context),
-                child: const Text('Try again'),
+              Wrap(
+                alignment: WrapAlignment.center,
+                spacing: 8,
+                children: [
+                  TextButton(
+                    onPressed: () => _retry(context),
+                    child: const Text('Try again'),
+                  ),
+                  TextButton(
+                    onPressed: () => AppRouter.router.go(AppRouter.home),
+                    child: const Text('Back to home'),
+                  ),
+                ],
               ),
             ],
           ),
