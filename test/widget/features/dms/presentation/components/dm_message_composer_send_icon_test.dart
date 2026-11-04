@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:zedu/core/core.dart';
 import 'package:zedu/features/features.dart';
 
@@ -73,14 +75,18 @@ void main() {
     );
   }
 
+  // addFiles checks that the file exists on disk, so the test attaches a real
+  // temporary file, outside the fake-async test zone.
   Future<void> attachFile(WidgetTester tester) async {
-    await composerKey.currentState!.addFiles([
-      XFile.fromData(
-        Uint8List.fromList([1, 2, 3]),
-        path: 'sample.txt',
-        mimeType: 'text/plain',
-      ),
-    ]);
+    await tester.runAsync(() async {
+      final dir = await Directory.systemTemp.createTemp('send_icon_test');
+      addTearDown(() => dir.delete(recursive: true));
+      final file = File('${dir.path}${Platform.pathSeparator}sample.txt');
+      await file.writeAsBytes([1, 2, 3]);
+      await composerKey.currentState!.addFiles([
+        XFile(file.path, name: 'sample.txt', mimeType: 'text/plain'),
+      ]);
+    });
     await tester.pump();
   }
 

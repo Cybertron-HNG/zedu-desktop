@@ -104,6 +104,17 @@ void main() {
   });
 
   group('Settings navigation', () {
+    // The shell reaches providers that read AppConfig from the locator.
+    setUp(() {
+      if (locator.isRegistered<AppConfig>()) locator.unregister<AppConfig>();
+      locator.registerSingleton<AppConfig>(
+        const AppConfig(apiBaseUrl: 'http://test/', usesMockData: false),
+      );
+    });
+    tearDown(() {
+      if (locator.isRegistered<AppConfig>()) locator.unregister<AppConfig>();
+    });
+
     Future<void> pumpShell(WidgetTester tester, Size size) async {
       tester.view.physicalSize = size;
       tester.view.devicePixelRatio = 1;
