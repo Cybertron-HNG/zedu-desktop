@@ -21,9 +21,35 @@ class AppRouter {
   /// instead of through their own context.
   static final navigatorKey = GlobalKey<NavigatorState>();
 
+  /// The auth status the router guards on. [SessionExpiryListener] keeps it
+  /// in sync with `authNotifierProvider`.
+  static final authStatus = ValueNotifier<AuthStatus>(AuthStatus.unknown);
+
+  /// Routes that stay reachable while signed out. Change password is part of
+  /// the signed-out reset flow ("Use current password").
+  static const publicPaths = {
+    login,
+    magicLinkRequest,
+    magicLinkSent,
+    signup,
+    forgotPassword,
+    resetPassword,
+    changePassword,
+  };
+
+  /// Sends a signed-out user on a signed-in route to the login page, for
+  /// example after a 401 ends the session. Nothing redirects while the status
+  /// is still [AuthStatus.unknown] (the saved session is being restored).
+  static String? redirectSignedOut(GoRouterState state) {
+    if (authStatus.value != AuthStatus.unauthenticated) return null;
+    return publicPaths.contains(state.uri.path) ? null : login;
+  }
+
   static final router = GoRouter(
     initialLocation: login,
     navigatorKey: navigatorKey,
+    refreshListenable: authStatus,
+    redirect: (context, state) => redirectSignedOut(state),
     routes: [
       GoRoute(path: login, builder: (context, state) => const LoginView()),
       GoRoute(

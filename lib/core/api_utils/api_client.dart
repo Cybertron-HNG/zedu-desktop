@@ -117,6 +117,10 @@ class ApiBaseService {
     Map<String, String>? headers,
   }) async {
     final normalizedPath = normalizePath(path);
+    final requestHeaders = headersForPath(normalizedPath, headers: headers);
+    if (data is FormData) {
+      requestHeaders.remove('Content-Type');
+    }
     try {
       final response = await _dio.request<T>(
         normalizedPath,
@@ -124,7 +128,7 @@ class ApiBaseService {
         queryParameters: queryParameters,
         options: Options(
           method: method,
-          headers: headersForPath(normalizedPath, headers: headers),
+          headers: requestHeaders,
         ),
       );
 

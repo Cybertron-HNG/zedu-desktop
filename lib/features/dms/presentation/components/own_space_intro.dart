@@ -28,7 +28,7 @@ class OwnSpaceIntro extends StatelessWidget {
             backgroundImage: avatarUrl != null ? NetworkImage(avatarUrl) : null,
             child: avatarUrl == null
                 ? Text(
-                    name.trim().isNotEmpty ? name.trim()[0].toUpperCase() : '?',
+                    avatarInitial(name),
                     style: const TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
