@@ -39,6 +39,7 @@ class DmMessageComposerState extends ConsumerState<DmMessageComposer> {
   final AudioRecorder _audioRecorder = AudioRecorder();
   bool _isRecording = false;
   bool _isStarting = false;
+  int _voiceGeneration = 0;
   // File the recorder is writing to right now, so it can be removed if the
   // composer is closed while starting or recording.
   String? _activeRecordingPath;
@@ -115,13 +116,52 @@ class DmMessageComposerState extends ConsumerState<DmMessageComposer> {
       _channelDeleted = false;
 
       setState(() {
-        _pendingFiles = [];
-        _showEmojiPicker = false;
-        _isEditMode = false;
-        _editingMessageId = null;
+        _resetComposerForChannelChange(oldWidget.channelId);
       });
-      _controller.clear();
       _restoreDraft();
+    }
+  }
+
+  void _resetComposerForChannelChange(String previousChannelId) {
+    _voiceGeneration++;
+    final wasEditing = _isEditMode || _editingMessageId != null;
+    final previousVoiceNotePath = _voiceNote?.path;
+    final wasRecording = _isRecording || _isStarting;
+    final activePath = _activeRecordingPath;
+
+    _recordTimer?.cancel();
+    _previewPlayer?.stop();
+    _activeRecordingPath = null;
+    _isRecording = false;
+    _isStarting = false;
+    _recordSeconds = 0;
+    _voiceNote = null;
+    _isPreviewPlaying = false;
+    _pendingFiles = [];
+    _mentionSuggestions = [];
+    _mentionQuery = '';
+    _showEmojiPicker = false;
+    _isDragging = false;
+    _isEditMode = false;
+    _editingMessageId = null;
+    _controller.clear();
+
+    _deleteRecording(previousVoiceNotePath);
+    if (wasRecording) {
+      _audioRecorder
+          .stop()
+          .then((stopped) async {
+            await _deleteOwnRecording(stopped);
+            await _deleteOwnRecording(activePath);
+          })
+          .catchError((_) {});
+    }
+
+    if (wasEditing && previousChannelId.isNotEmpty) {
+      Future.microtask(() {
+        if (!mounted) return;
+        ref.read(chatHistoryProvider(previousChannelId)).cancelEditing();
+      });
     }
   }
 
@@ -491,21 +531,25 @@ class DmMessageComposerState extends ConsumerState<DmMessageComposer> {
   }
 
   Future<void> _startVoiceRecording() async {
+    final generation = _voiceGeneration;
     _isStarting = true;
     try {
       // Nothing shows as "recording" until the microphone is allowed.
       if (!await _audioRecorder.hasPermission()) {
-        _showVoiceError('Allow microphone access to record a voice message.');
+        if (mounted && generation == _voiceGeneration) {
+          _showVoiceError('Allow microphone access to record a voice message.');
+        }
         return;
       }
+      if (!mounted || generation != _voiceGeneration) return;
       final path =
           '${Directory.systemTemp.path}${Platform.pathSeparator}zedu-voice-${DateTime.now().millisecondsSinceEpoch}.m4a';
       _activeRecordingPath = path;
       await _audioRecorder.start(const RecordConfig(), path: path);
       // Only remember the file once recording really started.
       appRecordedPaths.add(path);
-      if (!mounted) {
-        // dispose() is already stopping and cleaning up the recorder.
+      if (!mounted || generation != _voiceGeneration) {
+        // dispose() or the channel reset already stopped the recorder.
         await _deleteOwnRecording(path);
         return;
       }
@@ -518,18 +562,25 @@ class DmMessageComposerState extends ConsumerState<DmMessageComposer> {
         _recordSeconds = 0;
       });
     } catch (error) {
-      _activeRecordingPath = null;
-      if (mounted) setState(() => _isRecording = false);
-      _showVoiceError('Could not start recording: $error');
+      if (generation == _voiceGeneration) {
+        _activeRecordingPath = null;
+        if (mounted) setState(() => _isRecording = false);
+        _showVoiceError('Could not start recording: $error');
+      }
     } finally {
-      _isStarting = false;
+      if (generation == _voiceGeneration) _isStarting = false;
     }
   }
 
   Future<void> _finishVoiceRecording() async {
+    final generation = _voiceGeneration;
     _recordTimer?.cancel();
     try {
       final recordedPath = await _audioRecorder.stop();
+      if (generation != _voiceGeneration) {
+        await _deleteOwnRecording(recordedPath);
+        return;
+      }
       _activeRecordingPath = null;
       if (!mounted) {
         // The composer is gone, so nobody will send this recording.
@@ -547,8 +598,10 @@ class DmMessageComposerState extends ConsumerState<DmMessageComposer> {
         }
       });
     } catch (error) {
-      if (mounted) setState(() => _isRecording = false);
-      _showVoiceError('Could not save the recording: $error');
+      if (generation == _voiceGeneration) {
+        if (mounted) setState(() => _isRecording = false);
+        _showVoiceError('Could not save the recording: $error');
+      }
     }
   }
 
