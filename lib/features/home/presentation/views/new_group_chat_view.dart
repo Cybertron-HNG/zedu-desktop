@@ -92,13 +92,7 @@ class _NewGroupChatViewState extends ConsumerState<NewGroupChatView> {
   }
 
   String _getMemberInitials(String displayName) {
-    final clean = displayName.trim();
-    if (clean.isEmpty) return '?';
-    final runes = clean.runes.toList();
-    if (runes.length > 1) {
-      return String.fromCharCodes(runes.take(2)).toUpperCase();
-    }
-    return String.fromCharCode(runes.first).toUpperCase();
+    return avatarInitials(displayName, fallback: '?');
   }
 
   Future<void> _handleCreate() async {

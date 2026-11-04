@@ -125,9 +125,42 @@ void main() {
         findsOneWidget,
       );
       expect(
-        find.descendant(of: find.byType(Chip), matching: find.text('EM')),
+        find.descendant(of: find.byType(Chip), matching: find.text('E')),
         findsOneWidget,
       );
     },
   );
+
+  testWidgets(
+    'renders selected member chip with multi-word name initials (e.g. Alice Cooper -> AC)',
+    (tester) async {
+      tester.view.physicalSize = const Size(1200, 900);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await tester.pumpWidget(buildWidget(members: [testMembers[3]]));
+      await tester.pumpAndSettle();
+
+      await tester.tap(findSearchField());
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Alice Cooper'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(Chip), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(Chip),
+          matching: find.text('Alice Cooper'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: find.byType(Chip), matching: find.text('AC')),
+        findsOneWidget,
+      );
+    },
+  );
+
 }

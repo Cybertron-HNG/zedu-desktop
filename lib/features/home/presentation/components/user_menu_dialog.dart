@@ -410,14 +410,4 @@ class _UserMenuAvatar extends StatelessWidget {
   }
 }
 
-String _initialsFor(String name) {
-  final parts = name
-      .trim()
-      .split(RegExp(r'\s+'))
-      .where((part) => part.isNotEmpty)
-      .take(2);
-  if (parts.isEmpty) return '?';
-  return parts
-      .map((part) => String.fromCharCode(part.runes.first).toUpperCase())
-      .join();
-}
+String _initialsFor(String name) => avatarInitials(name, fallback: '?');

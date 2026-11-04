@@ -69,4 +69,34 @@ void main() {
       expect(avatarInitial('x' * 10000), 'X');
     });
   });
+
+  group('avatarInitials', () {
+    test('takes first and last word initials for multi-word names', () {
+      expect(avatarInitials('Alice Smith'), 'AS');
+      expect(avatarInitials('alice cooper'), 'AC');
+      expect(avatarInitials('John Ronald Reuel Tolkien'), 'JT');
+    });
+
+    test('falls back to single initial for single-word names', () {
+      expect(avatarInitials('Divine'), 'D');
+      expect(avatarInitials('ada'), 'A');
+    });
+
+    test('preserves emoji and unicode grapheme clusters intact', () {
+      expect(avatarInitials('😀 Ada'), '😀A');
+      expect(avatarInitials('Ada 👩‍💻'), 'A👩‍💻');
+      expect(avatarInitials('🇳🇬 Lagos'), '🇳🇬L');
+      expect(avatarInitials('🚀 Rocket'), '🚀R');
+      expect(avatarInitials('🚀'), '🚀');
+    });
+
+    test('handles whitespace and empty strings gracefully', () {
+      expect(avatarInitials(''), '?');
+      expect(avatarInitials('   '), '?');
+      expect(avatarInitials(null), '?');
+      expect(avatarInitials('', fallback: 'ZU'), 'ZU');
+      expect(avatarInitials('   Alice    Smith   '), 'AS');
+    });
+  });
+
 }
