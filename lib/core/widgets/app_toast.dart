@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:zedu/core/core.dart';
 
 enum AppToastType { success, error, info }
@@ -95,6 +97,11 @@ class _AppToastWidgetState extends State<_AppToastWidget>
   late final Animation<double> _fade;
   late final Animation<Offset> _slide;
 
+  Timer? _dismissTimer;
+  bool _hovered = false;
+
+  static const _dismissDelay = Duration(seconds: 4);
+
   @override
   void initState() {
     super.initState();
@@ -109,7 +116,29 @@ class _AppToastWidgetState extends State<_AppToastWidget>
     ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
 
     _controller.forward();
-    Future.delayed(const Duration(seconds: 4), _dismiss);
+    _startDismissTimer();
+  }
+
+  void _startDismissTimer() {
+    _cancelDismissTimer();
+    _dismissTimer = Timer(_dismissDelay, _dismiss);
+  }
+
+  void _cancelDismissTimer() {
+    _dismissTimer?.cancel();
+    _dismissTimer = null;
+  }
+
+  void _onHoverEnter() {
+    if (_hovered) return;
+    setState(() => _hovered = true);
+    _cancelDismissTimer();
+  }
+
+  void _onHoverExit() {
+    if (!_hovered) return;
+    setState(() => _hovered = false);
+    _startDismissTimer();
   }
 
   Future<void> _dismiss() async {
@@ -120,6 +149,7 @@ class _AppToastWidgetState extends State<_AppToastWidget>
 
   @override
   void dispose() {
+    _cancelDismissTimer();
     _controller.dispose();
     super.dispose();
   }
@@ -150,7 +180,10 @@ class _AppToastWidgetState extends State<_AppToastWidget>
       ),
     };
 
-    return FadeTransition(
+    return MouseRegion(
+      onEnter: (_) => _onHoverEnter(),
+      onExit: (_) => _onHoverExit(),
+      child: FadeTransition(
       opacity: _fade,
       child: SlideTransition(
         position: _slide,
@@ -217,12 +250,24 @@ class _AppToastWidgetState extends State<_AppToastWidget>
                               ),
                             ),
                             SizedBox(width: 8 * s),
-                            GestureDetector(
-                              onTap: _dismiss,
-                              child: Icon(
-                                Icons.close_rounded,
-                                size: 16 * s,
-                                color: context.colors.textHint,
+                            Tooltip(
+                              message: 'Dismiss',
+                              child: Semantics(
+                                button: true,
+                                label: 'Dismiss',
+                                child: InkWell(
+                                  onTap: _dismiss,
+                                  hoverColor: Colors.transparent,
+                                  highlightColor: Colors.transparent,
+                                  child: MouseRegion(
+                                    cursor: SystemMouseCursors.click,
+                                    child: Icon(
+                                      Icons.close_rounded,
+                                      size: 16 * s,
+                                      color: context.colors.textHint,
+                                    ),
+                                  ),
+                                ),
                               ),
                             ),
                           ],
@@ -235,6 +280,7 @@ class _AppToastWidgetState extends State<_AppToastWidget>
             ),
           ),
         ),
+      ),
       ),
     );
   }
