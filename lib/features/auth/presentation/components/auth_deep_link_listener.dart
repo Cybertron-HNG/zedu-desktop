@@ -17,6 +17,7 @@ class _AuthDeepLinkListenerState extends ConsumerState<AuthDeepLinkListener> {
   late final AppLinks _appLinks;
   StreamSubscription<Uri>? _linkSubscription;
   String? _lastProcessedToken;
+  bool _isDisposed = false;
 
   static const _tag = 'AuthDeepLinkListener';
 
@@ -30,12 +31,15 @@ class _AuthDeepLinkListenerState extends ConsumerState<AuthDeepLinkListener> {
   Future<void> _initDeepLinks() async {
     try {
       final initialUri = await _appLinks.getInitialLink();
+      if (!mounted || _isDisposed) return;
       if (initialUri != null) {
         await _handleUri(initialUri);
       }
     } catch (error) {
       AppLogger.w('Failed to read initial deep link', tag: _tag);
     }
+
+    if (!mounted || _isDisposed) return;
 
     _linkSubscription = _appLinks.uriLinkStream.listen(
       (uri) {
@@ -45,6 +49,11 @@ class _AuthDeepLinkListenerState extends ConsumerState<AuthDeepLinkListener> {
         AppLogger.w('Deep link stream error: $error', tag: _tag);
       },
     );
+
+    if (_isDisposed) {
+      _linkSubscription?.cancel();
+      _linkSubscription = null;
+    }
   }
 
   Future<void> _handleUri(Uri uri) async {
@@ -84,7 +93,9 @@ class _AuthDeepLinkListenerState extends ConsumerState<AuthDeepLinkListener> {
 
   @override
   void dispose() {
+    _isDisposed = true;
     _linkSubscription?.cancel();
+    _linkSubscription = null;
     super.dispose();
   }
 

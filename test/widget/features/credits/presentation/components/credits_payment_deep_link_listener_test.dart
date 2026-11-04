@@ -192,6 +192,44 @@ void main() {
       expect(verifiedSession, 'cs-2');
       expect(verifiedOrg, 'org-9');
     });
+
+    testWidgets(
+      'does not leak uriLinkStream subscription if disposed during getInitialLink',
+      (tester) async {
+        final initialLinkCompleter = Completer<Uri?>();
+        when(
+          () => mockAppLinks.getInitialLink(),
+        ).thenAnswer((_) => initialLinkCompleter.future);
+
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              authNotifierProvider.overrideWith(
+                () => FakeDeepLinkAuthNotifier(user: _user()),
+              ),
+            ],
+            child: MaterialApp(
+              home: CreditsPaymentDeepLinkListener(
+                appLinks: mockAppLinks,
+                child: const SizedBox.shrink(),
+              ),
+            ),
+          ),
+        );
+
+        expect(linkController.hasListener, isFalse);
+
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pump();
+
+        initialLinkCompleter.complete(
+          Uri.parse('zedu://credits/payment-success?session_id=cs-post-dispose'),
+        );
+        await tester.pump();
+
+        expect(linkController.hasListener, isFalse);
+      },
+    );
   });
 }
 

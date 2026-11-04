@@ -154,5 +154,42 @@ void main() {
       await tester.pump(const Duration(seconds: 5));
       await tester.pumpAndSettle();
     });
+    testWidgets(
+      'does not leak uriLinkStream subscription if disposed during getInitialLink',
+      (tester) async {
+        final initialLinkCompleter = Completer<Uri?>();
+        when(
+          () => mockAppLinks.getInitialLink(),
+        ).thenAnswer((_) => initialLinkCompleter.future);
+
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              authNotifierProvider.overrideWith(
+                () => FakeDeepLinkAuthNotifier(),
+              ),
+            ],
+            child: MaterialApp(
+              home: AuthDeepLinkListener(
+                appLinks: mockAppLinks,
+                child: const SizedBox.shrink(),
+              ),
+            ),
+          ),
+        );
+
+        expect(linkController.hasListener, isFalse);
+
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pump();
+
+        initialLinkCompleter.complete(
+          Uri.parse('zedu://auth/magick-link/verify?token=post-dispose'),
+        );
+        await tester.pump();
+
+        expect(linkController.hasListener, isFalse);
+      },
+    );
   });
 }

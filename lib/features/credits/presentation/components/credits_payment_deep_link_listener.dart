@@ -23,6 +23,7 @@ class _CreditsPaymentDeepLinkListenerState
   late final AppLinks _appLinks;
   StreamSubscription<Uri>? _linkSubscription;
   String? _lastProcessedSessionId;
+  bool _isDisposed = false;
 
   static const _tag = 'CreditsPaymentDeepLinkListener';
 
@@ -36,6 +37,7 @@ class _CreditsPaymentDeepLinkListenerState
   Future<void> _initDeepLinks() async {
     try {
       final initialUri = await _appLinks.getInitialLink();
+      if (!mounted || _isDisposed) return;
       if (initialUri != null) {
         await _handleUri(initialUri);
       }
@@ -43,12 +45,19 @@ class _CreditsPaymentDeepLinkListenerState
       AppLogger.w('Failed to read initial payment deep link', tag: _tag);
     }
 
+    if (!mounted || _isDisposed) return;
+
     _linkSubscription = _appLinks.uriLinkStream.listen(
       (uri) => unawaited(_handleUri(uri)),
       onError: (Object error, StackTrace stackTrace) {
         AppLogger.w('Payment deep link stream error: $error', tag: _tag);
       },
     );
+
+    if (_isDisposed) {
+      unawaited(_linkSubscription?.cancel());
+      _linkSubscription = null;
+    }
   }
 
   Future<void> _handleUri(Uri uri) async {
@@ -99,7 +108,9 @@ class _CreditsPaymentDeepLinkListenerState
 
   @override
   void dispose() {
+    _isDisposed = true;
     unawaited(_linkSubscription?.cancel());
+    _linkSubscription = null;
     super.dispose();
   }
 
