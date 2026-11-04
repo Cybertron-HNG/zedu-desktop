@@ -8,6 +8,7 @@ class MockDmRepository extends Mock implements DmRepository {}
 
 void main() {
   _deleteTests();
+  _loadMoreTests();
   group('ChatHistoryNotifier.saveEdit', () {
     late MockDmRepository mockRepository;
     late ProviderContainer container;
@@ -254,6 +255,75 @@ void _deleteTests() {
 
       await notifier.deleteMessage('m1');
 
+      expect(notifier.messages.map((m) => m['id']), ['m1', 'm2']);
+    });
+  });
+}
+
+void _loadMoreTests() {
+  group('ChatHistoryNotifier.loadMore', () {
+    late MockDmRepository mockRepository;
+    late ProviderContainer container;
+    late ChatHistoryNotifier notifier;
+
+    setUp(() async {
+      mockRepository = MockDmRepository();
+      when(
+        () => mockRepository.getMessages(any(), page: any(named: 'page')),
+      ).thenAnswer(
+        (_) async => [
+          {'id': 'm1', 'content': 'hello', 'user_id': 'u1'},
+        ],
+      );
+      container = ProviderContainer(
+        overrides: [dmRepositoryProvider.overrideWithValue(mockRepository)],
+      );
+      notifier = container.read(chatHistoryProvider('ch-1'));
+      await pumpEventQueue();
+    });
+
+    tearDown(() => container.dispose());
+
+    test('records loadMoreError and preserves page and hasMore on request failure', () async {
+      notifier.page = 1;
+      notifier.hasMore = true;
+
+      when(
+        () => mockRepository.getMessages('ch-1', page: 2),
+      ).thenThrow(Exception('500 internal server error'));
+
+      await notifier.loadMore();
+
+      expect(notifier.page, 1);
+      expect(notifier.hasMore, isTrue);
+      expect(notifier.isLoading, isFalse);
+      expect(notifier.loadMoreError, contains('Failed to load older messages'));
+    });
+
+    test('retryLoadMore clears error and advances page on subsequent success', () async {
+      notifier.page = 1;
+      notifier.hasMore = true;
+
+      when(
+        () => mockRepository.getMessages('ch-1', page: 2),
+      ).thenThrow(Exception('temporary network drop'));
+
+      await notifier.loadMore();
+      expect(notifier.loadMoreError, isNotNull);
+
+      when(
+        () => mockRepository.getMessages('ch-1', page: 2),
+      ).thenAnswer(
+        (_) async => [
+          {'id': 'm2', 'content': 'older', 'user_id': 'u1'},
+        ],
+      );
+
+      await notifier.retryLoadMore();
+
+      expect(notifier.page, 2);
+      expect(notifier.loadMoreError, isNull);
+      expect(notifier.isLoading, isFalse);
       expect(notifier.messages.map((m) => m['id']), ['m1', 'm2']);
     });
   });

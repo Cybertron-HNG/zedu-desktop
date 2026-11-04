@@ -1,5 +1,7 @@
 import 'dart:io' show File;
 
+import 'package:flutter/foundation.dart' show debugPrint;
+
 import 'package:zedu/core/core.dart';
 import 'package:zedu/features/features.dart';
 
@@ -11,6 +13,7 @@ class ChatHistoryNotifier extends ChangeNotifier {
   bool isLoading = true;
   bool hasMore = true;
   int page = 1;
+  String? loadMoreError;
   bool _isHistoryClearedLocally = false;
 
   String? editingMessageId;
@@ -159,6 +162,7 @@ class ChatHistoryNotifier extends ChangeNotifier {
     if (isLoading || !hasMore) return;
 
     isLoading = true;
+    loadMoreError = null;
     notifyListeners();
 
     try {
@@ -172,12 +176,20 @@ class ChatHistoryNotifier extends ChangeNotifier {
       messages = [...messages, ...newMessages.where((m) => !_isDeleted(m))];
       hasMore = newMessages.length >= DmRepository.pageSize;
       page = nextPage;
-    } catch (_) {
+      loadMoreError = null;
+    } catch (e, stackTrace) {
+      loadMoreError = 'Failed to load older messages. Tap to retry.';
+      debugPrint(
+        'Error loading older messages for channel $channelId: $e\n$stackTrace',
+      );
     } finally {
       isLoading = false;
       notifyListeners();
     }
   }
+
+  /// Retries loading the next page of older messages after a failure.
+  Future<void> retryLoadMore() => loadMore();
 
   // What each message was sent with, so a retry sends it the same way.
   final Map<String, ({List<XFile>? media, bool isChannel})> _sendOptions = {};
