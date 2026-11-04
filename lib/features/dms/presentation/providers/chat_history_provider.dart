@@ -16,6 +16,11 @@ class ChatHistoryNotifier extends ChangeNotifier {
   String? editingMessageId;
   final Map<String, Future<void>> _saveEditChains = {};
 
+  /// Ids of messages added locally before the server had them. Polling swaps
+  /// such a message for the server's copy (matched by thread id) instead of
+  /// showing the same message twice.
+  final Set<String> _localIds = {};
+
   ChatHistoryNotifier(this.channelId, this.ref) {
     _loadInitial();
   }
@@ -134,8 +139,21 @@ class ChatHistoryNotifier extends ChangeNotifier {
                   !existingIds.contains(m['id']?.toString()) && !_isDeleted(m),
             )
             .toList();
+        // A message this user sent is already on screen under a local id:
+        // the server copy takes its place rather than being added again.
+        final updated = List<Map<String, dynamic>>.from(messages);
+        final added = <Map<String, dynamic>>[];
+        for (final serverMsg in newOnly) {
+          final index = _indexOfLocalCopy(updated, serverMsg);
+          if (index == -1) {
+            added.add(serverMsg);
+          } else {
+            _localIds.remove(updated[index]['id']?.toString());
+            updated[index] = serverMsg;
+          }
+        }
         if (newOnly.isNotEmpty) {
-          messages = [...newOnly, ...messages];
+          messages = [...added, ...updated];
           notifyListeners();
         }
       }
@@ -219,6 +237,7 @@ class ChatHistoryNotifier extends ChangeNotifier {
     };
 
     _sendOptions[tempId] = (media: media, isChannel: isChannel);
+    _localIds.add(tempId);
     messages = [optimisticMessage, ...messages];
     notifyListeners();
 
@@ -233,16 +252,7 @@ class ChatHistoryNotifier extends ChangeNotifier {
       );
       _sendOptions.remove(tempId);
       _deleteRecordings(media);
-
-      messages = messages.map((m) {
-        if (m['id'] == tempId) {
-          final newMsg = Map<String, dynamic>.from(m);
-          newMsg.remove('status');
-          newMsg['thread_id'] = threadId;
-          return newMsg;
-        }
-        return m;
-      }).toList();
+      _markSent(tempId, threadId);
     } catch (_) {
       messages = messages.map((m) {
         if (m['id'] == tempId) {
@@ -255,6 +265,45 @@ class ChatHistoryNotifier extends ChangeNotifier {
     } finally {
       notifyListeners();
     }
+  }
+
+  /// Marks a local message as sent under [threadId]. If a poll already
+  /// brought the server's copy, the local one is dropped instead.
+  void _markSent(String localId, String threadId) {
+    final serverCopyShown = messages.any(
+      (m) =>
+          m['thread_id'] == threadId &&
+          !_localIds.contains(m['id']?.toString()),
+    );
+    if (serverCopyShown) {
+      _localIds.remove(localId);
+      messages = messages.where((m) => m['id'] != localId).toList();
+      return;
+    }
+    messages = messages.map((m) {
+      if (m['id'] == localId) {
+        final newMsg = Map<String, dynamic>.from(m);
+        newMsg.remove('status');
+        newMsg['thread_id'] = threadId;
+        return newMsg;
+      }
+      return m;
+    }).toList();
+  }
+
+  /// The position of the local, already-sent copy of [serverMsg], or -1.
+  int _indexOfLocalCopy(
+    List<Map<String, dynamic>> list,
+    Map<String, dynamic> serverMsg,
+  ) {
+    final threadId = serverMsg['thread_id'];
+    if (threadId == null) return -1;
+    return list.indexWhere(
+      (m) =>
+          _localIds.contains(m['id']?.toString()) &&
+          m['status'] == null &&
+          m['thread_id'] == threadId,
+    );
   }
 
   Future<void> retryMessage(String messageId) async {
@@ -281,16 +330,7 @@ class ChatHistoryNotifier extends ChangeNotifier {
       );
       _sendOptions.remove(messageId);
       _deleteRecordings(options?.media);
-
-      messages = messages.map((m) {
-        if (m['id'] == messageId) {
-          final newMsg = Map<String, dynamic>.from(m);
-          newMsg.remove('status');
-          newMsg['thread_id'] = threadId;
-          return newMsg;
-        }
-        return m;
-      }).toList();
+      _markSent(messageId, threadId);
     } catch (_) {
       messages = messages.map((m) {
         if (m['id'] == messageId) {
