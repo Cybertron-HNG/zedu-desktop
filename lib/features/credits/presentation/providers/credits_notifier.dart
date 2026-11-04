@@ -72,7 +72,9 @@ class CreditsNotifier extends Notifier<CreditsState> {
     required CreditPackage package,
     required String email,
   }) async {
-    if (package.isFree) return null;
+    // One checkout at a time: a repeat click, or another plan picked while a
+    // purchase is pending, must not start a competing request.
+    if (package.isFree || state.purchasingPackageId != null) return null;
 
     state = state.copyWith(
       status: CreditsStatus.purchasing,

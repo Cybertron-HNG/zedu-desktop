@@ -170,7 +170,10 @@ class CreditPackagesGrid extends StatelessWidget {
           accentColor: _getColorForPackage(package.name),
           isCurrentPlan: _isCurrentPlan(package),
           isLoading: purchasingPackageId == package.id,
-          onPurchase: package.isFree ? null : () => onPurchase(package),
+          // Every plan is disabled while any purchase is in flight.
+          onPurchase: package.isFree || purchasingPackageId != null
+              ? null
+              : () => onPurchase(package),
         );
       },
     );
