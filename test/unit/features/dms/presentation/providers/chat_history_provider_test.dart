@@ -732,6 +732,19 @@ void _retryTests() {
         throwsA(isA<FlutterError>()),
       );
     });
+
+    test('does not throw or access dead ref when async send completes after dispose', () async {
+      final sub = container.listen(chatHistoryProvider('ch-disposed'), (_, _) {});
+      final notifier = sub.read();
+      expect(notifier.isDisposed, isFalse);
+
+      final sendFuture = notifier.sendMessage('Hello after dispose');
+      sub.close();
+      await pumpEventQueue();
+
+      expect(notifier.isDisposed, isTrue);
+      await expectLater(sendFuture, completes);
+    });
   });
 }
 
