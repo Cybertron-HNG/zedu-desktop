@@ -30,9 +30,38 @@ class _GroupDetailsPanelState extends State<GroupDetailsPanel> {
   }
 
   @override
+  void didUpdateWidget(covariant GroupDetailsPanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final switchedGroup = oldWidget.group.id != widget.group.id;
+    if (switchedGroup) {
+      // A half-typed name belongs to the previous group: drop it.
+      _isEditingName = false;
+    }
+    if (switchedGroup || oldWidget.group.name != widget.group.name) {
+      if (!_isEditingName) {
+        _nameController.text = widget.group.name;
+      }
+    }
+  }
+
+  @override
   void dispose() {
     _nameController.dispose();
     super.dispose();
+  }
+
+  void _startEditingName() {
+    // Always start from the current name, never from an earlier one.
+    _nameController.text = widget.group.name;
+    setState(() => _isEditingName = true);
+  }
+
+  /// The label for a member: their name, else their email, never blank.
+  static String _memberLabel(TeamMember member) {
+    final name = member.name?.trim() ?? '';
+    if (name.isNotEmpty) return name;
+    final email = member.email.trim();
+    return email.isNotEmpty ? email : 'Unknown member';
   }
 
   void _saveName() {
@@ -129,7 +158,7 @@ class _GroupDetailsPanelState extends State<GroupDetailsPanel> {
                           size: 18,
                           color: colors.textHint,
                         ),
-                        onPressed: () => setState(() => _isEditingName = true),
+                        onPressed: _startEditingName,
                         tooltip: 'Edit group name',
                       ),
                     ],
@@ -167,7 +196,7 @@ class _GroupDetailsPanelState extends State<GroupDetailsPanel> {
                         ),
                         const SizedBox(width: 12),
                         Text(
-                          member.name ?? member.email,
+                          _memberLabel(member),
                           style: TextStyle(color: colors.textPrimary),
                         ),
                       ],
