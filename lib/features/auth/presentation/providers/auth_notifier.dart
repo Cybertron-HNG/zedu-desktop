@@ -575,8 +575,12 @@ class AuthNotifier extends Notifier<AuthState> {
             orgId: fresh.currentOrg,
           );
         }
-        state = state.copyWith(user: adopted);
-        _syncMenuPresence(adopted);
+        // The profile response has no organisation block, so it carries no
+        // credit balance or plan and they come back as 0 and 'free'. Keep the
+        // ones already loaded for this organisation.
+        final kept = orgChanged ? adopted : adopted._withOrgPlanOf(current);
+        state = state.copyWith(user: kept);
+        _syncMenuPresence(kept);
       case Failure<User>():
         AppLogger.w(
           'Failed to refresh user — ${result.error.message}',
@@ -1174,6 +1178,26 @@ extension _UserStatusSwap on User {
     subscriptionPlanId: subscriptionPlanId,
     aiCreditsPurchasable: aiCreditsPurchasable,
     status: newStatus,
+  );
+
+  User _withOrgPlanOf(User other) => User(
+    id: id,
+    firstName: firstName,
+    lastName: lastName,
+    email: email,
+    phone: phone,
+    username: username,
+    isVerified: isVerified,
+    isOnboarded: isOnboarded,
+    createdAt: createdAt,
+    currentOrg: currentOrg,
+    currentOrganisationSlug: currentOrganisationSlug,
+    avatarUrl: avatarUrl,
+    defaultAvatarUrl: defaultAvatarUrl,
+    creditBalance: other.creditBalance,
+    subscriptionPlanId: other.subscriptionPlanId,
+    aiCreditsPurchasable: other.aiCreditsPurchasable,
+    status: status,
   );
 }
 
