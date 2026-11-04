@@ -91,8 +91,9 @@ void main() {
 
     await tester.tap(find.text('View profile'));
     await tester.pumpAndSettle();
-    expect(find.byType(AlertDialog), findsOneWidget);
-    expect(find.text('User ID: user-1'), findsOneWidget);
+    expect(find.byType(DmParticipantProfileDialog), findsOneWidget);
+    expect(find.text('Menu Tester'), findsWidgets);
+    expect(find.textContaining('user-1'), findsNothing);
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pumpAndSettle();
   });
