@@ -215,7 +215,8 @@ class _MessageBody extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.colors;
 
-    if (text.contains('[Voice Note Attached]')) {
+    if (hasVoiceNoteMarker(text)) {
+      final length = voiceNoteLength(text);
       return Container(
         margin: const EdgeInsets.only(top: 4),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -234,6 +235,9 @@ class _MessageBody extends StatelessWidget {
               decoration: BoxDecoration(
                 image: DecorationImage(
                   image: const AssetImage('assets/pngs/waveform_mock.png'),
+                  // The waveform asset is still missing (#708): leave the
+                  // space empty instead of throwing while it loads.
+                  onError: (_, _) {},
                   fit: BoxFit.cover,
                   colorFilter: ColorFilter.mode(
                     colors.primary,
@@ -242,14 +246,18 @@ class _MessageBody extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(width: 8),
-            Text(
-              '0:05',
-              style: TextStyle(
-                color: colors.primary,
-                fontWeight: FontWeight.bold,
+            // Older voice notes don't carry their length: show none rather
+            // than a made-up one.
+            if (length != null) ...[
+              const SizedBox(width: 8),
+              Text(
+                formatClockDuration(length),
+                style: TextStyle(
+                  color: colors.primary,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
-            ),
+            ],
           ],
         ),
       );
