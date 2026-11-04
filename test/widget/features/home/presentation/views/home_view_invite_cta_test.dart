@@ -165,7 +165,7 @@ Future<void> _loadAppFonts() async {
     'cache',
     'artifacts',
     'material_fonts',
-    'materialicons-regular.otf',
+    'MaterialIcons-Regular.otf',
   ].join(Platform.pathSeparator);
   while (flutterRoot.path != flutterRoot.parent.path &&
       !File(
