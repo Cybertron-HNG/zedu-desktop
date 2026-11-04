@@ -6,7 +6,146 @@ import 'package:zedu/features/features.dart';
 
 class MockDmRepository extends Mock implements DmRepository {}
 
+class _SignedOutAuth extends AuthNotifier {
+  @override
+  AuthState build() => const AuthState(status: AuthStatus.unauthenticated);
+}
+
 void main() {
+  group('ChatHistoryNotifier polling', () {
+    late MockDmRepository repository;
+
+    List<Map<String, dynamic>> history(String content) => [
+      {'id': 'm1', 'content': content, 'user_id': 'u1'},
+    ];
+
+    ChatHistoryNotifier open(ProviderContainer container) =>
+        container.read(chatHistoryProvider('ch-1'));
+
+    setUp(() => repository = MockDmRepository());
+
+    testWidgets('replaces the text of a message edited elsewhere', (
+      tester,
+    ) async {
+      {
+        final reads = [history('original'), history('corrected')];
+        when(
+          () => repository.getMessages(any(), page: any(named: 'page')),
+        ).thenAnswer((_) async => reads.removeAt(0));
+        final container = ProviderContainer(
+          overrides: [
+            authNotifierProvider.overrideWith(_SignedOutAuth.new),
+            dmRepositoryProvider.overrideWithValue(repository),
+          ],
+        );
+        final notifier = open(container);
+        await tester.pump();
+        expect(notifier.messages.single['content'], 'original');
+
+        await tester.pump(const Duration(seconds: 10));
+        await tester.pump();
+
+        expect(notifier.messages, hasLength(1));
+        expect(notifier.messages.single['id'], 'm1');
+        expect(notifier.messages.single['content'], 'corrected');
+        container.dispose();
+      }
+    });
+
+    testWidgets('leaves the list alone when the response is unchanged', (
+      tester,
+    ) async {
+      {
+        when(
+          () => repository.getMessages(any(), page: any(named: 'page')),
+        ).thenAnswer((_) async => history('same'));
+        final container = ProviderContainer(
+          overrides: [
+            authNotifierProvider.overrideWith(_SignedOutAuth.new),
+            dmRepositoryProvider.overrideWithValue(repository),
+          ],
+        );
+        final notifier = open(container);
+        await tester.pump();
+        var notified = 0;
+        notifier.addListener(() => notified++);
+
+        await tester.pump(const Duration(seconds: 10));
+        await tester.pump();
+
+        expect(notifier.messages.single['content'], 'same');
+        expect(notified, 0);
+        container.dispose();
+      }
+    });
+
+    testWidgets(
+      'still prepends new arrivals and updates edited text together',
+      (tester) async {
+        {
+          final reads = [
+            history('original'),
+            [
+              {'id': 'm2', 'content': 'new', 'user_id': 'me'},
+              ...history('corrected'),
+            ],
+          ];
+          when(
+            () => repository.getMessages(any(), page: any(named: 'page')),
+          ).thenAnswer((_) async => reads.removeAt(0));
+          final container = ProviderContainer(
+            overrides: [
+              authNotifierProvider.overrideWith(_SignedOutAuth.new),
+              dmRepositoryProvider.overrideWithValue(repository),
+            ],
+          );
+          final notifier = open(container);
+          await tester.pump();
+
+          await tester.pump(const Duration(seconds: 10));
+          await tester.pump();
+
+          expect(notifier.messages.map((m) => m['id']), ['m2', 'm1']);
+          expect(notifier.messages.last['content'], 'corrected');
+          container.dispose();
+        }
+      },
+    );
+
+    testWidgets('does not overwrite an edit that is still being saved', (
+      tester,
+    ) async {
+      {
+        final reads = [history('original'), history('original')];
+        when(
+          () => repository.getMessages(any(), page: any(named: 'page')),
+        ).thenAnswer((_) async => reads.removeAt(0));
+        final saving = Completer<void>();
+        when(
+          () => repository.editMessage(any(), content: any(named: 'content')),
+        ).thenAnswer((_) => saving.future);
+        final container = ProviderContainer(
+          overrides: [
+            authNotifierProvider.overrideWith(_SignedOutAuth.new),
+            dmRepositoryProvider.overrideWithValue(repository),
+          ],
+        );
+        final notifier = open(container);
+        await tester.pump();
+
+        unawaited(notifier.saveEdit('m1', 'my edit'));
+        await tester.pump();
+        await tester.pump(const Duration(seconds: 10));
+        await tester.pump();
+
+        expect(notifier.messages.single['content'], 'my edit');
+        saving.complete();
+        await tester.pump();
+        container.dispose();
+      }
+    });
+  });
+
   _deleteTests();
   group('ChatHistoryNotifier.saveEdit', () {
     late MockDmRepository mockRepository;
