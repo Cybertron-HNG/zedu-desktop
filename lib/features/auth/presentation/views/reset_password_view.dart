@@ -270,6 +270,7 @@ class _ResetPasswordViewState extends ConsumerState<ResetPasswordView> {
                         label: 'Confirm new password',
                         hint: 'Confirm new Password',
                         textInputAction: TextInputAction.done,
+                        onFieldSubmitted: (_) => _onResetPasswordPressed(),
                         validator: (value) {
                           if (value != _newPasswordController.text) {
                             return 'Passwords do not match';
