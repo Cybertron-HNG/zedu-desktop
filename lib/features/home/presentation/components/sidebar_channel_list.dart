@@ -33,6 +33,9 @@ class SidebarChannelList extends ConsumerWidget {
         shrinkWrap: true,
         padding: EdgeInsets.zero,
         children: [
+          // A failed load used to leave the list empty with no word of why.
+          if (channelState.hasError && !channelState.isLoading)
+            _SidebarLoadError(onRetry: () => ref.invalidate(channelProvider)),
           for (final channel in channels)
             _SidebarChannelItem(
               label: channel.name,
@@ -105,6 +108,40 @@ class _SidebarChannelItem extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Says the channels didn't load, with a Retry that loads them again, in the
+/// same words as the Channel Directory.
+class _SidebarLoadError extends StatelessWidget {
+  final VoidCallback onRetry;
+
+  const _SidebarLoadError({required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              "Couldn't load channels",
+              style: TextStyle(
+                color: colors.onPrimary.withValues(alpha: 0.7),
+                fontSize: 13,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: onRetry,
+            style: TextButton.styleFrom(foregroundColor: colors.onPrimary),
+            child: const Text('Retry'),
+          ),
+        ],
       ),
     );
   }

@@ -51,6 +51,17 @@ class SwitchingChannelNotifier extends ChannelNotifier {
   }
 }
 
+/// Fails until [recovered] is set, then lists #general.
+class FlakyChannelNotifier extends ChannelNotifier {
+  static bool recovered = false;
+
+  @override
+  Future<List<Channel>> build() async {
+    if (!recovered) throw const ApiFailure(message: 'Could not load channels');
+    return [_channel('general')];
+  }
+}
+
 void main() {
   group('SidebarChannelList', () {
     late ProviderContainer container;
@@ -179,6 +190,25 @@ void main() {
           channelId: 'channel-random',
         ),
       );
+    });
+
+    testWidgets('a failed load says so and Retry loads the channels', (
+      tester,
+    ) async {
+      FlakyChannelNotifier.recovered = false;
+      addTearDown(() => FlakyChannelNotifier.recovered = false);
+      await pumpList(tester, channels: FlakyChannelNotifier.new);
+
+      expect(find.text("Couldn't load channels"), findsOneWidget);
+      expect(find.text('Retry'), findsOneWidget);
+      expect(find.text('general'), findsNothing);
+
+      FlakyChannelNotifier.recovered = true;
+      await tester.tap(find.text('Retry'));
+      await tester.pumpAndSettle();
+
+      expect(find.text("Couldn't load channels"), findsNothing);
+      expect(find.text('general'), findsOneWidget);
     });
   });
 }
