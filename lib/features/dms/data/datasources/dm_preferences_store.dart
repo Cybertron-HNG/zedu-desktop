@@ -3,9 +3,10 @@ import 'dart:convert';
 import 'package:zedu/core/core.dart';
 import 'package:zedu/features/features.dart';
 
-/// Remembers on this computer which DMs a person pinned and which people they
-/// muted, so both survive an app restart. Kept per signed-in user, so another
-/// account on the same machine starts with its own.
+/// Remembers on this computer which DMs a person pinned, which people they
+/// muted and when their Do Not Disturb pause ends, so they survive an app
+/// restart. Kept per signed-in user, so another account on the same machine
+/// starts with its own.
 ///
 /// The backend has no field for either yet, hence local storage.
 class DmPreferencesStore {
@@ -15,6 +16,35 @@ class DmPreferencesStore {
 
   static String pinnedKey(String userId) => 'dm_pinned_channels_$userId';
   static String mutedKey(String userId) => 'dm_muted_participants_$userId';
+  static String dndUntilKey(String userId) => 'dm_dnd_until_$userId';
+
+  /// When this user's Do Not Disturb pause ends, or null when none is saved.
+  Future<DateTime?> readDndUntil(String key) async {
+    if (!locator.isRegistered<SecureStorageService>()) return null;
+    try {
+      final raw = await locator<SecureStorageService>().readData(key);
+      if (raw == null || raw.isEmpty) return null;
+      return DateTime.tryParse(raw)?.toLocal();
+    } catch (error) {
+      AppLogger.w('Could not read $key - $error', tag: _tag);
+      return null;
+    }
+  }
+
+  /// Saves when the pause ends (as UTC), or removes it when [until] is null.
+  Future<void> writeDndUntil(String key, DateTime? until) async {
+    if (!locator.isRegistered<SecureStorageService>()) return;
+    try {
+      final storage = locator<SecureStorageService>();
+      if (until == null) {
+        await storage.deleteValue(key);
+      } else {
+        await storage.writeData(key, until.toUtc().toIso8601String());
+      }
+    } catch (error) {
+      AppLogger.w('Could not save $key - $error', tag: _tag);
+    }
+  }
 
   Future<Set<String>> read(String key) async {
     if (!locator.isRegistered<SecureStorageService>()) return {};

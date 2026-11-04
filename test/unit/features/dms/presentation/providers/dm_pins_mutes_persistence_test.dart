@@ -45,6 +45,9 @@ void main() {
       disk[i.positionalArguments[0] as String] =
           i.positionalArguments[1] as String;
     });
+    when(() => storage.deleteValue(any())).thenAnswer((i) async {
+      disk.remove(i.positionalArguments.first as String);
+    });
     locator.registerSingleton<SecureStorageService>(storage);
   });
 
@@ -135,5 +138,98 @@ void main() {
       other.read(notificationSettingsProvider).isMuted('person-1'),
       isFalse,
     );
+  });
+
+  group('Do Not Disturb', () {
+    test(
+      'a running pause is still on after a restart, with the same end',
+      () async {
+        final first = launch('u1');
+        first
+            .read(notificationSettingsProvider.notifier)
+            .setDndMode(const Duration(hours: 2));
+        final end = first.read(notificationSettingsProvider).dndUntil!;
+        await settle();
+        first.dispose();
+
+        final second = launch('u1');
+        second.read(notificationSettingsProvider);
+        await settle();
+
+        final restored = second.read(notificationSettingsProvider);
+        expect(restored.isDndActive, isTrue);
+        expect(
+          restored.dndUntil!.difference(end).inSeconds.abs(),
+          lessThanOrEqualTo(1),
+        );
+      },
+    );
+
+    test('turning it off sticks after a restart', () async {
+      final first = launch('u1');
+      final settings = first.read(notificationSettingsProvider.notifier);
+      settings.setDndMode(const Duration(hours: 2));
+      settings.clearDndMode();
+      await settle();
+      first.dispose();
+
+      final second = launch('u1');
+      second.read(notificationSettingsProvider);
+      await settle();
+
+      expect(second.read(notificationSettingsProvider).isDndActive, isFalse);
+      expect(disk.containsKey(DmPreferencesStore.dndUntilKey('u1')), isFalse);
+    });
+
+    test('a pause that ended while the app was closed is dropped', () async {
+      disk[DmPreferencesStore.dndUntilKey('u1')] = DateTime.now()
+          .subtract(const Duration(minutes: 5))
+          .toUtc()
+          .toIso8601String();
+
+      final container = launch('u1');
+      container.read(notificationSettingsProvider);
+      await settle();
+
+      expect(container.read(notificationSettingsProvider).isDndActive, isFalse);
+      expect(disk.containsKey(DmPreferencesStore.dndUntilKey('u1')), isFalse);
+    });
+
+    test(
+      'a pause set right after launch is not undone by the saved one',
+      () async {
+        disk[DmPreferencesStore.dndUntilKey('u1')] = DateTime.now()
+            .add(const Duration(hours: 8))
+            .toUtc()
+            .toIso8601String();
+
+        final container = launch('u1');
+        container
+            .read(notificationSettingsProvider.notifier)
+            .setDndMode(const Duration(minutes: 30));
+        await settle();
+
+        final until = container.read(notificationSettingsProvider).dndUntil!;
+        expect(
+          until.difference(DateTime.now()).inMinutes,
+          lessThanOrEqualTo(30),
+        );
+      },
+    );
+
+    test("another account on the same computer doesn't get it", () async {
+      final first = launch('u1');
+      first
+          .read(notificationSettingsProvider.notifier)
+          .setDndMode(const Duration(hours: 2));
+      await settle();
+      first.dispose();
+
+      final other = launch('u2');
+      other.read(notificationSettingsProvider);
+      await settle();
+
+      expect(other.read(notificationSettingsProvider).isDndActive, isFalse);
+    });
   });
 }
