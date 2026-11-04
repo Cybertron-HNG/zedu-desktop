@@ -214,10 +214,27 @@ class _FoldersSection extends ConsumerWidget {
 class _FilesSection extends ConsumerWidget {
   const _FilesSection();
 
-  Future<void> _open(WorkspaceFile file) async {
+  /// Opens [file], or says so when it can't: a missing or invalid link, a
+  /// link nothing can open, or a launcher error.
+  Future<void> _open(
+    BuildContext context,
+    WidgetRef ref,
+    WorkspaceFile file,
+  ) async {
+    final messenger = ScaffoldMessenger.of(context);
     final uri = Uri.tryParse(file.link);
-    if (uri != null && await canLaunchUrl(uri)) {
-      await launchUrl(uri);
+    var opened = false;
+    if (uri != null && uri.hasScheme) {
+      try {
+        opened = await ref.read(fileLinkOpenerProvider)(uri);
+      } catch (_) {
+        opened = false;
+      }
+    }
+    if (!opened) {
+      messenger.showSnackBar(
+        SnackBar(content: Text('Could not open ${file.name}.')),
+      );
     }
   }
 
@@ -251,7 +268,7 @@ class _FilesSection extends ConsumerWidget {
               files: sort.apply(page.files),
               ownerNameOf: (file) =>
                   file.owner.isNotEmpty ? file.owner : ownerName(file.userId),
-              onOpen: _open,
+              onOpen: (file) => _open(context, ref, file),
             ),
             if (page.totalPages > 1) _Pagination(page: page),
           ],

@@ -30,9 +30,13 @@ class _FakeProfileNotifier extends UserProfileNotifier {
 }
 
 class _FakeFilesRepository implements FilesRepository {
-  _FakeFilesRepository({this.failFolders = false});
+  _FakeFilesRepository({
+    this.failFolders = false,
+    this.link = 'https://files.test/logo.png',
+  });
 
   final bool failFolders;
+  final String link;
   final queries = <FilesQuery>[];
   final folderRequests = <(FilesScope, String?)>[];
 
@@ -52,6 +56,7 @@ class _FakeFilesRepository implements FilesRepository {
           WorkspaceFile(
             id: 'f-1',
             name: 'logo.png',
+            link: link,
             fileType: 'png',
             size: 2048,
             userId: 'u-1',
@@ -85,7 +90,11 @@ class _FakeFilesRepository implements FilesRepository {
   }
 }
 
-Future<void> _pump(WidgetTester tester, _FakeFilesRepository repository) async {
+Future<void> _pump(
+  WidgetTester tester,
+  _FakeFilesRepository repository, {
+  Future<bool> Function(Uri)? openLink,
+}) async {
   tester.view.physicalSize = const Size(1600, 1000);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
@@ -97,6 +106,7 @@ Future<void> _pump(WidgetTester tester, _FakeFilesRepository repository) async {
         workspaceProvider.overrideWith(_FakeWorkspaceNotifier.new),
         userProfileNotifierProvider.overrideWith(_FakeProfileNotifier.new),
         filesRepositoryProvider.overrideWithValue(repository),
+        fileLinkOpenerProvider.overrideWithValue(openLink ?? (_) async => true),
       ],
       child: buildTestMaterialApp(
         const Scaffold(
@@ -195,5 +205,62 @@ void main() {
 
     expect(find.text('Could not load folders'), findsOneWidget);
     expect(find.text('Retry'), findsOneWidget);
+  });
+
+  group('opening a file', () {
+    Future<void> openLogo(
+      WidgetTester tester, {
+      String link = 'https://files.test/logo.png',
+      required Future<bool> Function(Uri) openLink,
+    }) async {
+      await _pump(tester, _FakeFilesRepository(link: link), openLink: openLink);
+      await tester.tap(find.text('Files').last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('logo.png'));
+      await tester.pump();
+    }
+
+    testWidgets('opens its link without an error', (tester) async {
+      final opened = <Uri>[];
+      await openLogo(
+        tester,
+        openLink: (uri) async {
+          opened.add(uri);
+          return true;
+        },
+      );
+
+      expect(opened, [Uri.parse('https://files.test/logo.png')]);
+      expect(find.text('Could not open logo.png.'), findsNothing);
+    });
+
+    testWidgets('says so when the link cannot be opened', (tester) async {
+      await openLogo(tester, openLink: (_) async => false);
+
+      expect(find.text('Could not open logo.png.'), findsOneWidget);
+    });
+
+    testWidgets('says so when the launcher throws, without the error', (
+      tester,
+    ) async {
+      await openLogo(
+        tester,
+        openLink: (_) async =>
+            throw Exception('PlatformException /private/tmp/secret'),
+      );
+
+      expect(find.text('Could not open logo.png.'), findsOneWidget);
+      expect(find.textContaining('secret'), findsNothing);
+    });
+
+    testWidgets('says so for a file with no link, without launching', (
+      tester,
+    ) async {
+      var launched = false;
+      await openLogo(tester, link: '', openLink: (_) async => launched = true);
+
+      expect(launched, isFalse);
+      expect(find.text('Could not open logo.png.'), findsOneWidget);
+    });
   });
 }
