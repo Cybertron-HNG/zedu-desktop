@@ -108,8 +108,8 @@ void main() {
         await tester.tap(find.text('Open Change Password'));
         await tester.pumpAndSettle();
         await tester.enterText(fields.at(0), 'old-secret');
-        await tester.enterText(fields.at(1), 'new-secret-123');
-        await tester.enterText(fields.at(2), 'new-secret-123');
+        await tester.enterText(fields.at(1), 'New-secret-123');
+        await tester.enterText(fields.at(2), 'New-secret-123');
         await tester.pump();
 
         await tester.tap(find.text('Update Password'));
@@ -119,7 +119,7 @@ void main() {
         await tester.pumpAndSettle();
         expect(tester.takeException(), isNull);
         expect(savedCurrent, 'old-secret');
-        expect(savedNew, 'new-secret-123');
+        expect(savedNew, 'New-secret-123');
       },
     );
 
