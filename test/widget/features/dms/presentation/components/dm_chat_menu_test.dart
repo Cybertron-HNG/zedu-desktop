@@ -40,6 +40,7 @@ void main() {
     when(() => history.messages).thenReturn([]);
     when(() => history.isLoading).thenReturn(false);
     when(() => history.hasMore).thenReturn(false);
+    when(() => history.historyCleared).thenReturn(false);
     when(() => history.loadFailed).thenReturn(false);
     when(() => history.loadMoreFailed).thenReturn(false);
     final drafts = MockDraftStore();
