@@ -37,7 +37,7 @@ class SidebarChannelList extends ConsumerWidget {
               label: channel.name,
               onTap: () => ref
                   .read(activeChatProvider.notifier)
-                  .selectChannel(channel.name),
+                  .selectChannel(channel.name, channelId: channel.id),
             ),
         ],
       ),

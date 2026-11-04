@@ -46,7 +46,7 @@ class _QuickSwitcherShortcutState extends ConsumerState<QuickSwitcherShortcut> {
       });
       final channels = channelList
           .where((c) => !c.archived)
-          .map((c) => QuickSwitcherEntry.channel(c.name));
+          .map((c) => QuickSwitcherEntry.channel(c.name, channelId: c.id));
       final dms = dmList.map(QuickSwitcherEntry.dm);
       final rootContext = _router.routerDelegate.navigatorKey.currentContext;
       if (!mounted || rootContext == null || !rootContext.mounted) return;
@@ -85,7 +85,9 @@ class _QuickSwitcherShortcutState extends ConsumerState<QuickSwitcherShortcut> {
     final conversation = entry.conversation;
     if (conversation == null) {
       ref.read(homeSidebarProvider.notifier).setType(HomeSidebarType.home);
-      ref.read(activeChatProvider.notifier).selectChannel(entry.label);
+      ref
+          .read(activeChatProvider.notifier)
+          .selectChannel(entry.label, channelId: entry.channelId);
     } else {
       ref.read(homeSidebarProvider.notifier).setType(HomeSidebarType.dms);
       ref.read(selectedDmProvider.notifier).select(conversation);
