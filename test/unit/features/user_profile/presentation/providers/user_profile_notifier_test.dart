@@ -512,7 +512,9 @@ void main() {
 
         expect(
           recorder.requests.any(
-            (request) => request.path == '/organisations/org-1/roles',
+            // ApiBaseService drops the leading slash (ziki-2272) so a base
+            // URL with a path such as /api/v1/ keeps it.
+            (request) => request.path == 'organisations/org-1/roles',
           ),
           isTrue,
           reason: 'the notifier must look up the organisation roles',

@@ -1,9 +1,35 @@
 import 'dart:io';
 
 import 'package:flutter/semantics.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:zedu/core/core.dart';
 import 'package:zedu/features/features.dart';
+
+/// Keeps drafts and other stored values in memory, so the home screen's
+/// composer never touches the real keychain in tests.
+class _MemoryStorage extends SecureStorageService {
+  final Map<String, String> _values = {};
+
+  @override
+  Future<String?> getAccessToken() async => null;
+
+  @override
+  Future<void> deleteAccessToken() async {}
+
+  @override
+  Future<void> writeData(String key, String value) async =>
+      _values[key] = value;
+
+  @override
+  Future<String?> readData(String key) async => _values[key];
+
+  @override
+  Future<void> deleteValue(String key) async => _values.remove(key);
+
+  @override
+  Future<void> clearAll() async => _values.clear();
+}
 
 class _FakeAuthNotifier extends AuthNotifier {
   @override
@@ -25,7 +51,9 @@ class _FakeChannelNotifier extends ChannelNotifier {
       id: '1',
       name: 'general',
       description: 'General talk',
-      organisationId: 'org1',
+      // The sidebar only lists the selected workspace's channels; '1' is the
+      // mock "HNG Workspace".
+      organisationId: '1',
       ownerId: 'u1',
       membersCount: 1,
     ),
@@ -77,6 +105,9 @@ Widget _buildHomeView(_FakeUserProfileNotifier userProfileNotifier) {
       authNotifierProvider.overrideWith(_FakeAuthNotifier.new),
       creditsNotifierProvider.overrideWith(_FakeCreditsNotifier.new),
       channelProvider.overrideWith(_FakeChannelNotifier.new),
+      // #general has no messages yet, so its list shows the invite card (the
+      // empty state) instead of loading history from the network.
+      channelHistoryProvider('1').overrideWith((ref) async => []),
       userProfileNotifierProvider.overrideWith(() => userProfileNotifier),
     ],
     child: MaterialApp(
@@ -103,6 +134,8 @@ Future<void> _pumpHomeView(
   if (settle) {
     await tester.pumpAndSettle();
   } else {
+    // One frame for the channel's (empty) history to resolve into the card.
+    await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
   }
 }
@@ -163,6 +196,25 @@ Future<void> _loadAppFonts() async {
 
 void main() {
   setUpAll(_loadAppFonts);
+
+  // HomeView builds the DM composer (draft store needs SecureStorageService)
+  // and loads workspaces (reads AppConfig); register both like the app does,
+  // with mock data so the sidebar shows the mock workspace, not the network.
+  // The composer also creates a voice recorder, whose plugin doesn't exist
+  // in tests, so its channel answers nothing.
+  setUp(() {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+          const MethodChannel('com.llfbandit.record/messages'),
+          (call) async => null,
+        );
+    locator.registerSingleton<SecureStorageService>(_MemoryStorage());
+    locator.registerSingleton<AppConfig>(
+      const AppConfig(apiBaseUrl: 'http://test/', usesMockData: true),
+    );
+  });
+
+  tearDown(() => locator.reset());
 
   group('HomeView invite onboarding CTA', () {
     testWidgets('shows the approved invitation copy and accessible CTA', (

@@ -7,6 +7,13 @@ class MockChatHistory extends Mock implements ChatHistoryNotifier {}
 
 class MockDraftStore extends Mock implements DmDraftStore {}
 
+/// DmChatArea reads the signed-in user (own-space DMs, #415); this avoids the
+/// real AuthNotifier, which needs the app's locator.
+class FakeAuthNotifier extends AuthNotifier {
+  @override
+  AuthState build() => const AuthState(status: AuthStatus.unauthenticated);
+}
+
 void main() {
   testWidgets('DM menu uses a white surface and opens the selected action', (
     tester,
@@ -28,6 +35,7 @@ void main() {
         overrides: [
           chatHistoryProvider('chat-1').overrideWith((ref) => history),
           dmDraftStoreProvider.overrideWith((ref) => drafts),
+          authNotifierProvider.overrideWith(FakeAuthNotifier.new),
         ],
         child: buildTestMaterialApp(
           Scaffold(
