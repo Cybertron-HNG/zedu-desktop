@@ -1200,4 +1200,61 @@ void main() {
       expect(StatusTimeout.dontRemove.apiValue, 'dont-clear');
     });
   });
+
+  group('AuthNotifier.refreshCurrentUser keeps the organisation plan', () {
+    User paidUser({String org = 'org-1'}) => User(
+      id: 'user-1',
+      firstName: 'Test',
+      lastName: 'User',
+      email: 'test@example.com',
+      phone: '+1234567890',
+      username: 'testuser',
+      isVerified: true,
+      isOnboarded: true,
+      createdAt: DateTime(2026, 1, 1),
+      currentOrg: org,
+      currentOrganisationSlug: 'slug-$org',
+      avatarUrl: '',
+      defaultAvatarUrl: '',
+      creditBalance: 120,
+      subscriptionPlanId: 'pro',
+      aiCreditsPurchasable: false,
+      status: const UserStatus(online: true),
+    );
+
+    test('a same-organisation refresh keeps the balance and plan', () async {
+      final (container, notifier, repo) = await _buildSession(
+        seedUser: paidUser(),
+      );
+      expect(container.read(authNotifierProvider).user?.creditBalance, 120);
+
+      // The profile endpoint has no organisation block: 0 and 'free'.
+      when(
+        () => repo.getCurrentUser(),
+      ).thenAnswer((_) async => Success(_buildUser(firstName: 'Renamed')));
+      await notifier.refreshCurrentUser();
+
+      final user = container.read(authNotifierProvider).user!;
+      expect(user.firstName, 'Renamed');
+      expect(user.creditBalance, 120);
+      expect(user.subscriptionPlanId, 'pro');
+      expect(user.aiCreditsPurchasable, isFalse);
+    });
+
+    test('a refresh into another organisation takes its values', () async {
+      final (container, notifier, repo) = await _buildSession(
+        seedUser: paidUser(),
+      );
+
+      when(
+        () => repo.getCurrentUser(),
+      ).thenAnswer((_) async => Success(_buildUser(org: 'org-2')));
+      await notifier.refreshCurrentUser();
+
+      final user = container.read(authNotifierProvider).user!;
+      expect(user.currentOrg, 'org-2');
+      expect(user.creditBalance, 0);
+      expect(user.subscriptionPlanId, 'free');
+    });
+  });
 }
