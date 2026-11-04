@@ -10,8 +10,8 @@ class _FakeChatStorage extends Fake implements ChatStorageService {
   Future<void> appendMessage(
     String groupDmId,
     String message, {
-    String? userId,
     String? orgId,
+    String? userId,
   }) async {
     if (failWrites) throw StateError('storage unavailable');
     stored.putIfAbsent(groupDmId, () => <String>[]).add(message);
