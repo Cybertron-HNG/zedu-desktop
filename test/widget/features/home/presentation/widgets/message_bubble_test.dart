@@ -78,4 +78,25 @@ void main() {
       expect(find.text('?'), findsOneWidget);
     });
   });
+
+  group('MessageBubble voice note', () {
+    testWidgets('draws the waveform without loading a missing asset', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _wrap(
+          const MessageBubble(
+            author: 'Alice',
+            text: '[Voice Note Attached]',
+            timestamp: '10:10 AM',
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(find.byKey(const ValueKey('voice-note-waveform')), findsOneWidget);
+      expect(find.byIcon(Icons.play_circle_fill), findsOneWidget);
+    });
+  });
 }
