@@ -143,6 +143,49 @@ void main() {
       expect(find.text('# random'), findsNothing);
     });
 
+    testWidgets('View all channels opens the channel directory', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(1600, 1000);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            channelProvider.overrideWith(_FakeChannelNotifier.new),
+            workspaceProvider.overrideWith(_FakeWorkspaceNotifier.new),
+            dmDraftStoreProvider.overrideWith(
+              (ref) => DmDraftStore(
+                FakeSecureStorageService(),
+                userId: 'user-1',
+                orgId: 'org-1',
+              ),
+            ),
+          ],
+          child: buildTestMaterialApp(
+            const Scaffold(
+              body: Row(
+                children: [
+                  SizedBox(width: 320, child: ViewAllChannelsButton()),
+                  Expanded(child: HomeChatArea()),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Channel Directory'), findsNothing);
+
+      await tester.tap(find.text('View all channels'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Channel Directory'), findsOneWidget);
+    });
+
     testWidgets('a very long channel name does not overflow', (tester) async {
       await pumpSidebarAndChat(
         tester,

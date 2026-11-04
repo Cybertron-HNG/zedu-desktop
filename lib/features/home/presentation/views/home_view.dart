@@ -209,37 +209,7 @@ class _MainSidebar extends ConsumerWidget {
             ),
           ),
           const SidebarChannelList(),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                border: Border.all(
-                  color: colors.onPrimary.withValues(alpha: 0.24),
-                ),
-                borderRadius: BorderRadius.circular(6),
-                color: colors.onPrimary.withValues(alpha: 0.05),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      'View all channels',
-                      style: TextStyle(
-                        color: colors.onPrimary.withValues(alpha: 0.7),
-                        fontSize: 13,
-                      ),
-                    ),
-                  ),
-                  Icon(
-                    Icons.chevron_right,
-                    color: colors.onPrimary.withValues(alpha: 0.7),
-                    size: 16,
-                  ),
-                ],
-              ),
-            ),
-          ),
+          const ViewAllChannelsButton(),
           const _AddChannelButton(),
           const SizedBox(height: 20),
           Padding(
@@ -312,6 +282,9 @@ class HomeChatArea extends ConsumerWidget {
     // Shows the channel picked in the sidebar: its messages, or the welcome
     // text while it has none.
     final chat = ref.watch(activeChatProvider);
+    if (chat.type == ActiveChatType.channelDirectory) {
+      return const ChannelDirectoryView();
+    }
     final channels = ref.watch(channelProvider).value ?? const <Channel>[];
     final channelName = chat.type == ActiveChatType.channel
         ? (chat.id ?? 'general')
