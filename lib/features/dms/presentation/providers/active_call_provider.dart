@@ -68,17 +68,13 @@ class ActiveCallNotifier extends ChangeNotifier {
   ActiveCallState get state => _state;
   bool get isDisposed => _disposed;
 
-  @override
-  void notifyListeners() {
-    if (_disposed) return;
-    super.notifyListeners();
-  }
-
   /// The ringtone playing for the current incoming call, or null.
   CallRingtone? _ringing;
 
+  // A disposed notifier stays silent: no ringtone change, no listener call.
   @override
   void notifyListeners() {
+    if (_disposed) return;
     _syncRingtone();
     super.notifyListeners();
   }

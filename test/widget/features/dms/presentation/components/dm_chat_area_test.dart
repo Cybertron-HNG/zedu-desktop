@@ -533,15 +533,22 @@ void main() {
 
       expect(find.text('Tom & Jerry', findRichText: true), findsOneWidget);
       expect(find.textContaining('<p>', findRichText: true), findsNothing);
+      // Formatting nests, so look for the bold 'Jerry' at any span depth.
+      bool hasBoldJerry(InlineSpan root) {
+        var found = false;
+        root.visitChildren((span) {
+          if (span is TextSpan &&
+              span.text == 'Jerry' &&
+              span.style?.fontWeight == FontWeight.bold) {
+            found = true;
+          }
+          return !found;
+        });
+        return found;
+      }
+
       final bold = find.byWidgetPredicate(
-        (widget) =>
-            widget is RichText &&
-            ((widget.text as TextSpan).children ?? const []).any(
-              (span) =>
-                  span is TextSpan &&
-                  span.text == 'Jerry' &&
-                  span.style?.fontWeight == FontWeight.bold,
-            ),
+        (widget) => widget is RichText && hasBoldJerry(widget.text),
       );
       expect(bold, findsOneWidget);
     });
