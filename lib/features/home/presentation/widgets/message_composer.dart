@@ -172,7 +172,12 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
               child: Column(
                 children: teamMembers.map((member) {
                   final name = member.name ?? member.email;
-                  final initial = name.isNotEmpty ? name[0].toUpperCase() : '?';
+                  final trimmedName = name.trim();
+                  // A whole character, so a name that starts with an emoji
+                  // isn't cut in half; a blank name falls back to '?'.
+                  final initial = trimmedName.isNotEmpty
+                      ? trimmedName.characters.first.toUpperCase()
+                      : '?';
                   return InkWell(
                     onTap: () => _insertMention(name),
                     child: Padding(
