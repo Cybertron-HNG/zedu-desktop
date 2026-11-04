@@ -143,6 +143,11 @@ class _ForgotPasswordViewState extends ConsumerState<ForgotPasswordView> {
                         hint: 'Enter your email address',
                         keyboardType: TextInputType.emailAddress,
                         textInputAction: TextInputAction.done,
+                        // Enter sends the instructions, like the button, but
+                        // not a second time while a request is running.
+                        onFieldSubmitted: (_) {
+                          if (!authState.isLoading) _onSubmitPressed();
+                        },
                         validator: (value) =>
                             Validators.validateEmail(context, value),
                       ),

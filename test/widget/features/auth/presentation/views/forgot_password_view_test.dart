@@ -9,6 +9,17 @@ class FakeAuthNotifier extends AuthNotifier {
   AuthState build() => const AuthState(status: AuthStatus.unauthenticated);
 }
 
+/// Records the emails it was asked to send reset instructions to.
+class RecordingAuthNotifier extends FakeAuthNotifier {
+  final sent = <String>[];
+
+  @override
+  Future<bool> forgotPassword({required String email}) async {
+    sent.add(email);
+    return false;
+  }
+}
+
 Widget buildForgotPasswordViewUnderTest() {
   return ProviderScope(
     overrides: [authNotifierProvider.overrideWith(() => FakeAuthNotifier())],
@@ -54,6 +65,45 @@ void main() {
         tester.widget<AppBar>(find.byType(AppBar)).automaticallyImplyLeading,
         isFalse,
       );
+    });
+
+    testWidgets('Enter in the email field sends the instructions', (
+      tester,
+    ) async {
+      final notifier = RecordingAuthNotifier();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [authNotifierProvider.overrideWith(() => notifier)],
+          child: const MaterialApp(home: ForgotPasswordView()),
+        ),
+      );
+      await tester.pump();
+
+      await tester.enterText(find.byType(TextFormField), ' ada@example.com ');
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pumpAndSettle();
+
+      expect(notifier.sent, ['ada@example.com']);
+    });
+
+    testWidgets('Enter with a bad email shows the error and sends nothing', (
+      tester,
+    ) async {
+      final notifier = RecordingAuthNotifier();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [authNotifierProvider.overrideWith(() => notifier)],
+          child: const MaterialApp(home: ForgotPasswordView()),
+        ),
+      );
+      await tester.pump();
+
+      await tester.enterText(find.byType(TextFormField), 'ada@');
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Please enter a valid email'), findsOneWidget);
+      expect(notifier.sent, isEmpty);
     });
   });
 }
