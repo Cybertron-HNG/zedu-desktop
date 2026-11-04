@@ -9,3 +9,4 @@ export 'top_user_menu.dart';
 export 'notifications_dialog.dart';
 export 'dm_empty_state.dart';
 export 'sidebar_channel_list.dart';
+export 'cross_workspace_inbox_dialog.dart';

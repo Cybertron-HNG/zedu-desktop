@@ -219,6 +219,18 @@ class UserMenuDialog extends ConsumerWidget {
                       .setDndMode(const Duration(hours: 1));
                 },
               ),
+              // ── Cross-workspace inbox ──────────────────────────────────────
+              _MenuItemButton(
+                icon: Icons.all_inbox_outlined,
+                label: 'Cross-workspace inbox…',
+                onTap: () {
+                  Navigator.pop(context);
+                  showDialog<void>(
+                    context: context,
+                    builder: (_) => const CrossWorkspaceInboxDialog(),
+                  );
+                },
+              ),
               const SizedBox(height: 8),
               Divider(height: 0, color: colors.divider),
               const SizedBox(height: 8),
