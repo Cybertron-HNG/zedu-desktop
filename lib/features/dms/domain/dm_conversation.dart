@@ -121,9 +121,11 @@ class DmPreviewThread {
       message: json['message'] as String? ?? '',
       userId: json['user_id'] as String? ?? '',
       username: json['username'] as String? ?? '',
-      createdAt: json['created_at'] != null
-          ? DateTime.parse(json['created_at'] as String).toLocal()
-          : DateTime.now(),
+      // tryParse, like the rest of the DM code: one malformed timestamp must
+      // not stop the whole DM list from loading.
+      createdAt:
+          DateTime.tryParse(json['created_at']?.toString() ?? '')?.toLocal() ??
+          DateTime.now(),
       messageCount: json['message_count'] as int? ?? 0,
     );
   }
