@@ -200,6 +200,9 @@ class _FakeDmListNotifier extends AsyncNotifier<List<DmConversation>>
   bool get hasMore => false;
 
   @override
+  bool get loadMoreFailed => false;
+
+  @override
   Future<List<DmConversation>> build() async => _items;
 
   @override
