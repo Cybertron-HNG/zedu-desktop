@@ -96,6 +96,12 @@ class _AppSidebarRailState extends ConsumerState<AppSidebarRail> {
             isActive: activeType == HomeSidebarType.files,
             onTap: () => select(HomeSidebarType.files),
           ),
+          _RailNavItem(
+            icon: Icons.bookmark_border,
+            label: 'Later',
+            isActive: activeType == HomeSidebarType.later,
+            onTap: () => select(HomeSidebarType.later),
+          ),
           _BuzzRailItem(
             isActive: activeType == HomeSidebarType.buzz,
             onTap: () => select(HomeSidebarType.buzz),

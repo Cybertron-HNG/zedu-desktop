@@ -956,6 +956,44 @@ class _MessageBubble extends ConsumerWidget {
     final senderInitial = avatarInitial(senderName);
 
     final List<dynamic> media = (message['media'] as List<dynamic>?) ?? [];
+    final messageKey = messageId.isNotEmpty
+        ? messageId
+        : '${senderName}_${createdAt.millisecondsSinceEpoch}_${content.hashCode}';
+    final savedId = SavedLaterItem.composeId(
+      channelId: channelId,
+      messageKey: messageKey,
+    );
+    final isSavedForLater = ref.watch(
+      laterMessagesProvider.select((s) => s.isSaved(savedId)),
+    );
+
+    Future<void> toggleSaveForLater() async {
+      final nowSaved = await ref
+          .read(laterMessagesProvider.notifier)
+          .toggleSaved(
+            SavedLaterItem(
+              id: savedId,
+              messageId: messageKey,
+              channelId: channelId,
+              conversationName: conversation.displayName,
+              isChannel: false,
+              participantId: conversation.participantId,
+              senderName: senderName,
+              senderAvatarUrl: senderAvatarUrl,
+              content: content,
+              createdAt: createdAt,
+              savedAt: DateTime.now(),
+            ),
+          );
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(nowSaved ? 'Saved for later' : 'Removed from Later'),
+          ),
+        );
+    }
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
@@ -1018,6 +1056,8 @@ class _MessageBubble extends ConsumerWidget {
                 if (content.isNotEmpty)
                   _OwnMessageMenu(
                     enabled: isMe && status == null,
+                    isSavedForLater: isSavedForLater,
+                    onToggleSaveForLater: toggleSaveForLater,
                     onEdit: () => onEdit(messageId, content),
                     onDelete: () => _confirmDelete(context, ref, messageId),
                     onReport: isMe
@@ -1258,6 +1298,8 @@ class _OwnMessageMenu extends StatefulWidget {
     required this.enabled,
     required this.onEdit,
     required this.onDelete,
+    this.isSavedForLater = false,
+    this.onToggleSaveForLater,
     this.onReport,
     required this.child,
   });
@@ -1265,6 +1307,8 @@ class _OwnMessageMenu extends StatefulWidget {
   final bool enabled;
   final VoidCallback? onEdit;
   final VoidCallback onDelete;
+  final bool isSavedForLater;
+  final VoidCallback? onToggleSaveForLater;
 
   /// Shown instead of Edit and Delete on other people's messages.
   final VoidCallback? onReport;
@@ -1281,7 +1325,8 @@ class _OwnMessageMenuState extends State<_OwnMessageMenu> {
   @override
   Widget build(BuildContext context) {
     final canReport = !widget.enabled && widget.onReport != null;
-    if (!widget.enabled && !canReport) return widget.child;
+    final canSave = widget.onToggleSaveForLater != null;
+    if (!widget.enabled && !canReport && !canSave) return widget.child;
 
     return MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),
@@ -1299,28 +1344,38 @@ class _OwnMessageMenuState extends State<_OwnMessageMenu> {
                 tooltip: 'Message actions',
                 icon: const Icon(Icons.more_horiz, size: 18),
                 onSelected: (value) => switch (value) {
+                  'save_later' => widget.onToggleSaveForLater?.call(),
                   'edit' => widget.onEdit?.call(),
                   'report' => widget.onReport?.call(),
                   _ => widget.onDelete(),
                 },
-                itemBuilder: (_) => canReport
-                    ? const [
-                        PopupMenuItem(
-                          value: 'report',
-                          child: Text('Report message'),
-                        ),
-                      ]
-                    : [
-                        if (widget.onEdit != null)
-                          const PopupMenuItem(
-                            value: 'edit',
-                            child: Text('Edit message'),
-                          ),
-                        const PopupMenuItem(
-                          value: 'delete',
-                          child: Text('Delete message'),
-                        ),
-                      ],
+                itemBuilder: (_) => [
+                  if (canSave)
+                    PopupMenuItem(
+                      value: 'save_later',
+                      child: Text(
+                        widget.isSavedForLater
+                            ? 'Remove from saved'
+                            : 'Save for later',
+                      ),
+                    ),
+                  if (canReport)
+                    const PopupMenuItem(
+                      value: 'report',
+                      child: Text('Report message'),
+                    ),
+                  if (widget.enabled) ...[
+                    if (widget.onEdit != null)
+                      const PopupMenuItem(
+                        value: 'edit',
+                        child: Text('Edit message'),
+                      ),
+                    const PopupMenuItem(
+                      value: 'delete',
+                      child: Text('Delete message'),
+                    ),
+                  ],
+                ],
               ),
             ),
             Flexible(child: widget.child),

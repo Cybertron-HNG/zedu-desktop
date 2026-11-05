@@ -16,11 +16,15 @@ class ChannelMessageList extends ConsumerStatefulWidget {
     required this.channelId,
     required this.empty,
     this.unreadCount = 0,
+    this.channelName,
+    this.isPrivate = false,
   });
 
   final String channelId;
   final Widget empty;
   final int unreadCount;
+  final String? channelName;
+  final bool isPrivate;
 
   /// From this many unread messages on, the jump button is offered.
   static const manyUnread = 10;
@@ -149,6 +153,8 @@ class _ChannelMessageListState extends ConsumerState<ChannelMessageList> {
         firstUnread != null &&
         !_jumped &&
         _unreadAtOpen >= ChannelMessageList.manyUnread;
+    final laterState = ref.watch(laterMessagesProvider);
+    final channelName = widget.channelName ?? channelId;
 
     final list = ListView.builder(
       reverse: true,
@@ -157,8 +163,49 @@ class _ChannelMessageListState extends ConsumerState<ChannelMessageList> {
       itemCount: messages.length,
       itemBuilder: (context, index) {
         final message = messages[index];
+        final messageKey =
+            message.id ??
+            '${message.senderName}_${message.createdAt?.millisecondsSinceEpoch ?? index}_${message.text.hashCode}';
+        final savedId = SavedLaterItem.composeId(
+          channelId: channelId,
+          messageKey: messageKey,
+        );
+        final isSaved = laterState.isSaved(savedId);
+
         final tile = ChannelMessageTile(
           message: message,
+          isSavedForLater: isSaved,
+          onToggleSaveForLater: () async {
+            final nowSaved = await ref
+                .read(laterMessagesProvider.notifier)
+                .toggleSaved(
+                  SavedLaterItem(
+                    id: savedId,
+                    messageId: message.id ?? messageKey,
+                    channelId: channelId,
+                    conversationName: channelName,
+                    isChannel: true,
+                    isPrivateChannel: widget.isPrivate,
+                    senderName: message.senderName.isEmpty
+                        ? 'Unknown'
+                        : message.senderName,
+                    senderAvatarUrl: message.avatarUrl,
+                    content: message.text,
+                    createdAt: message.createdAt ?? DateTime.now(),
+                    savedAt: DateTime.now(),
+                  ),
+                );
+            if (!context.mounted) return;
+            ScaffoldMessenger.of(context)
+              ..hideCurrentSnackBar()
+              ..showSnackBar(
+                SnackBar(
+                  content: Text(
+                    nowSaved ? 'Saved for later' : 'Removed from Later',
+                  ),
+                ),
+              );
+          },
           onRetry: message.id != null
               ? () => ref
                     .read(chatHistoryProvider(channelId))
@@ -230,9 +277,17 @@ class _UnreadDivider extends StatelessWidget {
 }
 
 class ChannelMessageTile extends StatelessWidget {
-  const ChannelMessageTile({super.key, required this.message, this.onRetry});
+  const ChannelMessageTile({
+    super.key,
+    required this.message,
+    this.isSavedForLater = false,
+    this.onToggleSaveForLater,
+    this.onRetry,
+  });
 
   final ChannelMessage message;
+  final bool isSavedForLater;
+  final VoidCallback? onToggleSaveForLater;
   final VoidCallback? onRetry;
 
   @override
@@ -287,6 +342,8 @@ class ChannelMessageTile extends StatelessWidget {
                 ReportMessageMenu(
                   senderName: message.senderName,
                   messageText: message.text,
+                  isSavedForLater: isSavedForLater,
+                  onToggleSaveForLater: onToggleSaveForLater,
                   child: MessageLinkScope(
                     builder: (context, links) => SelectableText.rich(
                       links.span(

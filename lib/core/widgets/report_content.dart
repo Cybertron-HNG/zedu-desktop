@@ -28,18 +28,22 @@ Future<void> reportContent(
   }
 }
 
-/// Wraps a message from someone else with a "Report message" action, shown on
-/// hover, right-click or long-press.
+/// Wraps a message with a "Save for later" and "Report message" action menu,
+/// shown on hover, right-click or long-press.
 class ReportMessageMenu extends StatefulWidget {
   const ReportMessageMenu({
     super.key,
     required this.senderName,
     required this.messageText,
+    this.isSavedForLater = false,
+    this.onToggleSaveForLater,
     required this.child,
   });
 
   final String senderName;
   final String messageText;
+  final bool isSavedForLater;
+  final VoidCallback? onToggleSaveForLater;
   final Widget child;
 
   @override
@@ -52,6 +56,7 @@ class _ReportMessageMenuState extends State<ReportMessageMenu> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     return MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
@@ -63,21 +68,47 @@ class _ReportMessageMenuState extends State<ReportMessageMenu> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Flexible(child: widget.child),
+            if (widget.isSavedForLater)
+              Padding(
+                padding: const EdgeInsets.only(left: 6, top: 2),
+                child: Tooltip(
+                  message: 'Saved for later',
+                  child: Icon(Icons.bookmark, size: 15, color: colors.primary),
+                ),
+              ),
             Opacity(
               opacity: _hovered ? 1 : 0,
               child: PopupMenuButton<String>(
                 key: _menuKey,
                 tooltip: 'Message actions',
                 icon: const Icon(Icons.more_horiz, size: 18),
-                onSelected: (_) => reportContent(
-                  context,
-                  subject: 'Report: message from ${widget.senderName}',
-                  details:
-                      'Message from ${widget.senderName}:\n'
-                      '"${widget.messageText}"',
-                ),
-                itemBuilder: (_) => const [
-                  PopupMenuItem(value: 'report', child: Text('Report message')),
+                onSelected: (value) {
+                  if (value == 'save_later') {
+                    widget.onToggleSaveForLater?.call();
+                    return;
+                  }
+                  reportContent(
+                    context,
+                    subject: 'Report: message from ${widget.senderName}',
+                    details:
+                        'Message from ${widget.senderName}:\n'
+                        '"${widget.messageText}"',
+                  );
+                },
+                itemBuilder: (_) => [
+                  if (widget.onToggleSaveForLater != null)
+                    PopupMenuItem(
+                      value: 'save_later',
+                      child: Text(
+                        widget.isSavedForLater
+                            ? 'Remove from saved'
+                            : 'Save for later',
+                      ),
+                    ),
+                  const PopupMenuItem(
+                    value: 'report',
+                    child: Text('Report message'),
+                  ),
                 ],
               ),
             ),

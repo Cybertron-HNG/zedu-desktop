@@ -491,8 +491,32 @@ void main() {
       await tester.longPress(find.text('my message', findRichText: true));
       await tester.pumpAndSettle();
 
+      expect(find.text('Save for later'), findsOneWidget);
       expect(find.text('Edit message'), findsOneWidget);
       expect(find.text('Delete message'), findsOneWidget);
+    });
+
+    testWidgets('Save for later bookmarks a message in DMs', (tester) async {
+      await pumpChat(tester, [ownMessage('m1', 'remember this later')]);
+
+      await tester.longPress(
+        find.text('remember this later', findRichText: true),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Save for later'), findsOneWidget);
+      await tester.tap(find.text('Save for later'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Saved for later'), findsOneWidget);
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(DmChatArea)),
+      );
+      expect(container.read(laterMessagesProvider).items, hasLength(1));
+      expect(
+        container.read(laterMessagesProvider).items.first.content,
+        'remember this later',
+      );
     });
 
     testWidgets('Edit message from the menu puts the message in the composer', (

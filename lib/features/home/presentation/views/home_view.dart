@@ -142,6 +142,9 @@ class _MainSidebarSwitcher extends ConsumerWidget {
     if (state == HomeSidebarType.files) {
       return const FilesSidebar();
     }
+    if (state == HomeSidebarType.later) {
+      return const LaterSidebar();
+    }
     return const _MainSidebar();
   }
 }
@@ -192,6 +195,9 @@ class _ChatAreaSwitcher extends ConsumerWidget {
     if (state == HomeSidebarType.files) {
       return const FilesView();
     }
+    if (state == HomeSidebarType.later) {
+      return const LaterView();
+    }
     return const HomeChatArea();
   }
 }
@@ -202,6 +208,9 @@ class _MainSidebar extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final colors = context.colors;
+    final laterCount = ref.watch(
+      laterMessagesProvider.select((s) => s.countFor(LaterFilter.inProgress)),
+    );
 
     return Container(
       color: colors.sidebar,
@@ -210,7 +219,62 @@ class _MainSidebar extends ConsumerWidget {
         children: [
           const WorkspaceSwitcherHeader(),
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 20, 8, 8),
+            padding: const EdgeInsets.fromLTRB(8, 12, 8, 0),
+            child: InkWell(
+              key: const ValueKey('home-sidebar-later-item'),
+              borderRadius: BorderRadius.circular(6),
+              onTap: () => ref
+                  .read(homeSidebarProvider.notifier)
+                  .setType(HomeSidebarType.later),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 8,
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.bookmark_border,
+                      color: colors.onPrimary,
+                      size: 18,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Later',
+                        style: TextStyle(
+                          color: colors.onPrimary,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                    if (laterCount > 0)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 7,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: colors.onPrimary.withValues(alpha: 0.18),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          '$laterCount',
+                          style: TextStyle(
+                            color: colors.onPrimary,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 8, 8),
             child: Row(
               children: [
                 Icon(Icons.arrow_drop_down, color: colors.onPrimary, size: 20),
@@ -405,6 +469,8 @@ class HomeChatArea extends ConsumerWidget {
               : ChannelMessageList(
                   key: ValueKey(channelId),
                   channelId: channelId,
+                  channelName: channelName,
+                  isPrivate: selected?.isPrivate ?? false,
                   empty: welcome,
                   unreadCount: selected?.unreadCount ?? 0,
                 ),

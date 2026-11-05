@@ -181,6 +181,43 @@ void main() {
     },
   );
 
+  testWidgets(
+    'Save for later saves channel message to later messages provider',
+    (tester) async {
+      await pumpList(
+        tester,
+        const Success([
+          ChannelMessage(
+            id: 'msg-1',
+            senderName: 'Ada',
+            text: 'Important checklist',
+          ),
+        ]),
+      );
+
+      final menu = find.descendant(
+        of: find.byType(ReportMessageMenu),
+        matching: find.byType(PopupMenuButton<String>),
+      );
+      await tester.tap(menu);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Save for later'), findsOneWidget);
+      await tester.tap(find.text('Save for later'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Saved for later'), findsOneWidget);
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(ChannelMessageList)),
+      );
+      expect(container.read(laterMessagesProvider).items, hasLength(1));
+      expect(
+        container.read(laterMessagesProvider).items.first.content,
+        'Important checklist',
+      );
+    },
+  );
+
   group('unread messages', () {
     // Newest first, as the server sends them: 'msg N' is the newest.
     Success<List<ChannelMessage>> messages(int n) => Success([
