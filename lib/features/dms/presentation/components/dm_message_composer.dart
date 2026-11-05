@@ -7,8 +7,6 @@ import 'package:audioplayers/audioplayers.dart'
 import 'package:zedu/core/core.dart';
 import 'package:zedu/features/features.dart';
 
-import 'composer/composer.dart';
-
 class DmMessageComposer extends ConsumerStatefulWidget {
   final String recipientName;
   final String? hintText;
@@ -188,6 +186,20 @@ class DmMessageComposerState extends ConsumerState<DmMessageComposer> {
     );
   }
 
+  int _lastTypingPublish = 0;
+  static const int _typingThrottleMs = 2000;
+
+  void _publishTyping(bool isTyping) {
+    if (widget.channelId.isEmpty) return;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    if (isTyping) {
+      if (now - _lastTypingPublish < _typingThrottleMs) return;
+      _lastTypingPublish = now;
+    } else {
+      _lastTypingPublish = 0;
+    }
+  }
+
   void _onTextChanged() {
     _updateFormattingState();
     _updateMentionSuggestions();
@@ -196,6 +208,7 @@ class DmMessageComposerState extends ConsumerState<DmMessageComposer> {
     if (_isEditMode) return;
 
     final text = _controller.text;
+    _publishTyping(text.isNotEmpty);
     _draftSaveDebounce?.cancel();
     _draftSaveDebounce = Timer(const Duration(milliseconds: 250), () {
       if (!mounted) return;
@@ -299,6 +312,7 @@ class DmMessageComposerState extends ConsumerState<DmMessageComposer> {
             isChannel: widget.isChannel,
           );
       widget.onSend?.call(text);
+      _publishTyping(false);
     }
 
     // The message is out, so the draft no longer exists.
@@ -959,7 +973,9 @@ class DmMessageComposerState extends ConsumerState<DmMessageComposer> {
 
     final mainColumn = Column(
       mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        TypingIndicator(channelId: widget.channelId),
         if (_mentionSuggestions.isNotEmpty)
           MentionSuggestionList(
             suggestions: _mentionSuggestions,
