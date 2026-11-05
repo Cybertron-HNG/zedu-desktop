@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:zedu/core/core.dart';
 import 'package:zedu/features/features.dart';
 
@@ -9,6 +11,9 @@ class _FakePeopleRepository implements PeopleRepository {
   final requests = <(int, String)>[];
   bool failPage2 = false;
 
+  /// When set, answers every request (by org and page) instead.
+  Future<Result<MembersPage>> Function(String orgId, int page)? answer;
+
   @override
   Future<Result<MembersPage>> fetchMembers({
     required String orgId,
@@ -16,6 +21,7 @@ class _FakePeopleRepository implements PeopleRepository {
     String search = '',
   }) async {
     requests.add((page, search));
+    if (answer case final answer?) return answer(orgId, page);
     if (page == 2 && failPage2) {
       return const Failure(ApiFailure(message: 'offline'));
     }
@@ -38,6 +44,22 @@ class _FakePeopleRepository implements PeopleRepository {
     );
   }
 }
+
+class _OrgId extends Notifier<String> {
+  @override
+  String build() => 'org-a';
+
+  void select(String id) => state = id;
+}
+
+final _orgId = NotifierProvider<_OrgId, String>(_OrgId.new);
+
+MembersPage _page(String orgId, int page, {int totalPages = 2}) => MembersPage(
+  members: [OrgMember(id: '$orgId-$page', name: '$orgId member $page')],
+  currentPage: page,
+  totalPages: totalPages,
+  totalItems: totalPages,
+);
 
 void main() {
   late _FakePeopleRepository people;
@@ -98,6 +120,69 @@ void main() {
       expect(list.members, hasLength(2));
       expect(list.loadMoreFailed, isTrue);
       expect(list.hasMore, isTrue);
+    });
+  });
+
+  group('PeopleListNotifier after a workspace switch (Ziki #2718)', () {
+    late ProviderContainer switching;
+    late Completer<Result<MembersPage>> orgAPage2;
+
+    setUp(() {
+      orgAPage2 = Completer();
+      people.answer = (orgId, page) => orgId == 'org-a' && page == 2
+          ? orgAPage2.future
+          : Future.value(Success(_page(orgId, page)));
+      switching = ProviderContainer(
+        overrides: [
+          currentOrgIdProvider.overrideWith((ref) => ref.watch(_orgId)),
+          peopleRepositoryProvider.overrideWithValue(people),
+        ],
+      );
+      addTearDown(switching.dispose);
+    });
+
+    Future<List<String>> switchDuringLoadMore() async {
+      final sub = switching.listen(peopleListProvider(''), (_, _) {});
+      addTearDown(sub.close);
+      await switching.read(peopleListProvider('').future);
+
+      // Page 2 of the old workspace is still in flight when it switches.
+      unawaited(switching.read(peopleListProvider('').notifier).loadMore());
+      switching.read(_orgId.notifier).select('org-b');
+      final afterSwitch = await switching.read(peopleListProvider('').future);
+      expect(afterSwitch.members.map((m) => m.id), ['org-b-1']);
+      return [for (final m in afterSwitch.members) m.id];
+    }
+
+    test('a late page from the old workspace is dropped', () async {
+      await switchDuringLoadMore();
+      orgAPage2.complete(Success(_page('org-a', 2)));
+      await pumpEventQueue();
+
+      final list = switching.read(peopleListProvider('')).value!;
+      expect(list.members.map((m) => m.id), ['org-b-1']);
+      expect(list.isLoadingMore, isFalse);
+    });
+
+    test('a late failure from the old workspace is dropped', () async {
+      await switchDuringLoadMore();
+      orgAPage2.complete(const Failure(ApiFailure(message: 'offline')));
+      await pumpEventQueue();
+
+      final list = switching.read(peopleListProvider('')).value!;
+      expect(list.members.map((m) => m.id), ['org-b-1']);
+      expect(list.loadMoreFailed, isFalse);
+    });
+
+    test('Load more in the new workspace pages from it', () async {
+      await switchDuringLoadMore();
+      orgAPage2.complete(Success(_page('org-a', 2)));
+      await pumpEventQueue();
+
+      await switching.read(peopleListProvider('').notifier).loadMore();
+
+      final list = switching.read(peopleListProvider('')).value!;
+      expect(list.members.map((m) => m.id), ['org-b-1', 'org-b-2']);
     });
   });
 

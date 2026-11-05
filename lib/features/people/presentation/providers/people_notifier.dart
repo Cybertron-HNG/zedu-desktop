@@ -48,8 +48,13 @@ class PeopleListNotifier extends AsyncNotifier<PeopleListState> {
 
   final String search;
 
+  /// Bumped on every build, so a Load more that started before a workspace
+  /// switch (which rebuilds this notifier) can tell its page is stale.
+  int _generation = 0;
+
   @override
   Future<PeopleListState> build() async {
+    _generation++;
     final orgId = ref.watch(currentOrgIdProvider);
     if (orgId.isEmpty) return const PeopleListState();
     final page = await _fetch(orgId, 1);
@@ -72,6 +77,8 @@ class PeopleListNotifier extends AsyncNotifier<PeopleListState> {
     if (current == null || !current.hasMore || current.isLoadingMore) return;
     final orgId = ref.read(currentOrgIdProvider);
     if (orgId.isEmpty) return;
+    final generation = _generation;
+    bool stale() => !ref.mounted || generation != _generation;
 
     state = AsyncData(
       PeopleListState(
@@ -84,10 +91,10 @@ class PeopleListNotifier extends AsyncNotifier<PeopleListState> {
     );
     try {
       final page = await _fetch(orgId, current.loadedPage + 1);
-      if (!ref.mounted) return;
+      if (stale()) return;
       state = AsyncData(current._withPage(page));
     } catch (_) {
-      if (!ref.mounted) return;
+      if (stale()) return;
       state = AsyncData(
         PeopleListState(
           members: current.members,
