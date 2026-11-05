@@ -49,6 +49,10 @@ class DmConversationActionsNotifier extends Notifier<DmConversationActions> {
   /// Where this user's pins are remembered (null while signed out).
   String? _pinnedKey;
 
+  /// Unpinned while the saved pins were still loading, so the restore must
+  /// not bring them back.
+  final Set<String> _unpinnedWhileRestoring = {};
+
   @override
   DmConversationActions build() {
     // Rebuilt for each signed-in user, so one account never sees another's pins.
@@ -57,20 +61,32 @@ class DmConversationActionsNotifier extends Notifier<DmConversationActions> {
         ? null
         : DmPreferencesStore.pinnedKey(userId);
     final key = _pinnedKey;
+    _unpinnedWhileRestoring.clear();
     if (key != null) _restorePinned(key);
     return const DmConversationActions();
   }
 
   Future<void> _restorePinned(String key) async {
     final saved = await ref.read(dmPreferencesStoreProvider).read(key);
-    if (!ref.mounted || _pinnedKey != key || saved.isEmpty) return;
-    // Keep anything pinned while the saved list was loading.
-    state = state.copyWith(pinnedIds: {...saved, ...state.pinnedIds});
+    if (!ref.mounted || _pinnedKey != key) return;
+    final unpinned = Set<String>.of(_unpinnedWhileRestoring);
+    _unpinnedWhileRestoring.clear();
+    if (saved.isEmpty) return;
+    // Keep anything pinned while the saved list was loading, and leave out
+    // anything unpinned meanwhile: the latest action wins.
+    state = state.copyWith(
+      pinnedIds: {...saved.difference(unpinned), ...state.pinnedIds},
+    );
   }
 
   void togglePinned(String channelId) {
     final ids = Set<String>.from(state.pinnedIds);
-    ids.contains(channelId) ? ids.remove(channelId) : ids.add(channelId);
+    if (ids.remove(channelId)) {
+      _unpinnedWhileRestoring.add(channelId);
+    } else {
+      ids.add(channelId);
+      _unpinnedWhileRestoring.remove(channelId);
+    }
     state = state.copyWith(pinnedIds: ids);
     final key = _pinnedKey;
     if (key != null) {
