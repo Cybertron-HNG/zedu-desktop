@@ -36,6 +36,30 @@ void main() {
 
     setUp(() => repository = MockDmRepository());
 
+    testWidgets('cancels polling and cleans up when conversation subscription closes', (
+      tester,
+    ) async {
+      when(
+        () => repository.getMessages(any(), page: any(named: 'page')),
+      ).thenAnswer((_) async => history('msg'));
+      final container = ProviderContainer(
+        overrides: [
+          authNotifierProvider.overrideWith(_SignedOutAuth.new),
+          dmRepositoryProvider.overrideWithValue(repository),
+        ],
+      );
+      final sub = container.listen(chatHistoryProvider('ch-1'), (_, _) {});
+      sub.read();
+      await tester.pump();
+
+      sub.close();
+      await tester.pump();
+
+      reset(repository);
+      await tester.pump(const Duration(seconds: 25));
+      verifyNever(() => repository.getMessages(any(), page: any(named: 'page')));
+    });
+
     testWidgets('replaces the text of a message edited elsewhere', (
       tester,
     ) async {

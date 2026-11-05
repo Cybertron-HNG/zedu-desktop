@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io' show File;
 
 import 'package:zedu/core/core.dart';
@@ -125,8 +126,7 @@ class ChatHistoryNotifier extends ChangeNotifier {
   final Set<String> _seenIds = {};
 
   /// Keep track of the polling timer so we can cancel it on dispose.
-  // ignore: cancel_subscriptions
-  dynamic _pollingTimer;
+  StreamSubscription<int>? _pollingTimer;
 
   // Record loaded IDs as "already seen" so we only notify about messages that
   // arrive AFTER they were loaded.
@@ -227,7 +227,8 @@ class ChatHistoryNotifier extends ChangeNotifier {
 
   @override
   void dispose() {
-    (_pollingTimer as dynamic)?.cancel();
+    _pollingTimer?.cancel();
+    _pollingTimer = null;
     // Recordings kept for messages that never sent are no longer needed.
     for (final options in _sendOptions.values) {
       _deleteRecordings(options.media);
