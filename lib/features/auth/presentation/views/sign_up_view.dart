@@ -251,16 +251,6 @@ class _SignUpViewState extends ConsumerState<SignUpView> {
                     loading: authState.isLoading,
                     onPressed: _onGooglePressed,
                   ),
-                  context.gapV(12),
-                  SocialAuthButton(
-                    icon: 'assets/svgs/apple_logo.svg',
-                    label: 'Sign up with Apple',
-                    onPressed: () => AppToastService.show(
-                      context,
-                      type: AppToastType.info,
-                      message: 'Apple sign up is not available yet.',
-                    ),
-                  ),
                 ],
                 context.gapV(32),
                 Text.rich(

@@ -143,16 +143,6 @@ class _LoginViewState extends ConsumerState<LoginView> {
                         .read(authNotifierProvider.notifier)
                         .loginWithGoogle(),
                   ),
-                  context.gapV(12),
-                  SocialAuthButton(
-                    icon: 'assets/svgs/apple_logo.svg',
-                    label: 'Sign in with Apple',
-                    onPressed: () => AppToastService.show(
-                      context,
-                      type: AppToastType.info,
-                      message: 'Apple sign in is not available yet.',
-                    ),
-                  ),
                   context.gapV(26),
                   Padding(
                     padding: context.symmetric(horizontal: 100, vertical: 0),

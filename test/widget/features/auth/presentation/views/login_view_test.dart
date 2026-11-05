@@ -206,16 +206,23 @@ void main() {
       expect(find.widgetWithText(ElevatedButton, 'Login'), findsOneWidget);
     });
 
-    testWidgets('shows sign in wording on the Google and Apple buttons', (
+    testWidgets('shows sign in wording on the Google button', (tester) async {
+      await tester.pumpWidget(buildLoginViewUnderTest());
+      await tester.pump();
+
+      expect(find.text('Sign in with Google'), findsOneWidget);
+      expect(find.text('Sign up with Google'), findsNothing);
+    });
+
+    testWidgets('offers no Apple sign-in, since there is no Apple flow', (
       tester,
     ) async {
       await tester.pumpWidget(buildLoginViewUnderTest());
       await tester.pump();
 
-      expect(find.text('Sign in with Google'), findsOneWidget);
-      expect(find.text('Sign in with Apple'), findsOneWidget);
-      expect(find.text('Sign up with Google'), findsNothing);
+      expect(find.text('Sign in with Apple'), findsNothing);
       expect(find.text('Sign up with Apple'), findsNothing);
+      expect(find.text('Apple sign in is not available yet.'), findsNothing);
     });
 
     testWidgets('header prompts users without an account to sign up', (
@@ -420,12 +427,6 @@ void main() {
           matching: find.byType(CircularProgressIndicator),
         ),
         findsOneWidget,
-      );
-      expect(
-        tester
-            .widget<OutlinedButton>(socialButton('Sign in with Apple'))
-            .onPressed,
-        isNotNull,
       );
     });
 
