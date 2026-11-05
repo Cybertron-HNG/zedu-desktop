@@ -282,9 +282,20 @@ class DmMessageComposerState extends ConsumerState<DmMessageComposer> {
     }
 
     if (isEdit) {
-      ref
-          .read(chatHistoryProvider(widget.channelId))
-          .saveEdit(_editingMessageId!, text);
+      unawaited(
+        ref
+            .read(chatHistoryProvider(widget.channelId))
+            .saveEdit(_editingMessageId!, text)
+            .then((saved) {
+              if (saved || !mounted) return;
+              AppToastService.show(
+                context,
+                type: AppToastType.error,
+                message:
+                    'Could not save your edit. The message keeps its previous text.',
+              );
+            }),
+      );
       // An edit sends nothing new: the unsent reply and its draft come back,
       // and a waiting voice note or file is kept.
       _exitEditMode();

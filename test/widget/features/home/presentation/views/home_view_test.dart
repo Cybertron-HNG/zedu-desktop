@@ -24,6 +24,13 @@ class _EmptyChannelRepository extends Mock implements ChannelRepository {
 }
 
 /// Records leave calls and answers with [leaveResult].
+class _FakeNotificationService extends Fake
+    implements ChannelNotificationService {
+  @override
+  Future<ChannelNotificationPreference> load(String channelId) async =>
+      const ChannelNotificationPreference();
+}
+
 class _LeavingChannelRepository extends _EmptyChannelRepository {
   _LeavingChannelRepository(this.leaveResult);
 
@@ -95,6 +102,7 @@ void main() {
       ChannelNotifier Function() channels = _FakeChannelNotifier.new,
       double width = 1600,
       ChannelRepository? repository,
+      ChannelNotificationService? notificationService,
     }) async {
       tester.view.physicalSize = Size(width, 1000);
       tester.view.devicePixelRatio = 1;
@@ -109,6 +117,10 @@ void main() {
             channelRepositoryProvider.overrideWithValue(
               repository ?? _EmptyChannelRepository(),
             ),
+            if (notificationService != null)
+              channelNotificationServiceProvider.overrideWithValue(
+                notificationService,
+              ),
             dmDraftStoreProvider.overrideWith(
               (ref) => DmDraftStore(
                 FakeSecureStorageService(),
@@ -247,6 +259,26 @@ void main() {
       expect(find.text('You left #random'), findsOneWidget);
       await tester.pump(const Duration(seconds: 5));
     });
+
+    testWidgets(
+      'the channel menu opens that channel\'s notification settings',
+      (tester) async {
+        await pumpSidebarAndChat(
+          tester,
+          notificationService: _FakeNotificationService(),
+        );
+
+        await tester.tap(find.text('random'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('channel-header-menu')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Notification settings'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Notifications for #random'), findsOneWidget);
+        expect(find.text('Mentions'), findsOneWidget);
+      },
+    );
 
     testWidgets('cancelling the dialog keeps the channel', (tester) async {
       final repository = _LeavingChannelRepository(const Success(null));

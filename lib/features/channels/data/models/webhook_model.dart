@@ -18,14 +18,18 @@ class WebhookModel {
   final bool isActive;
   final DateTime? createdAt;
 
+  /// Reads both this app's field names and the backend's (`webhook_name`,
+  /// `webhook_url`, `webhook_slug`, and `status` of `active` or `inactive`).
   factory WebhookModel.fromJson(Map<String, dynamic> json) {
     return WebhookModel(
       id: _asString(json['id']),
       channelId: _asString(json['channelId'] ?? json['channel_id']),
-      name: _asString(json['name']),
-      slug: _asString(json['slug']),
-      url: _asString(json['url']),
-      isActive: _asBool(json['isActive'] ?? json['is_active']),
+      name: _asString(json['name'] ?? json['webhook_name']),
+      slug: _asString(json['slug'] ?? json['webhook_slug']),
+      url: _asString(json['url'] ?? json['webhook_url']),
+      isActive: json.containsKey('status')
+          ? json['status']?.toString().toLowerCase() == 'active'
+          : _asBool(json['isActive'] ?? json['is_active']),
       createdAt: _parseDate(json['createdAt'] ?? json['created_at']),
     );
   }

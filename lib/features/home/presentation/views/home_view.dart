@@ -210,66 +210,26 @@ class _MainSidebar extends ConsumerWidget {
         children: [
           const WorkspaceSwitcherHeader(),
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
+            padding: const EdgeInsets.fromLTRB(16, 20, 8, 8),
             child: Row(
               children: [
                 Icon(Icons.arrow_drop_down, color: colors.onPrimary, size: 20),
                 const SizedBox(width: 8),
-                Text(
-                  'Channels',
-                  style: TextStyle(
-                    color: colors.onPrimary,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 15,
+                Expanded(
+                  child: Text(
+                    'Channels',
+                    style: TextStyle(
+                      color: colors.onPrimary,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15,
+                    ),
                   ),
                 ),
+                const _ChannelsMenu(),
               ],
             ),
           ),
           const SidebarChannelList(),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Material(
-              color: colors.onPrimary.withValues(alpha: 0.05),
-              shape: RoundedRectangleBorder(
-                side: BorderSide(
-                  color: colors.onPrimary.withValues(alpha: 0.24),
-                ),
-                borderRadius: BorderRadius.circular(6),
-              ),
-              clipBehavior: Clip.antiAlias,
-              child: InkWell(
-                hoverColor: colors.onPrimary.withValues(alpha: 0.1),
-                onTap: () => ref
-                    .read(activeChatProvider.notifier)
-                    .selectChannelDirectory(),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          'View all channels',
-                          style: TextStyle(
-                            color: colors.onPrimary.withValues(alpha: 0.7),
-                            fontSize: 13,
-                          ),
-                        ),
-                      ),
-                      Icon(
-                        Icons.chevron_right,
-                        color: colors.onPrimary.withValues(alpha: 0.7),
-                        size: 16,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
           const _AddChannelButton(),
           const SizedBox(height: 20),
           Padding(
@@ -291,6 +251,49 @@ class _MainSidebar extends ConsumerWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+enum _ChannelsMenuAction { create, browse }
+
+class _ChannelsMenu extends ConsumerWidget {
+  const _ChannelsMenu();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final colors = context.colors;
+
+    return PopupMenuButton<_ChannelsMenuAction>(
+      tooltip: 'Channel actions',
+      iconSize: 18,
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints(minWidth: 180),
+      icon: Icon(
+        Icons.more_horiz,
+        color: colors.onPrimary.withValues(alpha: 0.7),
+      ),
+      onSelected: (action) {
+        switch (action) {
+          case _ChannelsMenuAction.create:
+            showDialog<void>(
+              context: context,
+              builder: (_) => const CreateChannelModal(),
+            );
+          case _ChannelsMenuAction.browse:
+            ref.read(activeChatProvider.notifier).selectChannelDirectory();
+        }
+      },
+      itemBuilder: (_) => const [
+        PopupMenuItem(
+          value: _ChannelsMenuAction.create,
+          child: Text('Create a channel'),
+        ),
+        PopupMenuItem(
+          value: _ChannelsMenuAction.browse,
+          child: Text('Browse channels'),
+        ),
+      ],
     );
   }
 }
@@ -403,6 +406,7 @@ class HomeChatArea extends ConsumerWidget {
                   key: ValueKey(channelId),
                   channelId: channelId,
                   empty: welcome,
+                  unreadCount: selected?.unreadCount ?? 0,
                 ),
         ),
         DmMessageComposer(
@@ -507,9 +511,32 @@ class _ChannelHeaderMenu extends ConsumerWidget {
       position: PopupMenuPosition.under,
       icon: Icon(Icons.more_vert, color: colors.textHint),
       onSelected: (value) {
+        if (value == 'notifications') {
+          ChannelNotificationDialog.show(context, channel);
+        }
         if (value == 'leave') _confirmLeave(context, ref);
       },
       itemBuilder: (_) => [
+        PopupMenuItem(
+          value: 'notifications',
+          child: Row(
+            children: [
+              Icon(
+                Icons.notifications_outlined,
+                size: 18,
+                color: colors.textPrimary,
+              ),
+              const SizedBox(width: 12),
+              Flexible(
+                child: Text(
+                  'Notification settings',
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(color: colors.textPrimary),
+                ),
+              ),
+            ],
+          ),
+        ),
         PopupMenuItem(
           value: 'leave',
           child: Row(

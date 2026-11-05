@@ -223,6 +223,12 @@ class _SettingsNavigation extends StatelessWidget {
                     ),
                   ),
                   _NavigationTile(
+                    icon: Icons.webhook_outlined,
+                    label: 'Webhooks',
+                    selected: selectedSection == UserProfileSection.webhooks,
+                    onTap: () => onSectionSelected(UserProfileSection.webhooks),
+                  ),
+                  _NavigationTile(
                     icon: Icons.credit_card_outlined,
                     label: 'Billing',
                     selected: selectedSection == UserProfileSection.billing,

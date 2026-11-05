@@ -15,6 +15,10 @@ class _NewGroupChatViewState extends ConsumerState<NewGroupChatView> {
   bool _isLoading = false;
   String? _errorMessage;
 
+  /// True once the user has picked or removed someone. Until then the member
+  /// hint is plain guidance, not an error.
+  bool _touched = false;
+
   // Filtered members list
   List<TeamMember> _filteredMembers = [];
   bool _showDropdown = false;
@@ -69,6 +73,7 @@ class _NewGroupChatViewState extends ConsumerState<NewGroupChatView> {
 
   void _toggleMemberSelection(TeamMember member) {
     setState(() {
+      _touched = true;
       if (_selectedMembers.any((m) => m.id == member.id)) {
         _selectedMembers.removeWhere((m) => m.id == member.id);
       } else {
@@ -560,13 +565,16 @@ class _NewGroupChatViewState extends ConsumerState<NewGroupChatView> {
   Widget _buildValidationHelper(AppPalette colors) {
     final count = _selectedMembers.length;
     final isReady = count >= 2;
+    final color = isReady
+        ? colors.success
+        : (_touched ? colors.error : colors.textSecondary);
 
     return Row(
       children: [
         Icon(
           isReady ? Icons.check_circle : Icons.info_outline,
           size: 16,
-          color: isReady ? colors.success : colors.error,
+          color: color,
         ),
         const SizedBox(width: 8),
         Expanded(
@@ -575,7 +583,7 @@ class _NewGroupChatViewState extends ConsumerState<NewGroupChatView> {
                 ? 'Ready to create conversation! (Selected: $count members)'
                 : 'Select at least 2 members to start a group DM (Selected: $count/2)',
             style: TextStyle(
-              color: isReady ? colors.success : colors.error,
+              color: color,
               fontSize: 13,
               fontWeight: FontWeight.w500,
             ),

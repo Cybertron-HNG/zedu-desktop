@@ -7,6 +7,7 @@ enum UserProfileSection {
   organization,
   userManagement,
   rolesAndPermissions,
+  webhooks,
   billing,
 }
 

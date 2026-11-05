@@ -99,14 +99,20 @@ void main() {
     return ProviderScope.containerOf(tester.element(find.byType(HomeView)));
   }
 
-  testWidgets('View all channels opens the Channel Directory, every time', (
+  Future<void> browseChannels(WidgetTester tester) async {
+    await tester.tap(find.byTooltip('Channel actions'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Browse channels'));
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets('Browse channels opens the Channel Directory, every time', (
     tester,
   ) async {
     final container = await pumpHome(tester);
     expect(find.text('Channel Directory'), findsNothing);
 
-    await tester.tap(find.text('View all channels'));
-    await tester.pumpAndSettle();
+    await browseChannels(tester);
     expect(find.text('Channel Directory'), findsOneWidget);
     expect(find.text('2 members'), findsOneWidget);
 
@@ -114,8 +120,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Channel Directory'), findsNothing);
 
-    await tester.tap(find.text('View all channels'));
-    await tester.pumpAndSettle();
+    await browseChannels(tester);
     expect(find.text('Channel Directory'), findsOneWidget);
   });
 
@@ -123,8 +128,7 @@ void main() {
     tester,
   ) async {
     await pumpHome(tester);
-    await tester.tap(find.text('View all channels'));
-    await tester.pumpAndSettle();
+    await browseChannels(tester);
 
     await tester.tap(find.text('Random talk'));
     await tester.pumpAndSettle();
@@ -135,8 +139,7 @@ void main() {
 
   testWidgets('switching sidebar tab closes the directory', (tester) async {
     final container = await pumpHome(tester);
-    await tester.tap(find.text('View all channels'));
-    await tester.pumpAndSettle();
+    await browseChannels(tester);
 
     container.read(homeSidebarProvider.notifier).setType(HomeSidebarType.dms);
     await tester.pump();
@@ -147,17 +150,53 @@ void main() {
     expect(container.read(activeChatProvider).type, ActiveChatType.channel);
   });
 
-  testWidgets('the button shows it can be clicked', (tester) async {
+  testWidgets('the menu offers both channel actions, and the old row is gone', (
+    tester,
+  ) async {
+    await pumpHome(tester);
+    expect(find.text('View all channels'), findsNothing);
+    expect(find.byTooltip('Channel actions'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Channel actions'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Create a channel'), findsOneWidget);
+    expect(find.text('Browse channels'), findsOneWidget);
+  });
+
+  testWidgets('Create a channel opens the create channel dialog', (
+    tester,
+  ) async {
     await pumpHome(tester);
 
-    final inkWell = tester.widget<InkWell>(
-      find.ancestor(
-        of: find.text('View all channels'),
-        matching: find.byType(InkWell),
-      ),
-    );
+    await tester.tap(find.byTooltip('Channel actions'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Create a channel'));
+    await tester.pumpAndSettle();
 
-    expect(inkWell.onTap, isNotNull);
-    expect(inkWell.hoverColor, isNotNull);
+    expect(find.byType(CreateChannelModal), findsOneWidget);
+  });
+
+  testWidgets('the menu works from the keyboard', (tester) async {
+    final container = await pumpHome(tester);
+
+    final button = find.byTooltip('Channel actions');
+    Focus.of(
+      tester.element(find.descendant(of: button, matching: find.byType(Icon))),
+    ).requestFocus();
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+    expect(find.text('Browse channels'), findsOneWidget);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+
+    expect(
+      container.read(activeChatProvider).type,
+      ActiveChatType.channelDirectory,
+    );
   });
 }
