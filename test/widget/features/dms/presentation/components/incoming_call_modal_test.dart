@@ -52,6 +52,14 @@ void main() {
       expect(_avatarInitial(tester), '🎧');
     });
 
+    testWidgets('preserves UTF-16 surrogate pairs and compound emoji initials without corruption', (
+      tester,
+    ) async {
+      await _pumpModal(tester, '👩‍💻 Coder');
+
+      expect(_avatarInitial(tester), '👩‍💻');
+    });
+
     testWidgets('ignores spaces before the name', (tester) async {
       await _pumpModal(tester, '  ada');
 
