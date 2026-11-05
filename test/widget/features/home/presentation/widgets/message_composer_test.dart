@@ -73,6 +73,9 @@ Future<void> _pumpWithMentionList(
     ),
   );
   await tester.tap(find.byType(TextField));
+  // Focus shows the formatting bar, which rebuilds the field: let that
+  // settle before typing, or the typed '@' is lost.
+  await tester.pump();
   await tester.enterText(find.byType(TextField), '@');
   await tester.pump();
 }
