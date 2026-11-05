@@ -66,7 +66,8 @@ class ChatHistoryNotifier extends ChangeNotifier {
       messages = await repository.getMessages(channelId, page: 1);
       hasMore = messages.length >= DmRepository.pageSize;
       page = 1;
-    } catch (_) {
+    } catch (e) {
+      debugPrint('ChatHistoryNotifier._loadInitial failed for $channelId: $e');
     } finally {
       isLoading = false;
       notifyListeners();
@@ -167,7 +168,8 @@ class ChatHistoryNotifier extends ChangeNotifier {
       messages = [...messages, ...newMessages];
       hasMore = newMessages.length >= DmRepository.pageSize;
       page = nextPage;
-    } catch (_) {
+    } catch (e) {
+      debugPrint('ChatHistoryNotifier.loadMore failed for $channelId: $e');
     } finally {
       isLoading = false;
       notifyListeners();
@@ -235,7 +237,8 @@ class ChatHistoryNotifier extends ChangeNotifier {
         }
         return m;
       }).toList();
-    } catch (_) {
+    } catch (e) {
+      debugPrint('ChatHistoryNotifier.sendMessage failed for $channelId: $e');
       messages = messages.map((m) {
         if (m['id'] == tempId) {
           final newMsg = Map<String, dynamic>.from(m);
@@ -281,7 +284,8 @@ class ChatHistoryNotifier extends ChangeNotifier {
         }
         return m;
       }).toList();
-    } catch (_) {
+    } catch (e) {
+      debugPrint('ChatHistoryNotifier.retryMessage failed for $channelId ($messageId): $e');
       messages = messages.map((m) {
         if (m['id'] == messageId) {
           final newMsg = Map<String, dynamic>.from(m);
@@ -347,7 +351,8 @@ class ChatHistoryNotifier extends ChangeNotifier {
     try {
       final repository = ref.read(dmRepositoryProvider);
       await repository.editMessage(channelId, content: newContent);
-    } catch (_) {
+    } catch (e) {
+      debugPrint('ChatHistoryNotifier.saveEdit failed for $channelId ($messageId): $e');
       messages = messages.map((m) {
         if (m['id'] == messageId && m['content'] == newContent) {
           final reverted = Map<String, dynamic>.from(m);

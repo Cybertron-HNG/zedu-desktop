@@ -434,7 +434,9 @@ class DmMessageComposerState extends ConsumerState<DmMessageComposer> {
     _recordTimer?.cancel();
     try {
       await _deleteRecording(await _audioRecorder.stop());
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('DmMessageComposer._cancelVoiceRecording: $e');
+    }
     _activeRecordingPath = null;
     if (mounted) setState(() => _isRecording = false);
   }
@@ -483,7 +485,9 @@ class DmMessageComposerState extends ConsumerState<DmMessageComposer> {
     if (path == null || !appRecordedPaths.remove(path)) return;
     try {
       await File(path).delete();
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('DmMessageComposer._deleteRecording($path): $e');
+    }
   }
 
   String _formatSeconds(int total) {

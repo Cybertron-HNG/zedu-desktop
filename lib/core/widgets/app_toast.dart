@@ -13,7 +13,7 @@ class AppToastService {
     _current?.remove();
     _current = null;
 
-    final overlay = Overlay.of(context);
+    final overlay = Overlay.maybeOf(context, rootOverlay: true) ?? Overlay.of(context);
     late OverlayEntry entry;
     entry = OverlayEntry(
       builder: (ctx) {

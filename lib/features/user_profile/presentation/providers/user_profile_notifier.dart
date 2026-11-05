@@ -523,7 +523,9 @@ class UserProfileNotifier extends Notifier<UserProfileState> {
             );
           }).toList();
           loadedTeamMembers = savedMembers;
-        } catch (_) {}
+        } catch (e) {
+          debugPrint('UserProfileNotifier.load: failed to parse cached team members: $e');
+        }
       }
     }
 

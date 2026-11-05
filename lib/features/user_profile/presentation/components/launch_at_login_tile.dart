@@ -33,7 +33,8 @@ class _LaunchAtLoginTileState extends State<LaunchAtLoginTile> {
     try {
       final enabled = await _service.isEnabled();
       if (mounted) setState(() => _enabled = enabled);
-    } catch (_) {
+    } catch (e) {
+      debugPrint('LaunchAtLoginTile._load: $e');
       // Leave the switch off if the login item can't be read.
     } finally {
       if (mounted) setState(() => _busy = false);

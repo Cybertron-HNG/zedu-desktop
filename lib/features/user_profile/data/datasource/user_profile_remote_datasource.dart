@@ -262,7 +262,9 @@ class UserProfileRemoteDataSourceImpl implements UserProfileRemoteDataSource {
             loadedTeamMembers = decoded
                 .map((e) => TeamMemberModel.fromJson(e as Map<String, dynamic>))
                 .toList();
-          } catch (_) {}
+          } catch (e) {
+            debugPrint('UserProfileRemoteDataSource.getTeamMembers: cached parse failed: $e');
+          }
         }
       }
 
