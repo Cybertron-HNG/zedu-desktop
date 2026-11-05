@@ -109,6 +109,25 @@ class _FakeFilesRepository implements FilesRepository {
     createdFolders.add((name, orgId, parentId));
     return const Success(null);
   }
+
+  final restored = <String>[];
+  final deletedForever = <String>[];
+  bool failRestore = false;
+
+  @override
+  Future<Result<void>> restoreFile(String fileId) async {
+    if (failRestore) {
+      return const Failure(ApiFailure(message: 'File is not deleted'));
+    }
+    restored.add(fileId);
+    return const Success(null);
+  }
+
+  @override
+  Future<Result<void>> deleteFilePermanently(String fileId) async {
+    deletedForever.add(fileId);
+    return const Success(null);
+  }
 }
 
 Future<void> _pump(WidgetTester tester, _FakeFilesRepository repository) async {
@@ -299,5 +318,90 @@ void main() {
 
     expect(find.text('Folder name already exists'), findsOneWidget);
     expect(find.text('Create New Folder'), findsOneWidget);
+  });
+
+  group('Deleted files actions (#2692)', () {
+    Future<void> openDeletedFiles(WidgetTester tester) async {
+      await tester.tap(find.text('Deleted files'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Files').last);
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('only Deleted files offers Restore and Delete permanently', (
+      tester,
+    ) async {
+      await _pump(tester, _FakeFilesRepository());
+      await tester.tap(find.text('Files').last);
+      await tester.pumpAndSettle();
+      expect(find.text('Restore'), findsNothing);
+
+      await openDeletedFiles(tester);
+
+      expect(find.byKey(const ValueKey('restore-f-1')), findsOneWidget);
+      expect(find.byKey(const ValueKey('delete-forever-f-1')), findsOneWidget);
+    });
+
+    testWidgets('Restore brings the file back and refreshes the list', (
+      tester,
+    ) async {
+      final repository = _FakeFilesRepository();
+      await _pump(tester, repository);
+      await openDeletedFiles(tester);
+      final queriesBefore = repository.queries.length;
+
+      await tester.tap(find.byKey(const ValueKey('restore-f-1')));
+      await tester.pumpAndSettle();
+
+      expect(repository.restored, ['f-1']);
+      expect(find.text('Restored logo.png.'), findsOneWidget);
+      expect(repository.queries.length, greaterThan(queriesBefore));
+    });
+
+    testWidgets('a failed restore shows the server error', (tester) async {
+      final repository = _FakeFilesRepository()..failRestore = true;
+      await _pump(tester, repository);
+      await openDeletedFiles(tester);
+
+      await tester.tap(find.byKey(const ValueKey('restore-f-1')));
+      await tester.pumpAndSettle();
+
+      expect(repository.restored, isEmpty);
+      expect(find.text('File is not deleted'), findsOneWidget);
+    });
+
+    testWidgets('Delete permanently asks first, then deletes for good', (
+      tester,
+    ) async {
+      final repository = _FakeFilesRepository();
+      await _pump(tester, repository);
+      await openDeletedFiles(tester);
+
+      await tester.tap(find.byKey(const ValueKey('delete-forever-f-1')));
+      await tester.pumpAndSettle();
+      expect(find.text('Delete permanently?'), findsOneWidget);
+      expect(repository.deletedForever, isEmpty);
+
+      await tester.tap(find.widgetWithText(TextButton, 'Delete'));
+      await tester.pumpAndSettle();
+
+      expect(repository.deletedForever, ['f-1']);
+      expect(find.text('Deleted logo.png permanently.'), findsOneWidget);
+    });
+
+    testWidgets('cancelling Delete permanently deletes nothing', (
+      tester,
+    ) async {
+      final repository = _FakeFilesRepository();
+      await _pump(tester, repository);
+      await openDeletedFiles(tester);
+
+      await tester.tap(find.byKey(const ValueKey('delete-forever-f-1')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+
+      expect(repository.deletedForever, isEmpty);
+    });
   });
 }

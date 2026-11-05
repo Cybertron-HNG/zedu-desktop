@@ -169,4 +169,10 @@ class _UploadRepository implements FilesRepository {
     required String orgId,
     String? parentId,
   }) async => const Success(null);
+  @override
+  Future<Result<void>> restoreFile(String fileId) async => const Success(null);
+
+  @override
+  Future<Result<void>> deleteFilePermanently(String fileId) async =>
+      const Success(null);
 }

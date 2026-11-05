@@ -20,4 +20,10 @@ abstract class FilesRepository {
     required String orgId,
     String? parentId,
   });
+
+  /// Brings a deleted file back to where it was.
+  Future<Result<void>> restoreFile(String fileId);
+
+  /// Removes a deleted file for good.
+  Future<Result<void>> deleteFilePermanently(String fileId);
 }

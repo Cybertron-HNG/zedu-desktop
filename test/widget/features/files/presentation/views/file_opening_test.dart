@@ -43,6 +43,13 @@ class _Repository implements FilesRepository {
     required String orgId,
     String? parentId,
   }) => throw StateError('Opening a file must not create a folder');
+  @override
+  Future<Result<void>> restoreFile(String fileId) =>
+      throw StateError('Opening a file must not restore one');
+
+  @override
+  Future<Result<void>> deleteFilePermanently(String fileId) =>
+      throw StateError('Opening a file must not delete one');
 }
 
 class _Launcher {

@@ -217,4 +217,33 @@ class FilesActionsNotifier extends Notifier<FilesActionsState> {
             : 'Could not create the folder. Try again.';
     }
   }
+
+  /// Brings [file] back from Deleted files. Returns an error message, or
+  /// null when it worked; the list is refreshed so the file leaves it.
+  Future<String?> restoreFile(WorkspaceFile file) => _onDeletedFile(
+    () => ref.read(filesRepositoryProvider).restoreFile(file.id),
+    'Could not restore ${file.name}. Try again.',
+  );
+
+  /// Removes [file] for good from Deleted files. Returns an error message,
+  /// or null when it worked.
+  Future<String?> deleteFilePermanently(WorkspaceFile file) => _onDeletedFile(
+    () => ref.read(filesRepositoryProvider).deleteFilePermanently(file.id),
+    'Could not delete ${file.name}. Try again.',
+  );
+
+  Future<String?> _onDeletedFile(
+    Future<Result<void>> Function() call,
+    String fallback,
+  ) async {
+    final result = await call();
+    if (!ref.mounted) return null;
+    switch (result) {
+      case Success():
+        ref.invalidate(filesListProvider);
+        return null;
+      case Failure(:final error):
+        return error.message.isNotEmpty ? error.message : fallback;
+    }
+  }
 }

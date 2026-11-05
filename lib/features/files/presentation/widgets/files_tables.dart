@@ -205,23 +205,29 @@ class FilesTable extends StatelessWidget {
     required this.files,
     required this.ownerNameOf,
     required this.onOpen,
+    this.actionsOf,
   });
 
   final List<WorkspaceFile> files;
   final String Function(WorkspaceFile file) ownerNameOf;
   final ValueChanged<WorkspaceFile> onOpen;
 
+  /// Buttons shown at the end of each row (Deleted files uses this for
+  /// Restore and Delete permanently). No column is added when null.
+  final Widget Function(WorkspaceFile file)? actionsOf;
+
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
 
     return _Table(
-      columns: const [
-        _Column('Name', 5),
-        _Column('Shared in', 2, compact: false),
-        _Column('Owner', 2, compact: false),
-        _Column('Date Modified', 2),
-        _Column('Size', 1),
+      columns: [
+        const _Column('Name', 5),
+        const _Column('Shared in', 2, compact: false),
+        const _Column('Owner', 2, compact: false),
+        const _Column('Date Modified', 2),
+        const _Column('Size', 1),
+        if (actionsOf != null) const _Column('', 3),
       ],
       rowCount: files.length,
       onTapRow: (r) => onOpen(files[r]),
@@ -251,6 +257,8 @@ class FilesTable extends StatelessWidget {
           _cellText(context, ownerNameOf(file)),
           _cellText(context, formatFileDate(file.modifiedAt)),
           _cellText(context, formatFileSize(file.size)),
+          if (actionsOf != null)
+            Align(alignment: Alignment.centerRight, child: actionsOf!(file)),
         ];
       },
     );

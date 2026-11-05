@@ -274,4 +274,46 @@ void main() {
       await datasource.createFolder(name: 'Reports', orgId: 'org-1');
     });
   });
+
+  group('deleted files', () {
+    test('restoreFile puts to the file restore route', () async {
+      when(
+        () => api.put<Map<String, dynamic>>(path: '/files/file/f-1/restore'),
+      ).thenAnswer(
+        (_) async => const ApiResponseModel<Map<String, dynamic>>(
+          statusCode: 200,
+          data: {},
+        ),
+      );
+
+      await datasource.restoreFile('f-1');
+
+      verify(
+        () => api.put<Map<String, dynamic>>(path: '/files/file/f-1/restore'),
+      ).called(1);
+    });
+
+    test('deleteFilePermanently deletes with permanent=true', () async {
+      when(
+        () => api.delete<Map<String, dynamic>>(
+          path: '/files/file/f-1',
+          queryParameters: {'permanent': 'true'},
+        ),
+      ).thenAnswer(
+        (_) async => const ApiResponseModel<Map<String, dynamic>>(
+          statusCode: 200,
+          data: {},
+        ),
+      );
+
+      await datasource.deleteFilePermanently('f-1');
+
+      verify(
+        () => api.delete<Map<String, dynamic>>(
+          path: '/files/file/f-1',
+          queryParameters: {'permanent': 'true'},
+        ),
+      ).called(1);
+    });
+  });
 }

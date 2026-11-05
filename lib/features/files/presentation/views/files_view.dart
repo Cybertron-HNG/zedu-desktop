@@ -297,6 +297,9 @@ class _FilesSection extends ConsumerWidget {
               ownerNameOf: (file) =>
                   file.owner.isNotEmpty ? file.owner : ownerName(file.userId),
               onOpen: (file) => _open(context, file),
+              actionsOf: ref.watch(filesProvider).view == FilesScope.trash
+                  ? (file) => _DeletedFileActions(file: file)
+                  : null,
             ),
             if (page.totalPages > 1)
               _Pagination(
@@ -514,6 +517,98 @@ class _Message extends StatelessWidget {
           ],
         ],
       ),
+    );
+  }
+}
+
+/// Restore and Delete permanently, on a row of Deleted files.
+class _DeletedFileActions extends ConsumerStatefulWidget {
+  const _DeletedFileActions({required this.file});
+
+  final WorkspaceFile file;
+
+  @override
+  ConsumerState<_DeletedFileActions> createState() =>
+      _DeletedFileActionsState();
+}
+
+class _DeletedFileActionsState extends ConsumerState<_DeletedFileActions> {
+  bool _busy = false;
+
+  Future<void> _run(
+    Future<String?> Function() action,
+    String doneMessage,
+  ) async {
+    setState(() => _busy = true);
+    final messenger = ScaffoldMessenger.of(context);
+    final error = await action();
+    if (!mounted) return;
+    setState(() => _busy = false);
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(error ?? doneMessage)));
+  }
+
+  Future<void> _restore() => _run(
+    () => ref.read(filesActionsProvider.notifier).restoreFile(widget.file),
+    'Restored ${widget.file.name}.',
+  );
+
+  Future<void> _deletePermanently() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete permanently?'),
+        content: Text(
+          '${widget.file.name} will be removed for good. This can\'t be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(
+              'Delete',
+              style: TextStyle(color: context.colors.error),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    await _run(
+      () => ref
+          .read(filesActionsProvider.notifier)
+          .deleteFilePermanently(widget.file),
+      'Deleted ${widget.file.name} permanently.',
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        IconButton(
+          key: ValueKey('restore-${widget.file.id}'),
+          tooltip: 'Restore',
+          onPressed: _busy ? null : _restore,
+          icon: Icon(Icons.restore, color: colors.primary, size: 20),
+        ),
+        IconButton(
+          key: ValueKey('delete-forever-${widget.file.id}'),
+          tooltip: 'Delete permanently',
+          onPressed: _busy ? null : _deletePermanently,
+          icon: Icon(
+            Icons.delete_forever_outlined,
+            color: colors.error,
+            size: 20,
+          ),
+        ),
+      ],
     );
   }
 }
