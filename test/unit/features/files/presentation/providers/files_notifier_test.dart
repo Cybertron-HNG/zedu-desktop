@@ -118,6 +118,26 @@ void main() {
       expect(state.folderPath, isEmpty);
       expect(state.tab, FilesTab.files);
     });
+
+    test('an upload from Shared with me shows it in All files', () async {
+      uploads.read(filesProvider.notifier).selectView(FilesScope.shared);
+
+      await uploads.read(filesActionsProvider.notifier).uploadFiles([
+        _file('a.png'),
+      ]);
+
+      expect(uploads.read(filesProvider).view, FilesScope.all);
+    });
+
+    test('an upload from My files stays in My files', () async {
+      uploads.read(filesProvider.notifier).selectView(FilesScope.mine);
+
+      await uploads.read(filesActionsProvider.notifier).uploadFiles([
+        _file('a.png'),
+      ]);
+
+      expect(uploads.read(filesProvider).view, FilesScope.mine);
+    });
   });
 }
 

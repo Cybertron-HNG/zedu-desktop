@@ -141,7 +141,9 @@ class FilesActionsNotifier extends Notifier<FilesActionsState> {
   FilesActionsState build() => const FilesActionsState();
 
   /// Uploads [files] one at a time, as the web app does, then shows the
-  /// Files tab at the top level, where the server puts uploads.
+  /// Files tab at the top level, where the server puts uploads. Deleted files
+  /// and Shared with me never list your own uploads, so those switch to All
+  /// files.
   Future<FilesUploadOutcome> uploadFiles(List<XFile> files) async {
     if (files.isEmpty || state.isUploading) {
       return const FilesUploadOutcome(uploaded: 0, failedNames: []);
@@ -169,7 +171,8 @@ class FilesActionsNotifier extends Notifier<FilesActionsState> {
     }
     if (ref.mounted && uploaded > 0) {
       final files = ref.read(filesProvider.notifier);
-      if (ref.read(filesProvider).view == FilesScope.trash) {
+      final view = ref.read(filesProvider).view;
+      if (view == FilesScope.trash || view == FilesScope.shared) {
         files.selectView(FilesScope.all);
       }
       files
