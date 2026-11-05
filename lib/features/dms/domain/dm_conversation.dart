@@ -80,9 +80,7 @@ class DmConversation {
       isFavourite: json['is_favourite'] as bool? ?? false,
       threadCount: json['thread_count'] as int? ?? 0,
       lastThreadId: json['last_thread_id'] as String?,
-      lastReadAt: json['last_read_at'] != null
-          ? DateTime.tryParse(json['last_read_at'] as String)?.toLocal()
-          : null,
+      lastReadAt: _readAt(json['last_read_at']),
       previewMessage: json['preview_message'] as String? ?? '',
       previewThreads: threads,
       participants: participantsList,
@@ -95,6 +93,14 @@ class DmConversation {
     if (value == null) return null;
     final str = value.toString();
     return str.isNotEmpty ? str : null;
+  }
+
+  /// The server sends the zero time `0001-01-01T00:00:00Z` for a DM that was
+  /// never read, never null, so that counts as not read too.
+  static DateTime? _readAt(dynamic value) {
+    final parsed = value == null ? null : DateTime.tryParse(value.toString());
+    if (parsed == null || parsed.toUtc().year <= 1) return null;
+    return parsed.toLocal();
   }
 }
 
