@@ -71,12 +71,16 @@ class _NewGroupChatViewState extends ConsumerState<NewGroupChatView> {
     });
   }
 
+  /// The server accepts 2 to 9 participants besides the creator
+  /// (zedu-be models/group_message.go: `min=2,max=9`).
+  static const maxMembers = 9;
+
   void _toggleMemberSelection(TeamMember member) {
     setState(() {
       _touched = true;
       if (_selectedMembers.any((m) => m.id == member.id)) {
         _selectedMembers.removeWhere((m) => m.id == member.id);
-      } else {
+      } else if (_selectedMembers.length < maxMembers) {
         _selectedMembers.add(member);
       }
       _searchController.clear();
@@ -559,6 +563,7 @@ class _NewGroupChatViewState extends ConsumerState<NewGroupChatView> {
   Widget _buildValidationHelper(AppPalette colors) {
     final count = _selectedMembers.length;
     final isReady = count >= 2;
+    final isFull = count >= maxMembers;
     final color = isReady
         ? colors.success
         : (_touched ? colors.error : colors.textSecondary);
@@ -573,7 +578,9 @@ class _NewGroupChatViewState extends ConsumerState<NewGroupChatView> {
         const SizedBox(width: 8),
         Expanded(
           child: Text(
-            isReady
+            isFull
+                ? 'A group DM can have up to $maxMembers members (Selected: $count/$maxMembers)'
+                : isReady
                 ? 'Ready to create conversation! (Selected: $count members)'
                 : 'Select at least 2 members to start a group DM (Selected: $count/2)',
             style: TextStyle(

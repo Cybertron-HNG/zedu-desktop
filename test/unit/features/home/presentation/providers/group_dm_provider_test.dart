@@ -191,6 +191,36 @@ void main() {
       verify(() => mockWs.connect(['server-0'])).called(1);
     });
 
+    test('a failed list load is reported and a retry clears it', () async {
+      container.dispose();
+      when(
+        () => repository.list(
+          orgId: any(named: 'orgId'),
+          currentUserId: any(named: 'currentUserId'),
+        ),
+      ).thenThrow(const ApiFailure(message: 'Server unavailable'));
+      container = makeContainer();
+      container.read(groupDmProvider);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(container.read(groupDmLoadFailedProvider), isTrue);
+      expect(container.read(groupDmProvider), isEmpty);
+
+      serverGroups.add(
+        GroupDM(id: 'g-9', name: 'Ada, Bola', members: [member1, member2]),
+      );
+      when(
+        () => repository.list(
+          orgId: any(named: 'orgId'),
+          currentUserId: any(named: 'currentUserId'),
+        ),
+      ).thenAnswer((_) async => List.of(serverGroups));
+      await container.read(groupDmProvider.notifier).retryLoad();
+
+      expect(container.read(groupDmLoadFailedProvider), isFalse);
+      expect(container.read(groupDmProvider).map((g) => g.id), ['g-9']);
+    });
+
     test('picking the same members again opens the existing group', () async {
       container.read(groupDmProvider);
       final notifier = container.read(groupDmProvider.notifier);

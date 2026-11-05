@@ -40,23 +40,40 @@ class GroupDmRepository {
     return group;
   }
 
-  /// The signed-in user's group DMs in [orgId]. The endpoint also returns
-  /// one-to-one DMs, which are left out.
+  /// Rows per page when listing group DMs.
+  static const pageSize = 100;
+
+  /// Stops paging after this many pages, so a misbehaving server can't keep
+  /// the app loading forever.
+  static const maxPages = 20;
+
+  /// The signed-in user's group DMs in [orgId], from every page. The endpoint
+  /// also returns one-to-one DMs: only rows marked `channel_type: group_dm`
+  /// are kept, so a row without a type is never shown as a group.
   Future<List<GroupDM>> list({
     required String orgId,
     String? currentUserId,
   }) async {
-    final response = await _apiClient.get<Map<String, dynamic>>(
-      path: '/organisations/$orgId/group-dms',
-      queryParameters: {'page': 1, 'limit': 100},
-    );
-    final raw = response.data['data'];
-    return (raw is List ? raw : const <dynamic>[])
-        .whereType<Map<String, dynamic>>()
-        .where((json) => (json['channel_type'] ?? 'group_dm') == 'group_dm')
-        .map((json) => groupDmFromJson(json, currentUserId: currentUserId))
-        .whereType<GroupDM>()
-        .toList();
+    final groups = <GroupDM>[];
+    for (var page = 1; page <= maxPages; page++) {
+      final response = await _apiClient.get<Map<String, dynamic>>(
+        path: '/organisations/$orgId/group-dms',
+        queryParameters: {'page': page, 'limit': pageSize},
+      );
+      final raw = response.data['data'];
+      final rows = (raw is List ? raw : const <dynamic>[])
+          .whereType<Map<String, dynamic>>()
+          .toList();
+      groups.addAll(
+        rows
+            .where((json) => json['channel_type'] == 'group_dm')
+            .map((json) => groupDmFromJson(json, currentUserId: currentUserId))
+            .whereType<GroupDM>(),
+      );
+      // A short page is the last one.
+      if (rows.length < pageSize) break;
+    }
+    return groups;
   }
 
   /// Posts [content] to the group so the other members receive it.

@@ -73,18 +73,46 @@ class GroupDmNotifier extends Notifier<List<GroupDM>> {
   }
 
   Future<void> _load(String orgId, String? userId) async {
+    final generation = _generation;
+    final loadFailed = ref.read(groupDmLoadFailedProvider.notifier);
+    // build() starts this; let it finish before anything here updates
+    // another provider, even when the request fails at once.
+    await Future<void>.value();
     try {
       final groups = await ref
           .read(groupDmRepositoryProvider)
           .list(orgId: orgId, currentUserId: userId);
-      if (!ref.mounted) return;
-      // Keep groups created while the list was loading.
+      if (_isStale(generation)) return;
+      // A group already on screen keeps its local copy (with the messages
+      // shown so far), and groups created while the list was loading stay.
+      final shown = {for (final g in state) g.id: g};
       final loadedIds = groups.map((g) => g.id).toSet();
-      state = [...groups, ...state.where((g) => !loadedIds.contains(g.id))];
+      state = [
+        for (final g in groups) shown[g.id] ?? g,
+        ...state.where((g) => !loadedIds.contains(g.id)),
+      ];
+      loadFailed.set(false);
       _connectWebsocket();
-    } catch (_) {
-      // Without the list the sidebar stays empty; creating a group still works.
+    } catch (error, stackTrace) {
+      if (_isStale(generation)) return;
+      // Say so instead of silently showing no groups: whatever lists them can
+      // show an error and call retryLoad.
+      AppLogger.w(
+        'Could not load group DMs',
+        tag: 'GroupDmNotifier',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      loadFailed.set(true);
     }
+  }
+
+  /// Loads the group list again, for example from a Retry button after a
+  /// failed load.
+  Future<void> retryLoad() async {
+    final orgId = ref.read(currentOrgIdProvider);
+    if (orgId.isEmpty) return;
+    await _load(orgId, ref.read(groupDmUserIdProvider));
   }
 
   void _connectWebsocket() {
@@ -307,3 +335,16 @@ class GroupDmNotifier extends Notifier<List<GroupDM>> {
 final groupDmProvider = NotifierProvider<GroupDmNotifier, List<GroupDM>>(
   GroupDmNotifier.new,
 );
+
+/// Whether the last attempt to load the group DM list failed.
+class GroupDmLoadFailedNotifier extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  void set(bool failed) => state = failed;
+}
+
+final groupDmLoadFailedProvider =
+    NotifierProvider<GroupDmLoadFailedNotifier, bool>(
+      GroupDmLoadFailedNotifier.new,
+    );

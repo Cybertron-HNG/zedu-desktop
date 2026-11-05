@@ -107,6 +107,68 @@ void main() {
     ).called(1);
   });
 
+  test('list leaves out rows without a channel type', () async {
+    when(
+      () => api.get<Map<String, dynamic>>(
+        path: any(named: 'path'),
+        queryParameters: any(named: 'queryParameters'),
+      ),
+    ).thenAnswer(
+      (_) async => ApiResponseModel(
+        data: {
+          'data': [
+            {
+              'channel_id': 'untyped',
+              'participants': [
+                _participant('u1', 'Ada'),
+                _participant('u2', 'Bola'),
+              ],
+            },
+          ],
+        },
+        statusCode: 200,
+      ),
+    );
+
+    final groups = await repository.list(orgId: 'org-1', currentUserId: 'me');
+
+    expect(groups, isEmpty);
+  });
+
+  test('list reads every page until a short one', () async {
+    Map<String, dynamic> group(int i) => {
+      'channel_id': 'g-$i',
+      'channel_type': 'group_dm',
+      'participants': [_participant('u1', 'Ada'), _participant('u2', 'Bola')],
+    };
+    when(
+      () => api.get<Map<String, dynamic>>(
+        path: any(named: 'path'),
+        queryParameters: any(named: 'queryParameters'),
+      ),
+    ).thenAnswer((invocation) async {
+      final query =
+          invocation.namedArguments[#queryParameters] as Map<String, dynamic>;
+      final page = query['page'] as int;
+      // A full first page, then a page with a single row.
+      final rows = page == 1
+          ? [for (var i = 0; i < GroupDmRepository.pageSize; i++) group(i)]
+          : [group(1000)];
+      return ApiResponseModel(data: {'data': rows}, statusCode: 200);
+    });
+
+    final groups = await repository.list(orgId: 'org-1', currentUserId: 'me');
+
+    expect(groups, hasLength(GroupDmRepository.pageSize + 1));
+    expect(groups.last.id, 'g-1000');
+    verify(
+      () => api.get<Map<String, dynamic>>(
+        path: '/organisations/org-1/group-dms',
+        queryParameters: {'page': 2, 'limit': GroupDmRepository.pageSize},
+      ),
+    ).called(1);
+  });
+
   test(
     'sendMessage posts to the group thread route with a thread id',
     () async {
