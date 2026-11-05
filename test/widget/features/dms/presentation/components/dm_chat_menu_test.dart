@@ -43,6 +43,7 @@ void main() {
     when(() => history.historyCleared).thenReturn(false);
     when(() => history.loadFailed).thenReturn(false);
     when(() => history.loadMoreFailed).thenReturn(false);
+    when(() => history.historyCleared).thenReturn(false);
     final drafts = MockDraftStore();
     when(() => drafts.load(any())).thenAnswer((_) async => null);
 
