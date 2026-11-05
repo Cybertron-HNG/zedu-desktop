@@ -341,7 +341,7 @@ class FilesTable extends StatelessWidget {
                   )
                 : null,
           ),
-          _cellText(context, file.sharedIn.isEmpty ? '—' : file.sharedIn),
+          _SharedInCell(file: file),
           _cellText(context, ownerNameOf(file)),
           _cellText(context, formatFileDate(file.modifiedAt)),
           _cellText(context, formatFileSize(file.size)),
@@ -507,5 +507,22 @@ class _FileActionsMenu extends StatelessWidget {
           ),
       ],
     );
+  }
+}
+
+/// The Shared in cell. The files list doesn't name the channel, so a file
+/// sent in one asks the server's file info; others show a dash.
+class _SharedInCell extends ConsumerWidget {
+  const _SharedInCell({required this.file});
+
+  final WorkspaceFile file;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    var sharedIn = file.sharedIn;
+    if (sharedIn.isEmpty && file.channelId.isNotEmpty) {
+      sharedIn = ref.watch(fileSharedInProvider(file.id)).value ?? '';
+    }
+    return _cellText(context, sharedIn.isEmpty ? '—' : sharedIn);
   }
 }

@@ -59,6 +59,9 @@ abstract class FilesRepository {
   /// [fileId]'s current details, including its access type.
   Future<Result<WorkspaceFile>> fetchFileDetails(String fileId);
 
+  /// Where [fileId] was shared: channel names joined with commas, or empty.
+  Future<Result<String>> fetchFileSharedIn(String fileId);
+
   /// Ids of the files the user pinned. Pins belong to the user, not the file.
   Future<Result<Set<String>>> fetchPinnedFileIds();
 

@@ -182,6 +182,10 @@ class FilesRepositoryImpl implements FilesRepository {
       _guard(() => remoteDataSource.fetchFileDetails(fileId));
 
   @override
+  Future<Result<String>> fetchFileSharedIn(String fileId) =>
+      _guard(() => remoteDataSource.fetchFileSharedIn(fileId));
+
+  @override
   Future<Result<Set<String>>> fetchPinnedFileIds() =>
       _guard(remoteDataSource.fetchPinnedFileIds);
 

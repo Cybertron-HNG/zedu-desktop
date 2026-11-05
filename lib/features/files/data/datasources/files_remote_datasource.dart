@@ -59,6 +59,10 @@ abstract class FilesRemoteDataSource {
   /// File [fileId] as `GET /files/file/{id}` reports it now.
   Future<WorkspaceFile> fetchFileDetails(String fileId);
 
+  /// Where [fileId] was shared, from `GET /files/file/{id}/info`: the
+  /// channel names joined with commas, or empty.
+  Future<String> fetchFileSharedIn(String fileId);
+
   /// Ids of the files the user pinned, from `GET /files/favorites`.
   Future<Set<String>> fetchPinnedFileIds();
 
@@ -333,6 +337,21 @@ class FilesRemoteDataSourceImpl implements FilesRemoteDataSource {
       );
     }
     return WorkspaceFile.fromJson(Map<String, dynamic>.from(data));
+  }
+
+  @override
+  Future<String> fetchFileSharedIn(String fileId) async {
+    final path = '/files/file/$fileId/info';
+    final response = await apiBaseService.get<Map<String, dynamic>>(path: path);
+    final data = response.data['data'];
+    if (data is! Map) {
+      throw ApiFailure(
+        message: 'File info missing from the response.',
+        path: path,
+        kind: ApiFailureKind.parsing,
+      );
+    }
+    return sharedInLabel(data['shared_in']);
   }
 
   @override

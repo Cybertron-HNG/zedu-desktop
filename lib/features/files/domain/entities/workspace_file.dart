@@ -13,6 +13,10 @@ class WorkspaceFile {
   final String userId;
   final String folderId;
 
+  /// Channel the file was sent in, or empty. The server names it only in
+  /// `GET /files/file/{id}/info` (see [sharedIn]).
+  final String channelId;
+
   /// Channel the file was shared in, or empty.
   final String sharedIn;
 
@@ -34,6 +38,7 @@ class WorkspaceFile {
     this.size = 0,
     this.userId = '',
     this.folderId = '',
+    this.channelId = '',
     this.sharedIn = '',
     this.owner = '',
     this.createdAt,
@@ -69,7 +74,10 @@ class WorkspaceFile {
       size: num.tryParse(json['size']?.toString() ?? '')?.toInt() ?? 0,
       userId: text(['user_id']),
       folderId: text(['folder_id']),
-      sharedIn: text(['shared_in', 'sharedIn', 'channel_name']),
+      channelId: text(['channel_id']),
+      sharedIn: sharedInLabel(
+        json['shared_in'] ?? json['sharedIn'],
+      ).ifEmpty(text(['channel_name'])),
       owner: text(['uploader_display_name', 'owner']),
       createdAt: DateTime.tryParse(text(['created_at']))?.toLocal(),
       updatedAt: DateTime.tryParse(text(['updated_at']))?.toLocal(),
@@ -86,4 +94,20 @@ String _fileType(String fileType, String fileName) {
   }
   final dot = fileName.lastIndexOf('.');
   return dot == -1 ? '' : fileName.substring(dot + 1).toLowerCase();
+}
+
+/// [value] as one line: a list (`["general", "design"]`, as
+/// `GET /files/file/{id}/info` sends it) joined with commas, or a string.
+String sharedInLabel(Object? value) => switch (value) {
+  final List<dynamic> names =>
+    names
+        .map((name) => name?.toString().trim() ?? '')
+        .where((name) => name.isNotEmpty)
+        .join(', '),
+  null => '',
+  _ => value.toString().trim(),
+};
+
+extension on String {
+  String ifEmpty(String other) => isEmpty ? other : this;
 }

@@ -97,3 +97,20 @@ final fileDetailsProvider = FutureProvider.autoDispose
         Failure(:final error) => throw error,
       };
     });
+
+/// Where a file was shared, from the server's file info. The files list
+/// doesn't say, so the Shared in column and the Info panel ask for it. A
+/// failure shows a dash and is not retried, so a page of rows can't keep
+/// asking.
+final fileSharedInProvider = FutureProvider.autoDispose.family<String, String>((
+  ref,
+  fileId,
+) async {
+  final result = await ref
+      .watch(filesRepositoryProvider)
+      .fetchFileSharedIn(fileId);
+  return switch (result) {
+    Success(:final value) => value,
+    Failure(:final error) => throw error,
+  };
+}, retry: (_, _) => null);

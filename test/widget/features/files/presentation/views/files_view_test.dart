@@ -130,6 +130,16 @@ class _FakeFilesRepository implements FilesRepository {
     );
   final detailRequests = <String>[];
 
+  /// What `GET /files/file/{id}/info` names as Shared in, by file id.
+  Map<String, Result<String>> sharedIn = {};
+  final sharedInRequests = <String>[];
+
+  @override
+  Future<Result<String>> fetchFileSharedIn(String fileId) async {
+    sharedInRequests.add(fileId);
+    return sharedIn[fileId] ?? const Success('');
+  }
+
   @override
   Future<Result<WorkspaceFile>> fetchFileDetails(String fileId) {
     detailRequests.add(fileId);
@@ -1123,6 +1133,58 @@ void main() {
 
     expect(inPanel('Public'), findsOneWidget);
     expect(find.textContaining('Could not load'), findsNothing);
+  });
+
+  group('Shared in (Ziki #2702)', () {
+    const sent = WorkspaceFile(
+      id: 'f-9',
+      name: 'brief.pdf',
+      channelId: 'c-design',
+    );
+    const uploaded = WorkspaceFile(id: 'f-8', name: 'notes.txt');
+
+    testWidgets('names the channel a file was sent in, from its info', (
+      tester,
+    ) async {
+      final repository = _FakeFilesRepository()
+        ..moreFiles = [sent, uploaded]
+        ..sharedIn = {'f-9': const Success('design, launch')};
+      await _pump(tester, repository);
+      await openFilesTab(tester);
+
+      expect(find.text('design, launch'), findsOneWidget);
+      // Only a file sent in a channel asks; the others need no request.
+      expect(repository.sharedInRequests, ['f-9']);
+    });
+
+    testWidgets('shows a dash when the info fails', (tester) async {
+      final repository = _FakeFilesRepository()
+        ..moreFiles = [sent]
+        ..sharedIn = {
+          'f-9': const Failure(
+            ApiFailure(message: 'offline', kind: ApiFailureKind.network),
+          ),
+        };
+      await _pump(tester, repository);
+      await openFilesTab(tester);
+
+      expect(repository.sharedInRequests, ['f-9']);
+      expect(find.text('brief.pdf'), findsOneWidget);
+      expect(find.textContaining('offline'), findsNothing);
+    });
+
+    testWidgets('Info shows where the file was shared', (tester) async {
+      final repository = _FakeFilesRepository()
+        ..details = (Completer()
+          ..complete(const Success(WorkspaceFile(id: 'f-1', name: 'logo.png'))))
+        ..sharedIn = {'f-1': const Success('marketing')};
+      await _pump(tester, repository);
+      await openFilesTab(tester);
+
+      await chooseInMenu(tester, 'Info');
+
+      expect(inPanel('marketing'), findsOneWidget);
+    });
   });
 
   testWidgets('Info names the folder a file is in', (tester) async {

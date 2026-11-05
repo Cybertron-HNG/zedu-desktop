@@ -598,6 +598,79 @@ void main() {
     });
   });
 
+  group('fetchFileSharedIn (Ziki #2702)', () {
+    void answer(Object? data) =>
+        when(
+          () => api.get<Map<String, dynamic>>(path: '/files/file/f-1/info'),
+        ).thenAnswer(
+          (_) async => ApiResponseModel<Map<String, dynamic>>(
+            statusCode: 200,
+            data: {'data': data},
+          ),
+        );
+
+    test('joins the channel names from the file info', () async {
+      answer({
+        'owner': 'ada',
+        'shared_in': ['general', ' design ', ''],
+      });
+
+      expect(await datasource.fetchFileSharedIn('f-1'), 'general, design');
+    });
+
+    test('is empty when the file was shared nowhere', () async {
+      answer({'owner': 'ada', 'shared_in': <String>[]});
+
+      expect(await datasource.fetchFileSharedIn('f-1'), '');
+    });
+
+    test('a response without the info is a parsing failure', () async {
+      answer(null);
+
+      expect(
+        datasource.fetchFileSharedIn('f-1'),
+        throwsA(
+          isA<ApiFailure>().having(
+            (f) => f.kind,
+            'kind',
+            ApiFailureKind.parsing,
+          ),
+        ),
+      );
+    });
+  });
+
+  group('WorkspaceFile.fromJson shared in (Ziki #2702)', () {
+    test('reads channel_id and a shared_in list', () {
+      final file = WorkspaceFile.fromJson(const {
+        'id': 'f-1',
+        'file_name': 'a.png',
+        'channel_id': 'c-1',
+        'shared_in': ['general', 'design'],
+      });
+
+      expect(file.channelId, 'c-1');
+      expect(file.sharedIn, 'general, design');
+    });
+
+    test('still reads a shared_in string or a channel_name', () {
+      expect(
+        WorkspaceFile.fromJson(const {
+          'id': 'f',
+          'shared_in': 'general',
+        }).sharedIn,
+        'general',
+      );
+      expect(
+        WorkspaceFile.fromJson(const {
+          'id': 'f',
+          'channel_name': 'design',
+        }).sharedIn,
+        'design',
+      );
+    });
+  });
+
   group('fetchFileDetails', () {
     test('reads the file with its access type', () async {
       when(

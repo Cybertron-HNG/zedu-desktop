@@ -43,6 +43,9 @@ class FileInfoPanel extends ConsumerWidget {
     final colors = context.colors;
     final details = ref.watch(fileDetailsProvider(file.id));
     final current = details.value ?? file;
+    final sharedIn = current.sharedIn.isNotEmpty
+        ? current.sharedIn
+        : ref.watch(fileSharedInProvider(file.id)).value ?? '';
 
     final labelStyle = context.textTheme.bodyMedium?.copyWith(
       fontSize: 13,
@@ -155,10 +158,7 @@ class FileInfoPanel extends ConsumerWidget {
                     'Date modified',
                     text(formatFileDateTime(current.modifiedAt)),
                   ),
-                  row(
-                    'Shared in',
-                    text(current.sharedIn.isEmpty ? '—' : current.sharedIn),
-                  ),
+                  row('Shared in', text(sharedIn.isEmpty ? '—' : sharedIn)),
                   row('File size', text(formatFileSize(current.size))),
                   row(
                     'Location',
