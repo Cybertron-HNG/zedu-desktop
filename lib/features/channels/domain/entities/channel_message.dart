@@ -2,6 +2,7 @@
 /// `GET /threads/channels/{channel_id}`.
 class ChannelMessage {
   final String? id;
+  final String? threadId;
   final String senderName;
   final String? avatarUrl;
   final String text;
@@ -10,6 +11,7 @@ class ChannelMessage {
 
   const ChannelMessage({
     this.id,
+    this.threadId,
     required this.senderName,
     required this.text,
     this.avatarUrl,
@@ -24,7 +26,8 @@ class ChannelMessage {
     }
 
     return ChannelMessage(
-      id: json['id']?.toString(),
+      id: nonEmpty(json['id']) ?? nonEmpty(json['message_id']),
+      threadId: nonEmpty(json['thread_id']) ?? nonEmpty(json['threadId']),
       senderName:
           nonEmpty(json['full_name']) ??
           nonEmpty(json['sender_name']) ??
@@ -45,6 +48,38 @@ class ChannelMessage {
         json['created_at']?.toString() ?? '',
       )?.toLocal(),
       status: json['status']?.toString(),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      if (id != null) 'id': id,
+      if (threadId != null) 'thread_id': threadId,
+      'sender_name': senderName,
+      'text': text,
+      if (avatarUrl != null) 'avatar_url': avatarUrl,
+      if (createdAt != null) 'created_at': createdAt!.toIso8601String(),
+      if (status != null) 'status': status,
+    };
+  }
+
+  ChannelMessage copyWith({
+    String? id,
+    String? threadId,
+    String? senderName,
+    String? avatarUrl,
+    String? text,
+    DateTime? createdAt,
+    String? status,
+  }) {
+    return ChannelMessage(
+      id: id ?? this.id,
+      threadId: threadId ?? this.threadId,
+      senderName: senderName ?? this.senderName,
+      avatarUrl: avatarUrl ?? this.avatarUrl,
+      text: text ?? this.text,
+      createdAt: createdAt ?? this.createdAt,
+      status: status ?? this.status,
     );
   }
 

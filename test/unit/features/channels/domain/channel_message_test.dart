@@ -2,18 +2,60 @@ import '../../../../helpers/helpers.dart';
 import 'package:zedu/features/features.dart';
 
 void main() {
-  test('ChannelMessage.fromJson maps a thread', () {
+  test('ChannelMessage.fromJson maps a thread with id and thread_id', () {
     final message = ChannelMessage.fromJson({
+      'id': 'msg-1',
       'thread_id': 't-1',
       'full_name': 'Ada Lovelace',
       'avatar_url': 'https://cdn.zedu.chat/a.png',
       'message': 'hello',
       'created_at': '2026-10-21T05:14:46Z',
+      'status': 'sent',
     });
 
+    expect(message.id, 'msg-1');
+    expect(message.threadId, 't-1');
     expect(message.senderName, 'Ada Lovelace');
     expect(message.avatarUrl, 'https://cdn.zedu.chat/a.png');
+    expect(message.status, 'sent');
     expect(message.createdAt, DateTime.utc(2026, 10, 21, 5, 14, 46).toLocal());
+  });
+
+  test('ChannelMessage.fromJson falls back to message_id', () {
+    final message = ChannelMessage.fromJson({
+      'message_id': 'msg-fallback-99',
+      'threadId': 'th-2',
+      'username': 'bob',
+      'message': 'hello fallback',
+    });
+
+    expect(message.id, 'msg-fallback-99');
+    expect(message.threadId, 'th-2');
+    expect(message.senderName, 'bob');
+  });
+
+  test('ChannelMessage.toJson and copyWith work as expected', () {
+    const original = ChannelMessage(
+      id: 'm-1',
+      threadId: 't-1',
+      senderName: 'Alice',
+      text: 'hello',
+      status: 'pending',
+    );
+
+    final modified = original.copyWith(text: 'updated text', status: 'sent');
+
+    expect(modified.id, 'm-1');
+    expect(modified.threadId, 't-1');
+    expect(modified.text, 'updated text');
+    expect(modified.status, 'sent');
+
+    final json = modified.toJson();
+    expect(json['id'], 'm-1');
+    expect(json['thread_id'], 't-1');
+    expect(json['sender_name'], 'Alice');
+    expect(json['text'], 'updated text');
+    expect(json['status'], 'sent');
   });
 
   test('ChannelMessage.fromJson falls back and strips HTML', () {
