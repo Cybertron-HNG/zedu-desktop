@@ -131,6 +131,7 @@ class _ProfileContent extends StatelessWidget {
               sessions: state.securitySessions,
               isSaving: state.isSaving,
               onChangePassword: notifier.changePassword,
+              onRevokeSession: notifier.revokeSecuritySession,
             ),
             UserProfileSection.webhooks => const WebhookManagementSection(),
             UserProfileSection.organization =>

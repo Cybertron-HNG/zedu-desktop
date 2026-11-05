@@ -17,6 +17,7 @@ abstract interface class UserProfileRemoteDataSource {
   Future<List<SecuritySessionModel>> getSecuritySessions({
     required String userId,
   });
+  Future<void> revokeSecuritySession(String sessionId);: add revoke action with confirmation to desktop security sessions (#2797))
   Future<void> changePassword({
     required String currentPassword,
     required String newPassword,
@@ -273,9 +274,19 @@ class UserProfileRemoteDataSourceImpl implements UserProfileRemoteDataSource {
   }
 
   @override
+  Future<void> revokeSecuritySession(String sessionId) async {
+    if (_config.usesMockData) {
+      return;
+    }
+    await _apiBaseService.delete<Map<String, dynamic>>(
+      path: '/profile/security/sessions/$sessionId',
+    );
+  }
+
+  @override
   Future<List<SecuritySessionModel>> getSecuritySessions({
     required String userId,
-  }) async {
+  }) async {: add revoke action with confirmation to desktop security sessions (#2797))
     if (_config.usesMockData) {
       return _sessions.map(SecuritySessionModel.fromJson).toList();
     }

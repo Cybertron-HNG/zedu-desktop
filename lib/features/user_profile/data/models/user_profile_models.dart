@@ -221,6 +221,7 @@ class OrganizationProfileModel extends OrganizationProfile {
 
 class SecuritySessionModel extends SecuritySession {
   const SecuritySessionModel({
+    super.id,
     required super.device,
     required super.location,
     required super.date,
@@ -235,6 +236,7 @@ class SecuritySessionModel extends SecuritySession {
   factory SecuritySessionModel.fromJson(Map<String, dynamic> json) {
     final isLive = json['is_live'];
     return SecuritySessionModel(
+      id: json['id'] as String? ?? json['_id'] as String? ?? '',
       device: _text(json['device']) ?? unknown,
       location: _text(json['location']) ?? unknown,
       date: _text(json['date']) ?? _formatTime(json['created_at']) ?? unknown,
@@ -244,7 +246,7 @@ class SecuritySessionModel extends SecuritySession {
           unknown,
       status:
           _text(json['status']) ??
-          (isLive is bool ? (isLive ? 'Active' : 'Signed out') : unknown),
+          (isLive is bool ? (isLive ? 'Active' : 'Signed out') : unknown),: add revoke action with confirmation to desktop security sessions (#2797))
     );
   }
 

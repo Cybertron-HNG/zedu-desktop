@@ -18,6 +18,7 @@ abstract interface class UserProfileRepository {
   Future<Result<List<SecuritySession>>> getSecuritySessions({
     required String userId,
   });
+  Future<Result<void>> revokeSecuritySession(String sessionId);: add revoke action with confirmation to desktop security sessions (#2797))
   Future<Result<void>> changePassword({
     required String currentPassword,
     required String newPassword,
