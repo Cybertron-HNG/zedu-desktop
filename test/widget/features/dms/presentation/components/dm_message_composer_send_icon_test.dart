@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/rendering.dart';
 import 'package:zedu/core/core.dart';
 import 'package:zedu/features/features.dart';
 
@@ -124,6 +125,24 @@ void main() {
       }
     });
   }
+
+  composerTest(
+    'the send button has a Send message tooltip and a click cursor (Ziki #2791)',
+    (tester) async {
+      expect(find.byTooltip('Send message'), findsOneWidget);
+
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      addTearDown(mouse.removePointer);
+      await mouse.addPointer(location: Offset.zero);
+      await mouse.moveTo(tester.getCenter(find.byIcon(Icons.send_rounded)));
+      await tester.pump();
+
+      expect(
+        RendererBinding.instance.mouseTracker.debugDeviceActiveCursor(1),
+        SystemMouseCursors.click,
+      );
+    },
+  );
 
   composerTest('empty and whitespace-only drafts keep the icon inactive', (
     tester,

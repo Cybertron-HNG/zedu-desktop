@@ -1196,14 +1196,20 @@ class DmMessageComposerState extends ConsumerState<DmMessageComposer> {
                         isActive: _isRecording || _voiceNote != null,
                       ),
                       const Spacer(),
-                      GestureDetector(
-                        onTap: _handleSend,
-                        child: Icon(
-                          Icons.send_rounded,
-                          color: hasSendableContent
-                              ? colors.primary
-                              : colors.textHint.withValues(alpha: 0.55),
-                          size: 22,
+                      Tooltip(
+                        message: 'Send message',
+                        child: MouseRegion(
+                          cursor: SystemMouseCursors.click,
+                          child: GestureDetector(
+                            onTap: _handleSend,
+                            child: Icon(
+                              Icons.send_rounded,
+                              color: hasSendableContent
+                                  ? colors.primary
+                                  : colors.textHint.withValues(alpha: 0.55),
+                              size: 22,
+                            ),
+                          ),
                         ),
                       ),
                     ],
