@@ -20,6 +20,9 @@ class DmMessageComposer extends ConsumerStatefulWidget {
   final ValueChanged<String>? onSend;
   final bool isChannel;
 
+  /// Name shown in scheduled-message dialogs. Defaults to [recipientName].
+  final String? conversationName;
+
   const DmMessageComposer({
     super.key,
     required this.recipientName,
@@ -29,6 +32,7 @@ class DmMessageComposer extends ConsumerStatefulWidget {
     this.participants = const [],
     this.onSend,
     this.isChannel = false,
+    this.conversationName,
   });
 
   @override
@@ -847,6 +851,54 @@ class DmMessageComposerState extends ConsumerState<DmMessageComposer> {
     );
   }
 
+  Future<void> _scheduleMessage() async {
+    if (_isEditMode) {
+      _showComposerNotice('Finish editing before scheduling a message.');
+      return;
+    }
+    if (_pendingFiles.isNotEmpty || _voiceNote != null) {
+      _showComposerNotice(
+        'Scheduling supports text messages. Send attachments or voice notes '
+        'now instead.',
+      );
+      return;
+    }
+    final conversation = widget.conversationName ?? widget.recipientName;
+    final draft = await showDialog<ScheduleDraft>(
+      context: context,
+      builder: (context) => ScheduleMessageDialog(
+        conversationName: conversation,
+        initialText: _controller.text,
+      ),
+    );
+    if (draft == null || !mounted) return;
+
+    await ref
+        .read(scheduledMessagesStoreProvider)
+        .add(
+          channelId: widget.channelId,
+          conversationName: conversation,
+          content: draft.content,
+          sendAt: draft.sendAt,
+          isChannel: widget.isChannel,
+        );
+    if (!mounted) return;
+    _controller.clear();
+    _focusNode.requestFocus();
+    _showComposerNotice(
+      'Message scheduled for '
+      '${scheduledWhenLabel(draft.sendAt, DateTime.now())}.',
+    );
+  }
+
+  void _showComposerNotice(String message) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(content: Text(message), duration: const Duration(seconds: 3)),
+      );
+  }
+
   Future<bool> handlePaste({DataReader? reader}) async {
     final clipReader = reader ?? await SystemClipboard.instance?.read();
     if (clipReader == null) return false;
@@ -1183,6 +1235,12 @@ class DmMessageComposerState extends ConsumerState<DmMessageComposer> {
                         onTap: _toggleVoiceRecording,
                         colors: colors,
                         isActive: _isRecording || _voiceNote != null,
+                      ),
+                      ToolbarButton(
+                        icon: Icons.schedule_send_outlined,
+                        tooltip: 'Schedule message',
+                        onTap: _scheduleMessage,
+                        colors: colors,
                       ),
                       const Spacer(),
                       GestureDetector(

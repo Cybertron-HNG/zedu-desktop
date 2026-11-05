@@ -116,6 +116,20 @@ void main() {
     await _unmount(tester);
   });
 
+  testWidgets('Scheduled messages opens the pending queue', (tester) async {
+    await _pumpChatArea(tester);
+    await tester.tap(find.byTooltip('More options'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Scheduled messages'), findsOneWidget);
+    await tester.tap(find.text('Scheduled messages'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(ScheduledMessagesDialog), findsOneWidget);
+    expect(find.text('No scheduled messages yet.'), findsOneWidget);
+    await _unmount(tester);
+  });
+
   group('View profile', () {
     testWidgets('shows the person without their internal user id', (
       tester,

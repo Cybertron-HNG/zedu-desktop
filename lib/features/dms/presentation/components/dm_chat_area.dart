@@ -101,6 +101,8 @@ class _DmChatAreaState extends ConsumerState<DmChatArea> {
         await _showConversationSearch();
       case 'view_files':
         await _showConversationFiles();
+      case 'scheduled_messages':
+        await _showScheduledMessages();
       case 'clear_history':
         final confirmed = await _confirmConversationAction(
           title: 'Clear history?',
@@ -190,6 +192,14 @@ class _DmChatAreaState extends ConsumerState<DmChatArea> {
     );
   }
 
+  Future<void> _showScheduledMessages() async {
+    final store = ref.read(scheduledMessagesStoreProvider);
+    await showDialog<void>(
+      context: context,
+      builder: (context) => ScheduledMessagesDialog(store: store),
+    );
+  }
+
   Future<void> _showConversationFiles() async {
     final history = ref.read(
       chatHistoryProvider(widget.conversation.channelId),
@@ -222,6 +232,11 @@ class _DmChatAreaState extends ConsumerState<DmChatArea> {
         (actions) => actions.pinnedIds.contains(widget.conversation.channelId),
       ),
     );
+    // Watching the store also keeps its send timer alive while a DM is open.
+    final scheduledCount = ref
+        .watch(scheduledMessagesStoreProvider)
+        .items
+        .length;
 
     return DropTarget(
       onDragDone: (detail) {
@@ -245,6 +260,7 @@ class _DmChatAreaState extends ConsumerState<DmChatArea> {
                   isOwnSpace: _isOwnSpace,
                   isMuted: isMuted,
                   isPinned: isPinned,
+                  scheduledCount: scheduledCount,
                   onMenuAction: _handleMenuAction,
                 ),
                 Expanded(
@@ -354,6 +370,7 @@ class _DmChatAreaState extends ConsumerState<DmChatArea> {
                 DmMessageComposer(
                   key: _composerKey,
                   recipientName: _recipientHandle,
+                  conversationName: widget.conversation.displayName,
                   hintText: _isOwnSpace ? 'Write a note to yourself' : null,
                   channelId: widget.conversation.channelId,
                   draftKey: widget.conversation.conversationKey,
@@ -794,6 +811,7 @@ class _DmChatHeader extends StatelessWidget {
   final bool isOwnSpace;
   final bool isMuted;
   final bool isPinned;
+  final int scheduledCount;
   final ValueChanged<String> onMenuAction;
 
   const _DmChatHeader({
@@ -801,6 +819,7 @@ class _DmChatHeader extends StatelessWidget {
     required this.isOwnSpace,
     required this.isMuted,
     required this.isPinned,
+    required this.scheduledCount,
     required this.onMenuAction,
   });
 
@@ -947,6 +966,12 @@ class _DmChatHeader extends StatelessWidget {
               menuItem('pinned_messages', 'Pinned messages'),
               menuItem('search_in_conversation', 'Search in conversation'),
               menuItem('view_files', 'View files'),
+              menuItem(
+                'scheduled_messages',
+                scheduledCount == 0
+                    ? 'Scheduled messages'
+                    : 'Scheduled messages ($scheduledCount)',
+              ),
               const PopupMenuDivider(height: 1),
               menuItem('clear_history', 'Clear history'),
               menuItem('block_user', 'Block User'),

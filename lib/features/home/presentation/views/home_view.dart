@@ -31,6 +31,9 @@ class _HomeViewState extends ConsumerState<HomeView> {
     });
     final colors = context.colors;
     final showProfile = ref.watch(personalProfilePanelProvider);
+    // Keeps the scheduled-message timer running even when no DM is open, so a
+    // message the user queued goes out wherever they are in the app.
+    ref.watch(scheduledMessagesStoreProvider);
 
     return Scaffold(
       backgroundColor: colors.background,
