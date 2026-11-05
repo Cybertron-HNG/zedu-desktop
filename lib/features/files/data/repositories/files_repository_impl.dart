@@ -55,6 +55,16 @@ class FilesRepositoryImpl implements FilesRepository {
     ),
   );
 
+  @override
+  Future<Result<void>> restoreFile(String fileId) =>
+      _guard(() => remoteDataSource.restoreFile(fileId));
+
+  @override
+  Future<Result<void>> deleteFile(String fileId, {bool permanently = false}) =>
+      _guard(
+        () => remoteDataSource.deleteFile(fileId, permanently: permanently),
+      );
+
   Future<Result<T>> _guard<T>(Future<T> Function() call) async {
     try {
       return Success(await call());

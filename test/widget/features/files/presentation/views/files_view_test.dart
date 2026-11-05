@@ -37,6 +37,8 @@ class _FakeFilesRepository implements FilesRepository {
   final queries = <FilesQuery>[];
   final folderRequests = <(FilesScope, String?)>[];
   final createdFolders = <(String, String, String?)>[];
+  final restoredFileIds = <String>[];
+  final deletedFiles = <(String, bool)>[];
 
   @override
   Future<Result<FilesPage>> fetchFiles(FilesQuery query) async {
@@ -107,6 +109,21 @@ class _FakeFilesRepository implements FilesRepository {
       return const Failure(ApiFailure(message: 'Folder name already exists'));
     }
     createdFolders.add((name, orgId, parentId));
+    return const Success(null);
+  }
+
+  @override
+  Future<Result<void>> restoreFile(String fileId) async {
+    restoredFileIds.add(fileId);
+    return const Success(null);
+  }
+
+  @override
+  Future<Result<void>> deleteFile(
+    String fileId, {
+    bool permanently = false,
+  }) async {
+    deletedFiles.add((fileId, permanently));
     return const Success(null);
   }
 }
@@ -299,5 +316,65 @@ void main() {
 
     expect(find.text('Folder name already exists'), findsOneWidget);
     expect(find.text('Create New Folder'), findsOneWidget);
+  });
+
+  testWidgets(
+    'Trash tab lists deleted files with Restore and Delete permanently actions',
+    (tester) async {
+      final repository = _FakeFilesRepository();
+      await _pump(tester, repository);
+
+      await tester.tap(find.byKey(const ValueKey('files-trash-tab')));
+      await tester.pumpAndSettle();
+
+      expect(repository.queries.last.view, FilesScope.trash);
+      expect(find.byKey(const ValueKey('files-trash-banner')), findsOneWidget);
+      expect(find.text('logo.png'), findsOneWidget);
+      expect(find.byKey(const ValueKey('restore-file-f-1')), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('delete-permanently-file-f-1')),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.byKey(const ValueKey('restore-file-f-1')));
+      await tester.pumpAndSettle();
+
+      expect(repository.restoredFileIds, ['f-1']);
+      expect(find.text('Restored "logo.png"'), findsOneWidget);
+    },
+  );
+
+  testWidgets('Delete permanently confirms before purging a file from Trash', (
+    tester,
+  ) async {
+    final repository = _FakeFilesRepository();
+    await _pump(tester, repository);
+
+    await tester.tap(find.byKey(const ValueKey('files-trash-tab')));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('delete-permanently-file-f-1')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Delete "logo.png" permanently?'), findsOneWidget);
+    await tester.tap(find.widgetWithText(TextButton, 'Delete permanently'));
+    await tester.pumpAndSettle();
+
+    expect(repository.deletedFiles, [('f-1', true)]);
+    expect(find.text('Deleted "logo.png" permanently'), findsOneWidget);
+  });
+
+  testWidgets('active Files tab allows moving a file to Trash', (tester) async {
+    final repository = _FakeFilesRepository();
+    await _pump(tester, repository);
+
+    await tester.tap(find.text('Files').last);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('delete-file-f-1')));
+    await tester.pumpAndSettle();
+
+    expect(repository.deletedFiles, [('f-1', false)]);
+    expect(find.text('Moved "logo.png" to Trash'), findsOneWidget);
   });
 }

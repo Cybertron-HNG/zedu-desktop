@@ -70,7 +70,11 @@ class FilesView extends ConsumerWidget {
                   _Breadcrumbs(state: state),
                 ],
                 const SizedBox(height: 16),
-                _Tabs(selected: state.tab),
+                _Tabs(selected: state.tab, view: state.view),
+                if (state.view == FilesScope.trash) ...[
+                  const SizedBox(height: 16),
+                  const _TrashBanner(),
+                ],
                 const SizedBox(height: 24),
                 Text(
                   state.tab == FilesTab.folders ? 'Folders' : 'Files',
@@ -133,13 +137,15 @@ class _Breadcrumbs extends ConsumerWidget {
 }
 
 class _Tabs extends ConsumerWidget {
-  const _Tabs({required this.selected});
+  const _Tabs({required this.selected, required this.view});
 
   final FilesTab selected;
+  final FilesScope view;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final colors = context.colors;
+    final isTrash = view == FilesScope.trash;
 
     Widget tab(FilesTab tab, String label) {
       final isSelected = tab == selected;
@@ -174,6 +180,73 @@ class _Tabs extends ConsumerWidget {
         children: [
           tab(FilesTab.folders, 'Folders'),
           tab(FilesTab.files, 'Files'),
+          InkWell(
+            key: const ValueKey('files-trash-tab'),
+            onTap: () => ref.read(filesProvider.notifier).openTrash(),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              decoration: BoxDecoration(
+                border: Border(
+                  bottom: BorderSide(
+                    color: isTrash ? colors.primary : Colors.transparent,
+                    width: 2,
+                  ),
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.delete_outline,
+                    size: 16,
+                    color: isTrash ? colors.primary : colors.textSecondary,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Trash',
+                    style: context.textTheme.bodyMedium?.copyWith(
+                      color: isTrash ? colors.primary : colors.textPrimary,
+                      fontWeight: isTrash ? FontWeight.w600 : FontWeight.w400,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TrashBanner extends StatelessWidget {
+  const _TrashBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+
+    return Container(
+      key: const ValueKey('files-trash-banner'),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: colors.background,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: colors.divider),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.info_outline, size: 18, color: colors.textSecondary),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'Items in Trash can be restored to their original location or deleted permanently.',
+              style: context.textTheme.bodyMedium?.copyWith(
+                fontSize: 13,
+                color: colors.textSecondary,
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -266,11 +339,88 @@ class _FilesSection extends ConsumerWidget {
     }
   }
 
+  Future<void> _restore(
+    BuildContext context,
+    WidgetRef ref,
+    WorkspaceFile file,
+  ) async {
+    final error = await ref
+        .read(filesActionsProvider.notifier)
+        .restoreFile(file.id);
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(content: Text(error ?? 'Restored "${file.name}"')),
+      );
+  }
+
+  Future<void> _moveToTrash(
+    BuildContext context,
+    WidgetRef ref,
+    WorkspaceFile file,
+  ) async {
+    final error = await ref
+        .read(filesActionsProvider.notifier)
+        .deleteFile(file.id);
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(content: Text(error ?? 'Moved "${file.name}" to Trash')),
+      );
+  }
+
+  Future<void> _confirmPermanentDelete(
+    BuildContext context,
+    WidgetRef ref,
+    WorkspaceFile file,
+  ) async {
+    final colors = context.colors;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text('Delete "${file.name}" permanently?'),
+        content: const Text(
+          'This file will be permanently deleted and cannot be recovered.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text(
+              'Delete permanently',
+              style: TextStyle(color: colors.error),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+    final error = await ref
+        .read(filesActionsProvider.notifier)
+        .deleteFile(file.id, permanently: true);
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(content: Text(error ?? 'Deleted "${file.name}" permanently')),
+      );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final page = ref.watch(filesListProvider);
     final sort = ref.watch(filesProvider.select((s) => s.sort));
+    final view = ref.watch(filesProvider.select((s) => s.view));
+    final busyFileIds = ref.watch(
+      filesActionsProvider.select((s) => s.busyFileIds),
+    );
     final ownerName = _ownerNames(ref);
+    final isTrash = view == FilesScope.trash;
 
     return page.when(
       loading: () => const _Loading(),
@@ -282,11 +432,14 @@ class _FilesSection extends ConsumerWidget {
       ),
       data: (page) {
         if (page.files.isEmpty) {
-          return const _Message(
-            icon: Icons.insert_drive_file_outlined,
-            title: 'No files',
-            body:
-                'Files in this list, or that match your filters, appear here.',
+          return _Message(
+            icon: isTrash
+                ? Icons.delete_outline
+                : Icons.insert_drive_file_outlined,
+            title: isTrash ? 'No deleted files' : 'No files',
+            body: isTrash
+                ? 'Deleted files appear here so you can restore or permanently delete them.'
+                : 'Files in this list, or that match your filters, appear here.',
           );
         }
         return Column(
@@ -297,6 +450,17 @@ class _FilesSection extends ConsumerWidget {
               ownerNameOf: (file) =>
                   file.owner.isNotEmpty ? file.owner : ownerName(file.userId),
               onOpen: (file) => _open(context, file),
+              isTrash: isTrash,
+              busyFileIds: busyFileIds,
+              onRestore: isTrash
+                  ? (file) => _restore(context, ref, file)
+                  : null,
+              onDeletePermanently: isTrash
+                  ? (file) => _confirmPermanentDelete(context, ref, file)
+                  : null,
+              onDelete: !isTrash
+                  ? (file) => _moveToTrash(context, ref, file)
+                  : null,
             ),
             if (page.totalPages > 1)
               _Pagination(

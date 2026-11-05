@@ -36,6 +36,17 @@ class FilesNotifier extends Notifier<FilesState> {
     state = _with(view: view, folderPath: const [], page: 1, folderPage: 1);
   }
 
+  /// Opens the Deleted files (Trash) view directly on the Files tab.
+  void openTrash() {
+    state = _with(
+      view: FilesScope.trash,
+      folderPath: const [],
+      tab: FilesTab.files,
+      page: 1,
+      folderPage: 1,
+    );
+  }
+
   /// Opens [folder] inside the current one and shows its files.
   void openFolder(FileFolder folder) {
     state = _with(
@@ -122,20 +133,25 @@ class FilesUploadOutcome {
   const FilesUploadOutcome({required this.uploaded, required this.failedNames});
 }
 
-/// Whether an upload or a folder creation is running.
+/// Whether an upload, folder creation, or file mutation is running.
 class FilesActionsState {
   final int uploadsLeft;
   final bool isCreatingFolder;
+  final Set<String> busyFileIds;
 
   const FilesActionsState({
     this.uploadsLeft = 0,
     this.isCreatingFolder = false,
+    this.busyFileIds = const <String>{},
   });
 
   bool get isUploading => uploadsLeft > 0;
+
+  bool isFileBusy(String fileId) => busyFileIds.contains(fileId);
 }
 
-/// Upload File and New Folder. Each refreshes the list it changed.
+/// Upload File, New Folder, Restore File, and Delete File. Each refreshes the
+/// list it changed.
 class FilesActionsNotifier extends Notifier<FilesActionsState> {
   @override
   FilesActionsState build() => const FilesActionsState();
@@ -154,6 +170,7 @@ class FilesActionsNotifier extends Notifier<FilesActionsState> {
     state = FilesActionsState(
       uploadsLeft: files.length,
       isCreatingFolder: state.isCreatingFolder,
+      busyFileIds: state.busyFileIds,
     );
     for (final file in files) {
       final result = await repository.uploadFile(file);
@@ -167,6 +184,7 @@ class FilesActionsNotifier extends Notifier<FilesActionsState> {
       state = FilesActionsState(
         uploadsLeft: state.uploadsLeft - 1,
         isCreatingFolder: state.isCreatingFolder,
+        busyFileIds: state.busyFileIds,
       );
     }
     if (ref.mounted && uploaded > 0) {
@@ -196,6 +214,7 @@ class FilesActionsNotifier extends Notifier<FilesActionsState> {
     state = FilesActionsState(
       uploadsLeft: state.uploadsLeft,
       isCreatingFolder: true,
+      busyFileIds: state.busyFileIds,
     );
     final result = await ref
         .read(filesRepositoryProvider)
@@ -205,7 +224,10 @@ class FilesActionsNotifier extends Notifier<FilesActionsState> {
           parentId: ref.read(filesProvider).folderId,
         );
     if (!ref.mounted) return null;
-    state = FilesActionsState(uploadsLeft: state.uploadsLeft);
+    state = FilesActionsState(
+      uploadsLeft: state.uploadsLeft,
+      busyFileIds: state.busyFileIds,
+    );
     switch (result) {
       case Success():
         ref.read(filesProvider.notifier).setTab(FilesTab.folders);
@@ -215,6 +237,68 @@ class FilesActionsNotifier extends Notifier<FilesActionsState> {
         return error.message.isNotEmpty
             ? error.message
             : 'Could not create the folder. Try again.';
+    }
+  }
+
+  /// Restores a deleted [fileId] from Trash back to its original location.
+  /// Returns null on success, or a user-facing error message on failure.
+  Future<String?> restoreFile(String fileId) async {
+    if (fileId.isEmpty || state.isFileBusy(fileId)) return null;
+    state = FilesActionsState(
+      uploadsLeft: state.uploadsLeft,
+      isCreatingFolder: state.isCreatingFolder,
+      busyFileIds: {...state.busyFileIds, fileId},
+    );
+    final result = await ref.read(filesRepositoryProvider).restoreFile(fileId);
+    if (!ref.mounted) return null;
+    final remaining = {...state.busyFileIds}..remove(fileId);
+    state = FilesActionsState(
+      uploadsLeft: state.uploadsLeft,
+      isCreatingFolder: state.isCreatingFolder,
+      busyFileIds: remaining,
+    );
+    switch (result) {
+      case Success():
+        ref.invalidate(filesListProvider);
+        ref.invalidate(foldersListProvider);
+        return null;
+      case Failure(:final error):
+        return error.message.isNotEmpty
+            ? error.message
+            : 'Could not restore the file. Try again.';
+    }
+  }
+
+  /// Deletes [fileId] (moves to Trash, or purges when [permanently] is true).
+  /// Returns null on success, or a user-facing error message on failure.
+  Future<String?> deleteFile(String fileId, {bool permanently = false}) async {
+    if (fileId.isEmpty || state.isFileBusy(fileId)) return null;
+    state = FilesActionsState(
+      uploadsLeft: state.uploadsLeft,
+      isCreatingFolder: state.isCreatingFolder,
+      busyFileIds: {...state.busyFileIds, fileId},
+    );
+    final result = await ref
+        .read(filesRepositoryProvider)
+        .deleteFile(fileId, permanently: permanently);
+    if (!ref.mounted) return null;
+    final remaining = {...state.busyFileIds}..remove(fileId);
+    state = FilesActionsState(
+      uploadsLeft: state.uploadsLeft,
+      isCreatingFolder: state.isCreatingFolder,
+      busyFileIds: remaining,
+    );
+    switch (result) {
+      case Success():
+        ref.invalidate(filesListProvider);
+        ref.invalidate(foldersListProvider);
+        return null;
+      case Failure(:final error):
+        return error.message.isNotEmpty
+            ? error.message
+            : (permanently
+                  ? 'Could not permanently delete the file. Try again.'
+                  : 'Could not delete the file. Try again.');
     }
   }
 }

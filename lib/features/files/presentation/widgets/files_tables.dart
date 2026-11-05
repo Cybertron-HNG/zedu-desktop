@@ -205,28 +205,44 @@ class FilesTable extends StatelessWidget {
     required this.files,
     required this.ownerNameOf,
     required this.onOpen,
+    this.isTrash = false,
+    this.busyFileIds = const <String>{},
+    this.onRestore,
+    this.onDeletePermanently,
+    this.onDelete,
   });
 
   final List<WorkspaceFile> files;
   final String Function(WorkspaceFile file) ownerNameOf;
   final ValueChanged<WorkspaceFile> onOpen;
+  final bool isTrash;
+  final Set<String> busyFileIds;
+  final ValueChanged<WorkspaceFile>? onRestore;
+  final ValueChanged<WorkspaceFile>? onDeletePermanently;
+  final ValueChanged<WorkspaceFile>? onDelete;
+
+  bool get _hasActions =>
+      (isTrash && (onRestore != null || onDeletePermanently != null)) ||
+      (!isTrash && onDelete != null);
 
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
 
     return _Table(
-      columns: const [
-        _Column('Name', 5),
-        _Column('Shared in', 2, compact: false),
-        _Column('Owner', 2, compact: false),
-        _Column('Date Modified', 2),
-        _Column('Size', 1),
+      columns: [
+        const _Column('Name', 5),
+        const _Column('Shared in', 2, compact: false),
+        const _Column('Owner', 2, compact: false),
+        const _Column('Date Modified', 2),
+        const _Column('Size', 1),
+        if (_hasActions) _Column('Actions', isTrash ? 3 : 1),
       ],
       rowCount: files.length,
-      onTapRow: (r) => onOpen(files[r]),
+      onTapRow: isTrash ? null : (r) => onOpen(files[r]),
       cellsOf: (r) {
         final file = files[r];
+        final isBusy = busyFileIds.contains(file.id);
         return [
           _nameCell(
             context,
@@ -251,6 +267,70 @@ class FilesTable extends StatelessWidget {
           _cellText(context, ownerNameOf(file)),
           _cellText(context, formatFileDate(file.modifiedAt)),
           _cellText(context, formatFileSize(file.size)),
+          if (_hasActions)
+            isBusy
+                ? Align(
+                    alignment: Alignment.centerLeft,
+                    child: SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: colors.primary,
+                      ),
+                    ),
+                  )
+                : isTrash
+                ? Wrap(
+                    spacing: 4,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      if (onRestore != null)
+                        TextButton.icon(
+                          key: ValueKey('restore-file-${file.id}'),
+                          onPressed: () => onRestore!(file),
+                          icon: const Icon(Icons.restore_outlined, size: 16),
+                          label: const Text('Restore'),
+                          style: TextButton.styleFrom(
+                            foregroundColor: colors.primary,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            minimumSize: Size.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                        ),
+                      if (onDeletePermanently != null)
+                        IconButton(
+                          key: ValueKey('delete-permanently-file-${file.id}'),
+                          tooltip: 'Delete permanently',
+                          icon: Icon(
+                            Icons.delete_forever_outlined,
+                            size: 18,
+                            color: colors.error,
+                          ),
+                          padding: const EdgeInsets.all(4),
+                          constraints: const BoxConstraints(),
+                          onPressed: () => onDeletePermanently!(file),
+                        ),
+                    ],
+                  )
+                : Align(
+                    alignment: Alignment.centerLeft,
+                    child: IconButton(
+                      key: ValueKey('delete-file-${file.id}'),
+                      tooltip: 'Move to trash',
+                      icon: Icon(
+                        Icons.delete_outline,
+                        size: 18,
+                        color: colors.textSecondary,
+                      ),
+                      padding: const EdgeInsets.all(4),
+                      constraints: const BoxConstraints(),
+                      onPressed: () => onDelete!(file),
+                    ),
+                  ),
         ];
       },
     );

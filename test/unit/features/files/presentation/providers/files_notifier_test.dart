@@ -138,11 +138,51 @@ void main() {
 
       expect(uploads.read(filesProvider).view, FilesScope.mine);
     });
+
+    test('openTrash switches to trash scope on Files tab', () {
+      uploads.read(filesProvider.notifier)
+        ..openFolder(_docs)
+        ..setTab(FilesTab.folders);
+
+      uploads.read(filesProvider.notifier).openTrash();
+
+      final s = uploads.read(filesProvider);
+      expect(s.view, FilesScope.trash);
+      expect(s.tab, FilesTab.files);
+      expect(s.folderPath, isEmpty);
+    });
+
+    test(
+      'restoreFile and deleteFile delegate to repository and report errors',
+      () async {
+        final actions = uploads.read(filesActionsProvider.notifier);
+
+        final restoreOk = await actions.restoreFile('f-1');
+        expect(restoreOk, isNull);
+        expect(repository.restored, ['f-1']);
+
+        final restoreErr = await actions.restoreFile('bad-1');
+        expect(restoreErr, 'Cannot restore');
+
+        final deleteOk = await actions.deleteFile('f-2');
+        expect(deleteOk, isNull);
+        expect(repository.deleted, [('f-2', false)]);
+
+        final purgeOk = await actions.deleteFile('f-3', permanently: true);
+        expect(purgeOk, isNull);
+        expect(repository.deleted.last, ('f-3', true));
+
+        final deleteErr = await actions.deleteFile('bad-2', permanently: true);
+        expect(deleteErr, 'Cannot delete');
+      },
+    );
   });
 }
 
 class _UploadRepository implements FilesRepository {
   final uploaded = <String>[];
+  final restored = <String>[];
+  final deleted = <(String, bool)>[];
 
   @override
   Future<Result<WorkspaceFile>> uploadFile(XFile file) async {
@@ -169,4 +209,23 @@ class _UploadRepository implements FilesRepository {
     required String orgId,
     String? parentId,
   }) async => const Success(null);
+
+  @override
+  Future<Result<void>> restoreFile(String fileId) async {
+    restored.add(fileId);
+    return fileId.startsWith('bad')
+        ? const Failure(ApiFailure(message: 'Cannot restore'))
+        : const Success(null);
+  }
+
+  @override
+  Future<Result<void>> deleteFile(
+    String fileId, {
+    bool permanently = false,
+  }) async {
+    deleted.add((fileId, permanently));
+    return fileId.startsWith('bad')
+        ? const Failure(ApiFailure(message: 'Cannot delete'))
+        : const Success(null);
+  }
 }

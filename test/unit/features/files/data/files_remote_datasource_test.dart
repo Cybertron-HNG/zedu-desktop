@@ -274,4 +274,80 @@ void main() {
       await datasource.createFolder(name: 'Reports', orgId: 'org-1');
     });
   });
+
+  group('restoreFile', () {
+    test('puts to /files/file/:id/restore', () async {
+      when(
+        () => api.put<Map<String, dynamic>>(
+          path: '/files/file/f-42/restore',
+          data: const <String, dynamic>{},
+        ),
+      ).thenAnswer(
+        (_) async => const ApiResponseModel<Map<String, dynamic>>(
+          statusCode: 200,
+          data: {},
+        ),
+      );
+
+      await datasource.restoreFile('f-42');
+
+      verify(
+        () => api.put<Map<String, dynamic>>(
+          path: '/files/file/f-42/restore',
+          data: const <String, dynamic>{},
+        ),
+      ).called(1);
+    });
+  });
+
+  group('deleteFile', () {
+    test(
+      'deletes /files/file/:id without permanent query by default',
+      () async {
+        when(
+          () => api.delete<Map<String, dynamic>>(
+            path: '/files/file/f-42',
+            queryParameters: null,
+          ),
+        ).thenAnswer(
+          (_) async => const ApiResponseModel<Map<String, dynamic>>(
+            statusCode: 200,
+            data: {},
+          ),
+        );
+
+        await datasource.deleteFile('f-42');
+
+        verify(
+          () => api.delete<Map<String, dynamic>>(
+            path: '/files/file/f-42',
+            queryParameters: null,
+          ),
+        ).called(1);
+      },
+    );
+
+    test('passes permanent=true when permanently is true', () async {
+      when(
+        () => api.delete<Map<String, dynamic>>(
+          path: '/files/file/f-42',
+          queryParameters: const <String, dynamic>{'permanent': 'true'},
+        ),
+      ).thenAnswer(
+        (_) async => const ApiResponseModel<Map<String, dynamic>>(
+          statusCode: 200,
+          data: {},
+        ),
+      );
+
+      await datasource.deleteFile('f-42', permanently: true);
+
+      verify(
+        () => api.delete<Map<String, dynamic>>(
+          path: '/files/file/f-42',
+          queryParameters: const <String, dynamic>{'permanent': 'true'},
+        ),
+      ).called(1);
+    });
+  });
 }

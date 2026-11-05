@@ -17,6 +17,10 @@ abstract class FilesRemoteDataSource {
     required String orgId,
     String? parentId,
   });
+
+  Future<void> restoreFile(String fileId);
+
+  Future<void> deleteFile(String fileId, {bool permanently = false});
 }
 
 /// Reads `current_page` and `total_pages_count` (or `total_pages`).
@@ -156,6 +160,24 @@ class FilesRemoteDataSourceImpl implements FilesRemoteDataSource {
         'parent_id': parentId != null && parentId.isNotEmpty ? parentId : null,
         'organisation_id': orgId,
       },
+    );
+  }
+
+  @override
+  Future<void> restoreFile(String fileId) async {
+    await apiBaseService.put<Map<String, dynamic>>(
+      path: '/files/file/$fileId/restore',
+      data: const <String, dynamic>{},
+    );
+  }
+
+  @override
+  Future<void> deleteFile(String fileId, {bool permanently = false}) async {
+    await apiBaseService.delete<Map<String, dynamic>>(
+      path: '/files/file/$fileId',
+      queryParameters: permanently
+          ? const <String, dynamic>{'permanent': 'true'}
+          : null,
     );
   }
 }
