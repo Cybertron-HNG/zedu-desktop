@@ -106,46 +106,77 @@ class _InviteTeammatesModalState extends ConsumerState<InviteTeammatesModal> {
       _isLoading = true;
     });
 
-    final notifier = ref.read(userProfileNotifierProvider.notifier);
-    int successCount = 0;
-    String? lastError;
+    // People picked from the list already have a Zedu account: add them to
+    // this channel. Only an email that matches nobody gets a workspace invite.
+    final pickedIds = [
+      for (final invite in _invites)
+        if ((invite['userId'] ?? '').isNotEmpty) invite['userId']!,
+    ];
+    final emailOnly = [
+      for (final invite in _invites)
+        if ((invite['userId'] ?? '').isEmpty) invite['email']!,
+    ];
 
-    // Loop through and invite all
-    for (final invite in _invites) {
-      // Assuming 'User' role by default since there's no dropdown in UI
-      await notifier.inviteMember(
-        email: invite['email']!,
-        role: 'User',
-        userId: invite['userId'],
-      );
+    var added = 0;
+    var alreadyInChannel = false;
+    String? error;
+    if (pickedIds.isNotEmpty) {
+      final result = await ref.read(addPeopleToChannelProvider).call(pickedIds);
+      switch (result) {
+        case AddEveryoneAdded(:final count):
+          added = count;
+        case AddEveryoneNobodyToAdd():
+          alreadyInChannel = true;
+        case AddEveryoneFailed(:final message):
+          error = message;
+      }
+    }
+
+    final notifier = ref.read(userProfileNotifierProvider.notifier);
+    var invited = 0;
+    for (final email in emailOnly) {
+      await notifier.inviteMember(email: email, role: 'User');
       final state = ref.read(userProfileNotifierProvider);
       if (state.error != null) {
-        lastError = state.error;
+        error ??= state.error;
       } else {
-        successCount++;
+        invited++;
       }
     }
 
     if (!mounted) return;
+    // Whatever happened, the button must not stay in its loading state.
+    setState(() {
+      _isLoading = false;
+    });
 
-    if (successCount > 0) {
+    final channelName = openChannelName(ref.read(activeChatProvider));
+    final done = [
+      if (added > 0)
+        'Added $added ${added == 1 ? 'person' : 'people'} to #$channelName.',
+      if (invited > 0)
+        'Successfully invited $invited ${invited == 1 ? 'teammate' : 'teammates'}.',
+    ];
+
+    if (error != null) {
+      AppToastService.show(context, type: AppToastType.error, message: error);
+      return;
+    }
+    if (done.isNotEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            'Successfully invited $successCount ${successCount == 1 ? 'teammate' : 'teammates'}.',
-          ),
+          content: Text(done.join(' ')),
           backgroundColor: context.colors.success,
         ),
       );
       Navigator.pop(context);
-    } else if (lastError != null) {
-      setState(() {
-        _isLoading = false;
-      });
+      return;
+    }
+    if (alreadyInChannel) {
       AppToastService.show(
         context,
-        type: AppToastType.error,
-        message: lastError,
+        type: AppToastType.info,
+        message: 'Everyone you picked is already in #$channelName.',
       );
     }
   }

@@ -124,3 +124,70 @@ class AddEveryoneToChannel {
 final addEveryoneToChannelProvider = Provider<AddEveryoneToChannel>(
   AddEveryoneToChannel.new,
 );
+
+/// Adds the people picked in "Add people to #channel" to the open channel.
+/// People already in it are skipped; the backend rejects an empty list.
+class AddPeopleToChannel {
+  AddPeopleToChannel(this._ref);
+
+  final Ref _ref;
+
+  Future<AddEveryoneResult> call(List<String> userIds) async {
+    final channelName = openChannelName(_ref.read(activeChatProvider));
+    final orgId = _ref.read(workspaceProvider).selectedWorkspace?.id;
+    if (orgId == null) {
+      return const AddEveryoneFailed('No organisation is selected.');
+    }
+    final repository = _ref.read(channelRepositoryProvider);
+
+    final channelsResult = await repository.fetchChannels(orgId);
+    if (channelsResult is Failure<List<Channel>>) {
+      return _failed(channelsResult.error, channelName);
+    }
+    final channel = (channelsResult as Success<List<Channel>>).value
+        .where(
+          (c) =>
+              !c.archived && c.name.toLowerCase() == channelName.toLowerCase(),
+        )
+        .firstOrNull;
+    if (channel == null) {
+      return AddEveryoneFailed(
+        'Could not find #$channelName in this organisation.',
+      );
+    }
+
+    final channelMembersResult = await repository.fetchChannelMemberIds(
+      channel.id,
+    );
+    if (channelMembersResult is Failure<List<String>>) {
+      return _failed(channelMembersResult.error, channelName);
+    }
+    final toAdd = usersToAddToChannel(
+      organisationMemberIds: userIds,
+      channelMemberIds: (channelMembersResult as Success<List<String>>).value,
+    );
+    if (toAdd.isEmpty) return AddEveryoneNobodyToAdd(channelName);
+
+    final addResult = await repository.addMembersToChannel(
+      channelId: channel.id,
+      userIds: toAdd,
+    );
+    if (addResult is Failure<void>) {
+      return _failed(addResult.error, channelName);
+    }
+    return AddEveryoneAdded(toAdd.length, channelName);
+  }
+
+  AddEveryoneFailed _failed(ApiFailure error, String channelName) {
+    final message = error.message.trim();
+    return AddEveryoneFailed(
+      message.isEmpty
+          ? 'Could not add people to #$channelName. Please try again.'
+          : message,
+    );
+  }
+}
+
+final addPeopleToChannelProvider = Provider<AddPeopleToChannel>(
+  AddPeopleToChannel.new,
+);
