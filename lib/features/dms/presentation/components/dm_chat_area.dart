@@ -113,6 +113,8 @@ class _DmChatAreaState extends ConsumerState<DmChatArea> {
             .togglePinned(conversation.channelId);
       case 'saved_items':
         await _showSavedItems();
+      case 'reminders':
+        await _showReminders();
       case 'search_in_conversation':
         await _showConversationSearch();
       case 'view_files':
@@ -211,6 +213,13 @@ class _DmChatAreaState extends ConsumerState<DmChatArea> {
     await showDialog<void>(
       context: context,
       builder: (context) => const SavedItemsDialog(),
+    );
+  }
+
+  Future<void> _showReminders() async {
+    await showDialog<void>(
+      context: context,
+      builder: (context) => const UpcomingRemindersDialog(),
     );
   }
 
@@ -797,6 +806,7 @@ class _DmChatHeader extends StatelessWidget {
               menuItem('pin_conversation', 'Pin conversation'),
               menuItem('pinned_messages', 'Pinned messages'),
               menuItem('saved_items', 'Saved items'),
+              menuItem('reminders', 'Reminders'),
               menuItem('search_in_conversation', 'Search in conversation'),
               menuItem('view_files', 'View files'),
               const PopupMenuDivider(height: 1),
@@ -958,6 +968,8 @@ class _MessageBubble extends ConsumerWidget {
 
     final savedMessages = ref.watch(savedMessagesStoreProvider);
     final isSaved = savedMessages.isSaved(channelId, messageId);
+    final reminders = ref.watch(messageRemindersStoreProvider);
+    final hasReminder = reminders.forMessage(channelId, messageId) != null;
 
     Future<void> toggleSaved() async {
       await savedMessages.toggle(
@@ -976,6 +988,35 @@ class _MessageBubble extends ConsumerWidget {
         SnackBar(
           content: Text(
             isSaved ? 'Removed from Saved items.' : 'Saved to Saved items.',
+          ),
+        ),
+      );
+    }
+
+    Future<void> setReminder() async {
+      final preset = await showDialog<ReminderPreset>(
+        context: context,
+        builder: (context) => const MessageReminderDialog(),
+      );
+      if (preset == null || !context.mounted) return;
+      final now = DateTime.now();
+      final remindAt = preset.resolve(now);
+      await reminders.add(
+        MessageReminder(
+          messageId: messageId,
+          channelId: channelId,
+          conversationName: conversation.displayName,
+          participantId: conversation.participantId,
+          content: content.isNotEmpty ? content : 'Sent an attachment',
+          remindAt: remindAt,
+          createdAt: now,
+        ),
+      );
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Reminder set for ${reminderWhenLabel(remindAt, now)}.',
           ),
         ),
       );
@@ -1045,6 +1086,17 @@ class _MessageBubble extends ConsumerWidget {
                           ),
                         ),
                       ],
+                      if (hasReminder) ...[
+                        const SizedBox(width: 4),
+                        Tooltip(
+                          message: 'Reminder set',
+                          child: Icon(
+                            Icons.alarm,
+                            size: 12,
+                            color: colors.textHint,
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -1054,6 +1106,7 @@ class _MessageBubble extends ConsumerWidget {
                     isOwnMessage: isMe,
                     isSaved: isSaved,
                     onToggleSave: toggleSaved,
+                    onRemind: setReminder,
                     onEdit: isMe && status == null
                         ? () => onEdit(messageId, content)
                         : null,
@@ -1092,6 +1145,7 @@ class _MessageBubble extends ConsumerWidget {
                             isOwnMessage: isMe,
                             isSaved: isSaved,
                             onToggleSave: toggleSaved,
+                            onRemind: setReminder,
                             onEdit: null,
                             onDelete: isMe && status == null
                                 ? () => _confirmDelete(context, ref, messageId)
@@ -1301,6 +1355,7 @@ class _MessageMenu extends StatefulWidget {
     required this.isOwnMessage,
     required this.isSaved,
     required this.onToggleSave,
+    required this.onRemind,
     required this.onEdit,
     required this.onDelete,
     required this.child,
@@ -1310,6 +1365,7 @@ class _MessageMenu extends StatefulWidget {
   final bool isOwnMessage;
   final bool isSaved;
   final VoidCallback onToggleSave;
+  final VoidCallback onRemind;
   final VoidCallback? onEdit;
   final VoidCallback? onDelete;
   final Widget child;
@@ -1338,6 +1394,8 @@ class _MessageMenuState extends State<_MessageMenu> {
             widget.onDelete?.call();
           case 'save':
             widget.onToggleSave();
+          case 'remind':
+            widget.onRemind();
         }
       },
       itemBuilder: (_) => [
@@ -1349,6 +1407,7 @@ class _MessageMenuState extends State<_MessageMenu> {
             widget.isSaved ? 'Remove from Saved items' : 'Save to Saved items',
           ),
         ),
+        const PopupMenuItem(value: 'remind', child: Text('Remind me')),
         if (widget.onDelete != null)
           const PopupMenuItem(value: 'delete', child: Text('Delete message')),
       ],

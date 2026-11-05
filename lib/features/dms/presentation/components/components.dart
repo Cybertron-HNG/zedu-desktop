@@ -10,3 +10,4 @@ export 'image_attachment_viewer.dart';
 export 'own_space_intro.dart';
 export 'conversation_files_dialog.dart';
 export 'saved_items_dialog.dart';
+export 'message_reminder_dialog.dart';

@@ -262,6 +262,11 @@ void main() {
               unawaited(store.load());
               return store;
             }),
+            messageRemindersStoreProvider.overrideWith((ref) {
+              final store = MessageRemindersStore(storage, userId: 'user-1');
+              unawaited(store.load());
+              return store;
+            }),
           ],
           child: buildTestMaterialApp(
             Scaffold(
@@ -559,6 +564,48 @@ void main() {
         find.descendant(of: dialog, matching: find.text('Ada Lovelace')),
         findsOneWidget,
       );
+    });
+
+    testWidgets('sets a reminder from a message and lists it under Reminders', (
+      tester,
+    ) async {
+      await pumpChat(tester, [message('m4', 'ping me about this')]);
+
+      await tester.longPress(
+        find.text('ping me about this', findRichText: true),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Remind me'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(MessageReminderDialog), findsOneWidget);
+      await tester.tap(find.text('In 20 minutes'));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('Reminder set for'), findsOneWidget);
+      expect(find.byTooltip('Reminder set'), findsOneWidget);
+
+      await tester.tap(find.byTooltip('More options'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Reminders'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(UpcomingRemindersDialog), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(UpcomingRemindersDialog),
+          matching: find.text('ping me about this'),
+        ),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.byTooltip('Cancel reminder'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('No reminders yet'), findsOneWidget);
+
+      // Let the provider scope dispose the store and its timer.
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpAndSettle();
     });
 
     testWidgets('Edit message from the menu puts the message in the composer', (
