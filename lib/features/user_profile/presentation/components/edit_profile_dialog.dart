@@ -413,36 +413,57 @@ class _EditProfileDialogState extends State<_EditProfileDialog> {
                                           onFieldSubmitted(),
                                     );
                                   },
-                              optionsViewBuilder:
-                                  (context, onSelected, options) {
-                                    return Align(
-                                      alignment: Alignment.topLeft,
-                                      child: Material(
-                                        elevation: 4,
+                              optionsViewBuilder: (context, onSelected, options) {
+                                return Align(
+                                  alignment: Alignment.topLeft,
+                                  child: Material(
+                                    elevation: 4,
+                                    borderRadius: BorderRadius.circular(8),
+                                    child: Container(
+                                      width: 360,
+                                      constraints: const BoxConstraints(
+                                        maxHeight: 240,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: colors.background,
                                         borderRadius: BorderRadius.circular(8),
-                                        child: Container(
-                                          width: 360,
-                                          constraints: const BoxConstraints(
-                                            maxHeight: 240,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: colors.background,
-                                            borderRadius: BorderRadius.circular(
-                                              8,
-                                            ),
-                                            border: Border.all(
-                                              color: colors.divider,
-                                            ),
-                                          ),
-                                          child: ListView.builder(
-                                            padding: EdgeInsets.zero,
-                                            shrinkWrap: true,
-                                            itemCount: options.length,
-                                            itemBuilder: (context, index) {
-                                              final option = options.elementAt(
-                                                index,
-                                              );
-                                              return InkWell(
+                                        border: Border.all(
+                                          color: colors.divider,
+                                        ),
+                                      ),
+                                      child: ListView.builder(
+                                        padding: EdgeInsets.zero,
+                                        shrinkWrap: true,
+                                        itemCount: options.length,
+                                        itemBuilder: (context, index) {
+                                          final option = options.elementAt(
+                                            index,
+                                          );
+                                          // The row the arrow keys moved
+                                          // to, which Enter picks.
+                                          final highlighted =
+                                              AutocompleteHighlightedOption.of(
+                                                context,
+                                              ) ==
+                                              index;
+                                          if (highlighted) {
+                                            WidgetsBinding.instance
+                                                .addPostFrameCallback((_) {
+                                                  if (context.mounted) {
+                                                    Scrollable.ensureVisible(
+                                                      context,
+                                                      alignment: 0.5,
+                                                    );
+                                                  }
+                                                });
+                                          }
+                                          return Semantics(
+                                            selected: highlighted,
+                                            child: Material(
+                                              color: highlighted
+                                                  ? colors.primaryBg
+                                                  : Colors.transparent,
+                                              child: InkWell(
                                                 onTap: () => onSelected(option),
                                                 child: Padding(
                                                   padding:
@@ -457,13 +478,15 @@ class _EditProfileDialogState extends State<_EditProfileDialog> {
                                                         .bodySmall,
                                                   ),
                                                 ),
-                                              );
-                                            },
-                                          ),
-                                        ),
+                                              ),
+                                            ),
+                                          );
+                                        },
                                       ),
-                                    );
-                                  },
+                                    ),
+                                  ),
+                                );
+                              },
                             ),
                             const SizedBox(height: 16),
                           ],
