@@ -210,6 +210,9 @@ class _SetStatusDialogState extends ConsumerState<SetStatusDialog> {
                         maxLength: 100,
                         // Rebuild so the clear button and the selected suggestion follow the text.
                         onChanged: (_) => setState(() {}),
+                        // Enter saves, the same as the Save button.
+                        textInputAction: TextInputAction.done,
+                        onSubmitted: (_) => _save(),
                         buildCounter:
                             (
                               _, {

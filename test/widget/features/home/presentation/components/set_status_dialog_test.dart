@@ -11,6 +11,7 @@ class _FakeAuthNotifier extends AuthNotifier {
   final AuthState _initial;
   StatusTimeout? savedTimeout;
   bool? savedPauseNotifications;
+  String? savedText;
 
   @override
   AuthState build() => _initial;
@@ -24,6 +25,7 @@ class _FakeAuthNotifier extends AuthNotifier {
   }) async {
     savedTimeout = timeout;
     savedPauseNotifications = pauseNotifications;
+    savedText = text;
     return true;
   }
 }
@@ -275,6 +277,31 @@ void main() {
         await tester.pump();
         expect(_activeCursor(), SystemMouseCursors.click, reason: '$target');
       }
+    });
+  });
+
+  group('SetStatusDialog Enter key', () {
+    testWidgets('pressing Enter in the status field saves the status', (
+      tester,
+    ) async {
+      final notifier = _FakeAuthNotifier();
+      await _pumpDialog(tester, notifier: () => notifier);
+
+      await tester.enterText(find.byType(TextField).first, 'Out for lunch');
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pumpAndSettle();
+
+      expect(notifier.savedText, 'Out for lunch');
+    });
+
+    testWidgets('the status field uses the done keyboard action', (
+      tester,
+    ) async {
+      await _pumpDialog(tester);
+
+      final field = tester.widget<TextField>(find.byType(TextField).first);
+      expect(field.textInputAction, TextInputAction.done);
+      expect(field.onSubmitted, isNotNull);
     });
   });
 }
