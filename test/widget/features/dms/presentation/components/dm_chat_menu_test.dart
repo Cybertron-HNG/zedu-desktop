@@ -174,4 +174,28 @@ void main() {
       await _unmount(tester);
     });
   });
+
+  group('Pinned messages', () {
+    testWidgets('opens pinned messages dialog from menu and closes with Close button', (
+      tester,
+    ) async {
+      await _pumpChatArea(tester);
+      await tester.tap(find.byTooltip('More options'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Pinned messages'), findsOneWidget);
+      await tester.tap(find.text('Pinned messages'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(PinnedMessagesDialog), findsOneWidget);
+      expect(find.text('No pinned messages'), findsOneWidget);
+
+      await tester.tap(find.text('Close'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(PinnedMessagesDialog), findsNothing);
+      await _unmount(tester);
+    });
+  });
+
 }
