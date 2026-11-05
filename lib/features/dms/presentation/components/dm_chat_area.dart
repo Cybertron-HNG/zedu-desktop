@@ -111,6 +111,8 @@ class _DmChatAreaState extends ConsumerState<DmChatArea> {
         ref
             .read(dmConversationActionsProvider.notifier)
             .togglePinned(conversation.channelId);
+      case 'saved_items':
+        await _showSavedItems();
       case 'search_in_conversation':
         await _showConversationSearch();
       case 'view_files':
@@ -202,6 +204,13 @@ class _DmChatAreaState extends ConsumerState<DmChatArea> {
         title: '${widget.conversation.displayName} files',
         history: history,
       ),
+    );
+  }
+
+  Future<void> _showSavedItems() async {
+    await showDialog<void>(
+      context: context,
+      builder: (context) => const SavedItemsDialog(),
     );
   }
 
@@ -787,6 +796,7 @@ class _DmChatHeader extends StatelessWidget {
               menuItem('mute_notifications', 'Mute notifications'),
               menuItem('pin_conversation', 'Pin conversation'),
               menuItem('pinned_messages', 'Pinned messages'),
+              menuItem('saved_items', 'Saved items'),
               menuItem('search_in_conversation', 'Search in conversation'),
               menuItem('view_files', 'View files'),
               const PopupMenuDivider(height: 1),
@@ -946,6 +956,31 @@ class _MessageBubble extends ConsumerWidget {
 
     final List<dynamic> media = (message['media'] as List<dynamic>?) ?? [];
 
+    final savedMessages = ref.watch(savedMessagesStoreProvider);
+    final isSaved = savedMessages.isSaved(channelId, messageId);
+
+    Future<void> toggleSaved() async {
+      await savedMessages.toggle(
+        SavedMessage(
+          messageId: messageId,
+          channelId: channelId,
+          conversationName: conversation.displayName,
+          senderName: senderName,
+          content: content.isNotEmpty ? content : 'Sent an attachment',
+          messageCreatedAt: createdAt,
+          savedAt: DateTime.now(),
+        ),
+      );
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            isSaved ? 'Removed from Saved items.' : 'Saved to Saved items.',
+          ),
+        ),
+      );
+    }
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: Row(
@@ -999,14 +1034,32 @@ class _MessageBubble extends ConsumerWidget {
                         timeString,
                         style: TextStyle(color: colors.textHint, fontSize: 11),
                       ),
+                      if (isSaved) ...[
+                        const SizedBox(width: 4),
+                        Tooltip(
+                          message: 'Saved',
+                          child: Icon(
+                            Icons.bookmark,
+                            size: 12,
+                            color: colors.textHint,
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),
                 if (content.isNotEmpty)
-                  _OwnMessageMenu(
-                    enabled: isMe && status == null,
-                    onEdit: () => onEdit(messageId, content),
-                    onDelete: () => _confirmDelete(context, ref, messageId),
+                  _MessageMenu(
+                    enabled: messageId.isNotEmpty,
+                    isOwnMessage: isMe,
+                    isSaved: isSaved,
+                    onToggleSave: toggleSaved,
+                    onEdit: isMe && status == null
+                        ? () => onEdit(messageId, content)
+                        : null,
+                    onDelete: isMe && status == null
+                        ? () => _confirmDelete(context, ref, messageId)
+                        : null,
                     child: Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 16,
@@ -1033,12 +1086,16 @@ class _MessageBubble extends ConsumerWidget {
                     child: content.isNotEmpty
                         ? _AttachmentBubbleList(media: media, isMe: isMe)
                         // No text to hang the menu on, so it goes on the
-                        // attachments (Delete only: there is nothing to edit).
-                        : _OwnMessageMenu(
-                            enabled: isMe && status == null,
+                        // attachments (nothing to edit, but still saveable).
+                        : _MessageMenu(
+                            enabled: messageId.isNotEmpty,
+                            isOwnMessage: isMe,
+                            isSaved: isSaved,
+                            onToggleSave: toggleSaved,
                             onEdit: null,
-                            onDelete: () =>
-                                _confirmDelete(context, ref, messageId),
+                            onDelete: isMe && status == null
+                                ? () => _confirmDelete(context, ref, messageId)
+                                : null,
                             child: _AttachmentBubbleList(
                               media: media,
                               isMe: isMe,
@@ -1230,33 +1287,72 @@ class _AttachmentBubbleList extends StatelessWidget {
   }
 }
 
-/// Shows a "more" button on hover, and a right-click or long-press menu, for
-/// your own messages, with Edit and Delete. The long press is for touch input,
-/// where there is no hover or right click.
-class _OwnMessageMenu extends StatefulWidget {
-  const _OwnMessageMenu({
+/// Shows a "more" button on hover, and a right-click or long-press menu, on a
+/// message. Every message can be saved; Edit and Delete are only offered when
+/// their callbacks are passed in, which is the case for your own messages. The
+/// long press is for touch input, where there is no hover or right click.
+///
+/// Your own messages keep a fixed gutter for the button so the bubble never
+/// moves; incoming messages only grow one while hovered so the conversation
+/// keeps its alignment when the pointer is elsewhere.
+class _MessageMenu extends StatefulWidget {
+  const _MessageMenu({
     required this.enabled,
+    required this.isOwnMessage,
+    required this.isSaved,
+    required this.onToggleSave,
     required this.onEdit,
     required this.onDelete,
     required this.child,
   });
 
   final bool enabled;
+  final bool isOwnMessage;
+  final bool isSaved;
+  final VoidCallback onToggleSave;
   final VoidCallback? onEdit;
-  final VoidCallback onDelete;
+  final VoidCallback? onDelete;
   final Widget child;
 
   @override
-  State<_OwnMessageMenu> createState() => _OwnMessageMenuState();
+  State<_MessageMenu> createState() => _MessageMenuState();
 }
 
-class _OwnMessageMenuState extends State<_OwnMessageMenu> {
+class _MessageMenuState extends State<_MessageMenu> {
   final _menuKey = GlobalKey<PopupMenuButtonState<String>>();
   bool _hovered = false;
 
   @override
   Widget build(BuildContext context) {
     if (!widget.enabled) return widget.child;
+
+    final button = PopupMenuButton<String>(
+      key: _menuKey,
+      tooltip: 'Message actions',
+      icon: const Icon(Icons.more_horiz, size: 18),
+      onSelected: (value) {
+        switch (value) {
+          case 'edit':
+            widget.onEdit?.call();
+          case 'delete':
+            widget.onDelete?.call();
+          case 'save':
+            widget.onToggleSave();
+        }
+      },
+      itemBuilder: (_) => [
+        if (widget.onEdit != null)
+          const PopupMenuItem(value: 'edit', child: Text('Edit message')),
+        PopupMenuItem(
+          value: 'save',
+          child: Text(
+            widget.isSaved ? 'Remove from Saved items' : 'Save to Saved items',
+          ),
+        ),
+        if (widget.onDelete != null)
+          const PopupMenuItem(value: 'delete', child: Text('Delete message')),
+      ],
+    );
 
     return MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),
@@ -1266,30 +1362,17 @@ class _OwnMessageMenuState extends State<_OwnMessageMenu> {
         onLongPress: () => _menuKey.currentState?.showButtonMenu(),
         child: Row(
           mainAxisSize: MainAxisSize.min,
-          children: [
-            Opacity(
-              opacity: _hovered ? 1 : 0,
-              child: PopupMenuButton<String>(
-                key: _menuKey,
-                tooltip: 'Message actions',
-                icon: const Icon(Icons.more_horiz, size: 18),
-                onSelected: (value) =>
-                    value == 'edit' ? widget.onEdit?.call() : widget.onDelete(),
-                itemBuilder: (_) => [
-                  if (widget.onEdit != null)
-                    const PopupMenuItem(
-                      value: 'edit',
-                      child: Text('Edit message'),
-                    ),
-                  const PopupMenuItem(
-                    value: 'delete',
-                    child: Text('Delete message'),
-                  ),
+          children: widget.isOwnMessage
+              ? [
+                  Opacity(opacity: _hovered ? 1 : 0, child: button),
+                  Flexible(child: widget.child),
+                ]
+              : [
+                  Flexible(child: widget.child),
+                  // Kept in the tree at rest so the right-click and long-press
+                  // handlers can still open its menu; Offstage takes no room.
+                  Offstage(offstage: !_hovered, child: button),
                 ],
-              ),
-            ),
-            Flexible(child: widget.child),
-          ],
         ),
       ),
     );

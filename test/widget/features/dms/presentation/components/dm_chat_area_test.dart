@@ -257,6 +257,11 @@ void main() {
             dmDraftStoreProvider.overrideWith(
               (ref) => DmDraftStore(storage, userId: 'user-1', orgId: 'org-1'),
             ),
+            savedMessagesStoreProvider.overrideWith((ref) {
+              final store = SavedMessagesStore(storage, userId: 'user-1');
+              unawaited(store.load());
+              return store;
+            }),
           ],
           child: buildTestMaterialApp(
             Scaffold(
@@ -493,6 +498,67 @@ void main() {
 
       expect(find.text('Edit message'), findsOneWidget);
       expect(find.text('Delete message'), findsOneWidget);
+    });
+
+    testWidgets('saves a message and offers to remove it again', (
+      tester,
+    ) async {
+      await pumpChat(tester, [ownMessage('m1', 'remember this')]);
+
+      await tester.longPress(find.text('remember this', findRichText: true));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Save to Saved items'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Saved to Saved items.'), findsOneWidget);
+
+      await tester.longPress(find.text('remember this', findRichText: true));
+      await tester.pumpAndSettle();
+      expect(find.text('Remove from Saved items'), findsOneWidget);
+    });
+
+    testWidgets('incoming messages can be saved, not edited or deleted', (
+      tester,
+    ) async {
+      await pumpChat(tester, [message('m2', 'from Ada')]);
+
+      await tester.longPress(find.text('from Ada', findRichText: true));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Edit message'), findsNothing);
+      expect(find.text('Delete message'), findsNothing);
+      expect(find.text('Save to Saved items'), findsOneWidget);
+
+      await tester.tap(find.text('Save to Saved items'));
+      await tester.pumpAndSettle();
+      expect(find.text('Saved to Saved items.'), findsOneWidget);
+    });
+
+    testWidgets('Saved items from the conversation menu lists what was saved', (
+      tester,
+    ) async {
+      await pumpChat(tester, [message('m3', 'keep me')]);
+
+      await tester.longPress(find.text('keep me', findRichText: true));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Save to Saved items'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byTooltip('More options'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Saved items'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(SavedItemsDialog), findsOneWidget);
+      final dialog = find.byType(SavedItemsDialog);
+      expect(
+        find.descendant(of: dialog, matching: find.text('keep me')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: dialog, matching: find.text('Ada Lovelace')),
+        findsOneWidget,
+      );
     });
 
     testWidgets('Edit message from the menu puts the message in the composer', (
