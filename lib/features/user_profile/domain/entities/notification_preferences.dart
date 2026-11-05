@@ -29,6 +29,22 @@ int? parseMinutesOfDay(String value) {
   return hour * 60 + minute;
 }
 
+/// Whether [now] falls inside the saved quiet-hours window.
+///
+/// Uses the device's local clock, which is the time the desktop user sees.
+/// The start is inclusive and the end exclusive. A window that crosses
+/// midnight, such as 22:00 to 07:00, wraps around the day boundary.
+bool isWithinQuietHours(NotificationPreferences preferences, DateTime now) {
+  if (!preferences.quietHoursEnabled || !preferences.hasValidQuietHours) {
+    return false;
+  }
+  final minutes = now.hour * 60 + now.minute;
+  if (preferences.quietHoursCrossMidnight) {
+    return minutes >= preferences.pauseFrom || minutes < preferences.resumeAt;
+  }
+  return minutes >= preferences.pauseFrom && minutes < preferences.resumeAt;
+}
+
 /// The user's desktop notification preferences for one workspace.
 ///
 /// Times are minutes after midnight in the user's profile [timezone], which is

@@ -14,6 +14,17 @@ final notificationServiceProvider = Provider<NotificationService>((ref) {
   return NotificationService(ref);
 });
 
+/// Whether an incoming message should stay quiet: either the manual Do Not
+/// Disturb timer is running or the saved quiet-hours window covers [now].
+bool shouldSuppressMessageNotification({
+  required bool isDndActive,
+  required NotificationPreferences? quietHours,
+  required DateTime now,
+}) {
+  if (isDndActive) return true;
+  return quietHours != null && isWithinQuietHours(quietHours, now);
+}
+
 class NotificationService {
   final Ref _ref;
   final GoRouter? _router;
@@ -69,8 +80,14 @@ class NotificationService {
     // Never notify about our own messages (unless forced for testing).
     if (!forceShow && (senderId == currentUserId || senderId == 'me')) return;
 
-    if (settings.isDndActive) return;
     if (settings.isMuted(senderId)) return;
+    if (shouldSuppressMessageNotification(
+      isDndActive: settings.isDndActive,
+      quietHours: _ref.read(userProfileNotifierProvider).notifications,
+      now: DateTime.now(),
+    )) {
+      return;
+    }
 
     if (!forceShow) {
       final isFocused = await (_isFocused?.call() ?? _defaultIsFocused());
