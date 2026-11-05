@@ -118,6 +118,14 @@ void main() {
       await tester.enterText(find.byType(TextFormField).at(2), 'Record123');
     }
 
+    testWidgets('offers Google sign-up and no Apple sign-up', (tester) async {
+      await pumpDesktopSignUp(tester, FakeAuthNotifier());
+
+      expect(find.text('Sign up with Google'), findsOneWidget);
+      expect(find.text('Sign up with Apple'), findsNothing);
+      expect(find.text('Apple sign up is not available yet.'), findsNothing);
+    });
+
     testWidgets('legal line reads "By signing up" in sentence case', (
       tester,
     ) async {
