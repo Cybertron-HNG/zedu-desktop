@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:zedu/core/core.dart';
@@ -189,6 +191,8 @@ class _DmChatAreaState extends ConsumerState<DmChatArea> {
         await _showConversationSearch();
       case 'view_files':
         await _showConversationFiles();
+      case 'export_conversation':
+        await _exportConversation();
       case 'clear_history':
         final confirmed = await _confirmConversationAction(
           title: 'Clear history?',
@@ -285,6 +289,73 @@ class _DmChatAreaState extends ConsumerState<DmChatArea> {
         history: history,
       ),
     );
+  }
+
+  /// Asks Text or PDF, loads the whole conversation, and saves its transcript
+  /// (timestamp and author on every message, oldest first) where the user
+  /// picks.
+  Future<void> _exportConversation() async {
+    final format = await showDialog<String>(
+      context: context,
+      builder: (context) => SimpleDialog(
+        title: const Text('Export conversation'),
+        children: [
+          SimpleDialogOption(
+            onPressed: () => Navigator.pop(context, 'txt'),
+            child: const Text('Text file (.txt)'),
+          ),
+          SimpleDialogOption(
+            onPressed: () => Navigator.pop(context, 'pdf'),
+            child: const Text('PDF document (.pdf)'),
+          ),
+        ],
+      ),
+    );
+    if (format == null || !mounted) return;
+
+    final conversation = widget.conversation;
+    final history = ref.read(chatHistoryProvider(conversation.channelId));
+    try {
+      await history.loadAll();
+      if (!mounted) return;
+      final entries = buildTranscript(
+        messages: history.messages,
+        isMine: history.isMyMessage,
+        myName: history.currentUserName,
+        otherName: conversation.displayName,
+      );
+      final title = 'Conversation with ${conversation.displayName}';
+      final now = DateTime.now();
+      final Uint8List bytes;
+      if (format == 'pdf') {
+        final font = await rootBundle.load(
+          'assets/fonts/Roboto/Roboto-Regular.ttf',
+        );
+        bytes = await transcriptToPdf(
+          title: title,
+          entries: entries,
+          exportedAt: now,
+          font: font,
+        );
+      } else {
+        bytes = Uint8List.fromList(
+          utf8.encode(
+            transcriptToText(title: title, entries: entries, exportedAt: now),
+          ),
+        );
+      }
+      final path = await FilePicker.saveFile(
+        dialogTitle: 'Export conversation',
+        fileName: transcriptFileName(conversation.displayName, now, format),
+        type: FileType.custom,
+        allowedExtensions: [format],
+      );
+      if (path == null) return;
+      await File(path).writeAsBytes(bytes);
+      if (mounted) _showActionNotice('Conversation exported.');
+    } catch (_) {
+      if (mounted) _showActionNotice('Could not export the conversation.');
+    }
   }
 
   void _showActionNotice(String message) {
@@ -809,19 +880,20 @@ class _DmChatHeader extends StatelessWidget {
           CircleAvatar(
             radius: 20,
             backgroundColor: colors.primary,
-            backgroundImage: conversation.effectiveAvatarUrl != null
+            foregroundImage: conversation.effectiveAvatarUrl != null
                 ? NetworkImage(conversation.effectiveAvatarUrl!)
                 : null,
-            child: conversation.effectiveAvatarUrl == null
-                ? Text(
-                    participantInitial,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 13,
-                    ),
-                  )
+            onForegroundImageError: conversation.effectiveAvatarUrl != null
+                ? ignoreAvatarError
                 : null,
+            child: Text(
+              participantInitial,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 13,
+              ),
+            ),
           ),
           const SizedBox(width: 12),
           if (isOwnSpace)
@@ -917,6 +989,7 @@ class _DmChatHeader extends StatelessWidget {
               menuItem('pinned_messages', 'Pinned messages'),
               menuItem('search_in_conversation', 'Search in conversation'),
               menuItem('view_files', 'View files'),
+              menuItem('export_conversation', 'Export conversation'),
               const PopupMenuDivider(height: 1),
               menuItem('clear_history', 'Clear history'),
               menuItem('report_user', 'Report ${conversation.displayName}'),
@@ -1088,20 +1161,22 @@ class _MessageBubble extends ConsumerWidget {
             CircleAvatar(
               radius: 15,
               backgroundColor: colors.primary,
-              backgroundImage:
+              foregroundImage:
                   senderAvatarUrl != null && senderAvatarUrl.isNotEmpty
                   ? NetworkImage(senderAvatarUrl)
                   : null,
-              child: senderAvatarUrl == null || senderAvatarUrl.isEmpty
-                  ? Text(
-                      senderInitial,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 12,
-                      ),
-                    )
+              onForegroundImageError:
+                  senderAvatarUrl != null && senderAvatarUrl.isNotEmpty
+                  ? ignoreAvatarError
                   : null,
+              child: Text(
+                senderInitial,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 12,
+                ),
+              ),
             ),
             const SizedBox(width: 12),
           ],
