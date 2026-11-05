@@ -78,6 +78,39 @@ void main() {
       expect(sentBody()['content'], 'listen to this');
     });
 
+    test('reports the upload progress of the files', () async {
+      stubUploadAndSend();
+      when(
+        () => api.post<Map<String, dynamic>>(
+          path: '/files/upload-files',
+          data: any(named: 'data'),
+          onSendProgress: any(named: 'onSendProgress'),
+        ),
+      ).thenAnswer((invocation) async {
+        final onSendProgress =
+            invocation.namedArguments[#onSendProgress] as ProgressCallback?;
+        onSendProgress?.call(3, 3);
+        return const ApiResponseModel<Map<String, dynamic>>(
+          statusCode: 200,
+          data: {
+            'data': [
+              {'url': 'https://files.test/voice.m4a'},
+            ],
+          },
+        );
+      });
+      final reported = <(int, int)>[];
+
+      await repository.sendMessage(
+        'ch-1',
+        '',
+        media: [XFile.fromData(Uint8List(3), name: 'voice.m4a')],
+        onUploadProgress: (sent, total) => reported.add((sent, total)),
+      );
+
+      expect(reported, [(3, 3)]);
+    });
+
     test('leaves empty text alone when there is no media', () async {
       stubUploadAndSend();
 

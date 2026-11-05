@@ -1,3 +1,4 @@
+import 'dart:async' show unawaited;
 import 'dart:io' show File;
 
 import 'package:zedu/core/core.dart';
@@ -349,13 +350,14 @@ class ChatHistoryNotifier extends ChangeNotifier {
         media: media,
         mentions: mentions,
         isChannel: isChannel,
+        onUploadProgress: _uploadProgressFor(tempId, media),
       );
       _sendOptions.remove(tempId);
       _deleteRecordings(media);
 
       messages = messages.map((m) {
         if (m['id'] == tempId) {
-          final newMsg = Map<String, dynamic>.from(m);
+          final newMsg = _withoutUploadProgress(m);
           newMsg.remove('status');
           newMsg['thread_id'] = threadId;
           return newMsg;
@@ -365,7 +367,7 @@ class ChatHistoryNotifier extends ChangeNotifier {
     } catch (_) {
       messages = messages.map((m) {
         if (m['id'] == tempId) {
-          final newMsg = Map<String, dynamic>.from(m);
+          final newMsg = _withoutUploadProgress(m);
           newMsg['status'] = 'failed';
           return newMsg;
         }
@@ -374,6 +376,79 @@ class ChatHistoryNotifier extends ChangeNotifier {
     } finally {
       notifyListeners();
     }
+  }
+
+  /// Reports [messageId]'s upload progress on each of its `media` entries as
+  /// `upload_progress` (0 to 1), so the bubble can show it while it sends.
+  ///
+  /// The files go up in one request, written one after another, so the bytes
+  /// sent are shared out over the files in order by size. The sizes are read
+  /// in the background, so the send isn't held up; progress shows once they
+  /// are known. Listeners are only told when the overall percentage changes.
+  ProgressCallback? _uploadProgressFor(String messageId, List<XFile>? media) {
+    if (media == null || media.isEmpty) return null;
+    List<int>? sizes;
+    unawaited(
+      Future.wait([
+        for (final file in media)
+          file.length().then((size) => size, onError: (Object _) => 0),
+      ]).then((known) => sizes = known),
+    );
+    var lastPercent = -1;
+    return (int sent, int total) {
+      final known = sizes;
+      if (known == null || total <= 0) return;
+      final percent = (sent * 100 / total).floor().clamp(0, 100);
+      if (percent == lastPercent) return;
+      lastPercent = percent;
+
+      final totalSize = known.fold<int>(0, (sum, size) => sum + size);
+
+      final bytesDone = totalSize * percent / 100;
+      final progress = <double>[];
+      var offset = 0;
+      for (final size in known) {
+        progress.add(
+          size == 0
+              ? (bytesDone >= offset ? 1.0 : 0.0)
+              : ((bytesDone - offset) / size).clamp(0.0, 1.0),
+        );
+        offset += size;
+      }
+
+      var changed = false;
+      messages = messages.map((m) {
+        if (m['id'] != messageId || m['status'] != 'sending') return m;
+        final entries = m['media'];
+        if (entries is! List || entries.length != progress.length) return m;
+        changed = true;
+        return Map<String, dynamic>.from(m)
+          ..['media'] = [
+            for (var i = 0; i < entries.length; i++)
+              {
+                ...Map<String, dynamic>.from(entries[i] as Map),
+                'upload_progress': progress[i],
+              },
+          ];
+      }).toList();
+      if (changed) notifyListeners();
+    };
+  }
+
+  static Map<String, dynamic> _withoutUploadProgress(
+    Map<String, dynamic> message,
+  ) {
+    final copy = Map<String, dynamic>.from(message);
+    final entries = copy['media'];
+    if (entries is List) {
+      copy['media'] = [
+        for (final entry in entries)
+          entry is Map
+              ? (Map<String, dynamic>.from(entry)..remove('upload_progress'))
+              : entry,
+      ];
+    }
+    return copy;
   }
 
   Future<void> retryMessage(String messageId) async {
@@ -398,13 +473,14 @@ class ChatHistoryNotifier extends ChangeNotifier {
         mentions: options?.mentions,
         isChannel:
             failedMsg['is_channel'] as bool? ?? options?.isChannel ?? false,
+        onUploadProgress: _uploadProgressFor(messageId, options?.media),
       );
       _sendOptions.remove(messageId);
       _deleteRecordings(options?.media);
 
       messages = messages.map((m) {
         if (m['id'] == messageId) {
-          final newMsg = Map<String, dynamic>.from(m);
+          final newMsg = _withoutUploadProgress(m);
           newMsg.remove('status');
           newMsg['thread_id'] = threadId;
           return newMsg;
@@ -414,7 +490,7 @@ class ChatHistoryNotifier extends ChangeNotifier {
     } catch (_) {
       messages = messages.map((m) {
         if (m['id'] == messageId) {
-          final newMsg = Map<String, dynamic>.from(m);
+          final newMsg = _withoutUploadProgress(m);
           newMsg['status'] = 'failed';
           return newMsg;
         }

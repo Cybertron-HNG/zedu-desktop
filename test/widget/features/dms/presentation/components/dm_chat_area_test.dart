@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'dart:async';
 
 import 'package:zedu/core/core.dart';
@@ -635,6 +637,63 @@ void main() {
 
       expect(find.text('hello\n---', findRichText: true), findsOneWidget);
       expect(find.byType(IntrinsicWidth), findsNothing);
+    });
+    testWidgets('a dropped file attaches once, not once per drop target', (
+      tester,
+    ) async {
+      await pumpChat(tester, []);
+
+      // Every drop target sees every drop, so only the conversation's may be
+      // on; the composer's would attach the same file a second time.
+      final enabled = tester
+          .widgetList<DropTarget>(find.byType(DropTarget))
+          .where((target) => target.enable)
+          .toList();
+      expect(enabled, hasLength(1));
+
+      await tester.runAsync(() async {
+        // A real file: on desktop a file's name comes from its path.
+        final dir = await Directory.systemTemp.createTemp('drop');
+        addTearDown(() => dir.delete(recursive: true));
+        final file = File('${dir.path}/report.pdf')..writeAsBytesSync([1, 2]);
+        enabled.single.onDragDone!(
+          DropDoneDetails(
+            files: [DropItemFile(file.path)],
+            localPosition: Offset.zero,
+            globalPosition: Offset.zero,
+          ),
+        );
+        await Future<void>.delayed(const Duration(milliseconds: 200));
+      });
+      await tester.pumpAndSettle();
+
+      expect(find.text('report.pdf'), findsOneWidget);
+    });
+
+    testWidgets('a sending file shows its upload progress', (tester) async {
+      await pumpChat(tester, []);
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(DmChatArea)),
+      );
+      final history = container.read(chatHistoryProvider('ch-1'));
+      history.messages = [
+        {
+          'id': 'local-1',
+          'content': '',
+          'user_id': 'user-1',
+          'type': 'user',
+          'created_at': DateTime.now().toIso8601String(),
+          'status': 'sending',
+          'media': [
+            {'file_name': 'report.pdf', 'upload_progress': 0.25},
+          ],
+        },
+      ];
+      history.notifyListeners();
+      await tester.pump();
+
+      expect(find.text('report.pdf'), findsOneWidget);
+      expect(find.text('25%'), findsOneWidget);
     });
   });
 }

@@ -8,6 +8,10 @@ class ChannelMessage {
   final DateTime? createdAt;
   final String? status;
 
+  /// Files on a message that is still sending (or failed to send), with each
+  /// one's upload progress from 0 to 1 while it uploads.
+  final List<({String name, double? progress})> pendingFiles;
+
   const ChannelMessage({
     this.id,
     required this.senderName,
@@ -15,6 +19,7 @@ class ChannelMessage {
     this.avatarUrl,
     this.createdAt,
     this.status,
+    this.pendingFiles = const [],
   });
 
   factory ChannelMessage.fromJson(Map<String, dynamic> json) {

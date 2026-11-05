@@ -358,6 +358,8 @@ class _DmChatAreaState extends ConsumerState<DmChatArea> {
                   channelId: widget.conversation.channelId,
                   draftKey: widget.conversation.conversationKey,
                   participants: widget.conversation.participants,
+                  // The whole conversation takes drops, composer included.
+                  acceptDrops: false,
                 ),
               ],
             ),
@@ -1277,8 +1279,9 @@ class _AttachmentBubbleList extends StatelessWidget {
     String fileName,
     String fileLink,
     bool isImage,
-    BuildContext context,
-  ) {
+    BuildContext context, {
+    double? uploadProgress,
+  }) {
     final colors = context.colors;
     return GestureDetector(
       onTap: fileLink.isNotEmpty ? () => _launchUrl(fileLink) : null,
@@ -1317,6 +1320,10 @@ class _AttachmentBubbleList extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.center,
             ),
+            if (uploadProgress != null) ...[
+              const SizedBox(height: 6),
+              UploadProgressBar(progress: uploadProgress),
+            ],
           ],
         ),
       ),
@@ -1332,6 +1339,8 @@ class _AttachmentBubbleList extends StatelessWidget {
       children: media.map((item) {
         final String fileName = (item['file_name'] ?? 'Attachment').toString();
         final String fileLink = (item['file_link'] ?? '').toString();
+        // Only set while the message is still sending.
+        final uploadProgress = (item['upload_progress'] as num?)?.toDouble();
         final isImage = [
           'png',
           'jpg',
@@ -1382,7 +1391,13 @@ class _AttachmentBubbleList extends StatelessWidget {
           );
         }
 
-        return _buildGenericFile(fileName, fileLink, isImage, context);
+        return _buildGenericFile(
+          fileName,
+          fileLink,
+          isImage,
+          context,
+          uploadProgress: uploadProgress,
+        );
       }).toList(),
     );
   }

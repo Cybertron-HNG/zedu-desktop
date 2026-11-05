@@ -20,6 +20,11 @@ class DmMessageComposer extends ConsumerStatefulWidget {
   final ValueChanged<String>? onSend;
   final bool isChannel;
 
+  /// Whether files dropped on the composer attach. Off when the whole
+  /// conversation around it is a [FileDropZone], since every drop target sees
+  /// every drop and the files would otherwise attach twice.
+  final bool acceptDrops;
+
   const DmMessageComposer({
     super.key,
     required this.recipientName,
@@ -29,6 +34,7 @@ class DmMessageComposer extends ConsumerStatefulWidget {
     this.participants = const [],
     this.onSend,
     this.isChannel = false,
+    this.acceptDrops = true,
   });
 
   @override
@@ -1198,6 +1204,7 @@ class DmMessageComposerState extends ConsumerState<DmMessageComposer> {
     );
 
     return DropTarget(
+      enable: widget.acceptDrops,
       onDragDone: (detail) {
         addFiles(detail.files);
         setState(() => _isDragging = false);
