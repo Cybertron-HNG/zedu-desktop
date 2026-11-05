@@ -193,6 +193,7 @@ class _FakeFilesRepository implements FilesRepository {
   @override
   Future<Result<FilesPage>> fetchFiles(FilesQuery query) async {
     queries.add(query);
+    if (pageFor?.call(query) case final page?) return Success(page);
     if (query.folderId == 'docs') {
       return const Success(
         FilesPage(
@@ -220,6 +221,9 @@ class _FakeFilesRepository implements FilesRepository {
 
   /// Files listed after logo.png on the main list.
   List<WorkspaceFile> moreFiles = [];
+
+  /// When set and it returns a page, that page answers the query instead.
+  FilesPage? Function(FilesQuery query)? pageFor;
 
   @override
   Future<Result<FoldersPage>> fetchFolders({
@@ -571,6 +575,44 @@ void main() {
     expect(find.text('Moved logo.png to Deleted files.'), findsOneWidget);
     // The list reloads, so the file leaves it.
     expect(repository.queries.length, loads + 1);
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('deleting the last file on the last page goes back a page', (
+    tester,
+  ) async {
+    const logo = WorkspaceFile(id: 'f-1', name: 'logo.png');
+    const last = WorkspaceFile(id: 'f-11', name: 'last.pdf');
+    var lastDeleted = false;
+    final repository = _FakeFilesRepository()
+      ..pageFor = (query) => switch (query.page) {
+        2 when lastDeleted => const FilesPage(
+          files: [],
+          currentPage: 2,
+          totalPages: 1,
+        ),
+        2 => const FilesPage(files: [last], currentPage: 2, totalPages: 2),
+        _ => FilesPage(files: const [logo], totalPages: lastDeleted ? 1 : 2),
+      };
+    await _pump(tester, repository);
+    await openFilesTab(tester);
+    await tester.tap(find.byTooltip('Next page'));
+    await tester.pumpAndSettle();
+    expect(find.text('last.pdf'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('More actions for last.pdf'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Delete'));
+    await tester.pumpAndSettle();
+    lastDeleted = true;
+    await tester.tap(find.widgetWithText(FilledButton, 'Delete'));
+    await tester.pumpAndSettle();
+
+    expect(repository.deletes, [('f-11', false)]);
+    expect(repository.queries.last.page, 1);
+    expect(find.text('logo.png'), findsOneWidget);
+    expect(find.text('No files'), findsNothing);
     await tester.pump(const Duration(seconds: 5));
     await tester.pumpAndSettle();
   });

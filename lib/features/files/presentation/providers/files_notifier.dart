@@ -90,10 +90,20 @@ class FilesListNotifier extends AsyncNotifier<FilesPage> {
   Future<FilesPage> build() async {
     final query = ref.watch(filesProvider.select((s) => s.query));
     final result = await ref.read(filesRepositoryProvider).fetchFiles(query);
-    return switch (result) {
+    final page = switch (result) {
       Success<FilesPage>(:final value) => value,
       Failure<FilesPage>(:final error) => throw error,
     };
+    // Deleting or moving the last file on the last page leaves that page
+    // empty while earlier ones still hold files, and an empty list has no
+    // pager. Go back to the last page that has files.
+    if (page.files.isEmpty && query.page > 1 && ref.mounted) {
+      final last = page.totalPages >= 1 && page.totalPages < query.page
+          ? page.totalPages
+          : query.page - 1;
+      ref.read(filesProvider.notifier).setPage(last);
+    }
+    return page;
   }
 }
 
