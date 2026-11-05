@@ -16,6 +16,39 @@ class _FakeChatStorage extends Fake implements ChatStorageService {
   }
 }
 
+/// Stands in for the server: creates and sends after a short delay, so a
+/// sign-out can land while the request is still running.
+class _FakeGroupDmRepository extends Fake implements GroupDmRepository {
+  var _next = 0;
+
+  @override
+  Future<List<GroupDM>> list({
+    required String orgId,
+    String? currentUserId,
+  }) async => const [];
+
+  @override
+  Future<GroupDM> create({
+    required String orgId,
+    required List<String> memberIds,
+    String? currentUserId,
+  }) async {
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+    return GroupDM(
+      id: 'server-group-${_next++}',
+      name: '',
+      members: const [],
+      unreadCount: 0,
+      messages: const [],
+    );
+  }
+
+  @override
+  Future<void> sendMessage(String channelId, String content) async {
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+  }
+}
+
 void main() {
   const member = TeamMember(
     id: 'm1',
@@ -31,7 +64,12 @@ void main() {
 
   ProviderContainer newContainer() {
     final container = ProviderContainer(
-      overrides: [chatStorageProvider.overrideWithValue(storage)],
+      overrides: [
+        chatStorageProvider.overrideWithValue(storage),
+        groupDmRepositoryProvider.overrideWithValue(_FakeGroupDmRepository()),
+        currentOrgIdProvider.overrideWithValue('org-1'),
+        groupDmUserIdProvider.overrideWithValue('me'),
+      ],
     );
     addTearDown(container.dispose);
     return container;
