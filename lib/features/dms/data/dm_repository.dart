@@ -97,17 +97,20 @@ class DmRepository {
 
   /// Sends a message and returns the thread id it was created with, which the
   /// delete endpoint needs.
+  ///
+  /// [onUploadProgress] reports the bytes sent so far while [media] uploads.
   Future<String> sendMessage(
     String channelId,
     String content, {
     List<XFile>? media,
     List<dynamic>? mentions,
     bool isChannel = false,
+    ProgressCallback? onUploadProgress,
   }) async {
     // Files are uploaded first (same as the web app); the message then
     // carries the file details the server returns, not a local file path.
     final uploaded = media != null && media.isNotEmpty
-        ? await _uploadFiles(media)
+        ? await _uploadFiles(media, onUploadProgress)
         : const <Map<String, dynamic>>[];
 
     // The server requires a thread_id; like the web app, a new message
@@ -151,7 +154,10 @@ class DmRepository {
         '${hex.substring(12, 16)}-${hex.substring(16, 20)}-${hex.substring(20)}';
   }
 
-  Future<List<Map<String, dynamic>>> _uploadFiles(List<XFile> files) async {
+  Future<List<Map<String, dynamic>>> _uploadFiles(
+    List<XFile> files,
+    ProgressCallback? onProgress,
+  ) async {
     final formData = FormData();
     for (final file in files) {
       final mime = file.mimeType;
@@ -180,6 +186,7 @@ class DmRepository {
     final response = await _apiClient.post<Map<String, dynamic>>(
       path: '/files/upload-files',
       data: formData,
+      onSendProgress: onProgress,
     );
 
     final raw = response.data['data'];

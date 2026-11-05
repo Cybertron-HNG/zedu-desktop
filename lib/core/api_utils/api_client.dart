@@ -38,11 +38,14 @@ class ApiBaseService {
     );
   }
 
+  /// [onSendProgress] reports the bytes of the request body sent so far, for
+  /// showing upload progress.
   Future<ApiResponseModel<T>> post<T>({
     required String path,
     Object? data,
     Map<String, dynamic>? queryParameters,
     Map<String, String>? headers,
+    ProgressCallback? onSendProgress,
   }) {
     return _request<T>(
       path: path,
@@ -50,6 +53,7 @@ class ApiBaseService {
       data: data,
       queryParameters: queryParameters,
       headers: headers,
+      onSendProgress: onSendProgress,
     );
   }
 
@@ -115,6 +119,7 @@ class ApiBaseService {
     Object? data,
     Map<String, dynamic>? queryParameters,
     Map<String, String>? headers,
+    ProgressCallback? onSendProgress,
   }) async {
     final normalizedPath = normalizePath(path);
     final requestHeaders = headersForPath(normalizedPath, headers: headers);
@@ -127,6 +132,7 @@ class ApiBaseService {
         data: data,
         queryParameters: queryParameters,
         options: Options(method: method, headers: requestHeaders),
+        onSendProgress: onSendProgress,
       );
 
       final responseData = response.data;

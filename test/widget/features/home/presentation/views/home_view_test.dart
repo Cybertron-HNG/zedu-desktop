@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:zedu/core/core.dart';
 import 'package:zedu/features/features.dart';
 
@@ -308,6 +310,60 @@ void main() {
       expect(find.text('You cannot leave this channel'), findsOneWidget);
       expect(find.text('# random'), findsOneWidget);
       await tester.pump(const Duration(seconds: 5));
+    });
+
+    testWidgets('a file dropped anywhere on the channel attaches once', (
+      tester,
+    ) async {
+      await pumpSidebarAndChat(tester);
+
+      // The whole conversation takes drops; the composer's own target is off,
+      // or the file would attach twice.
+      final enabled = tester
+          .widgetList<DropTarget>(
+            find.descendant(
+              of: find.byType(HomeChatArea),
+              matching: find.byType(DropTarget),
+            ),
+          )
+          .where((target) => target.enable)
+          .toList();
+      expect(enabled, hasLength(1));
+      expect(
+        find.ancestor(
+          of: find.byType(ChannelMessageList),
+          matching: find.byType(FileDropZone),
+        ),
+        findsOneWidget,
+      );
+
+      enabled.single.onDragEntered!(
+        DropEventDetails(
+          localPosition: Offset.zero,
+          globalPosition: Offset.zero,
+        ),
+      );
+      await tester.pump();
+      expect(find.text('Drop files to attach'), findsOneWidget);
+
+      await tester.runAsync(() async {
+        // A real file: on desktop a file's name comes from its path.
+        final dir = await Directory.systemTemp.createTemp('drop');
+        addTearDown(() => dir.delete(recursive: true));
+        final file = File('${dir.path}/report.pdf')..writeAsBytesSync([1, 2]);
+        enabled.single.onDragDone!(
+          DropDoneDetails(
+            files: [DropItemFile(file.path)],
+            localPosition: Offset.zero,
+            globalPosition: Offset.zero,
+          ),
+        );
+        await Future<void>.delayed(const Duration(milliseconds: 200));
+      });
+      await tester.pumpAndSettle();
+
+      expect(find.text('Drop files to attach'), findsNothing);
+      expect(find.text('report.pdf'), findsOneWidget);
     });
   });
 

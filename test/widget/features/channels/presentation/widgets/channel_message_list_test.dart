@@ -253,4 +253,30 @@ void main() {
       expect(dividerY, lessThan(tester.getTopLeft(find.text('msg 1')).dy));
     });
   });
+
+  testWidgets('shows the files of a sending message with upload progress', (
+    tester,
+  ) async {
+    fakeChatHistory.messages = [
+      {
+        'id': 'temp-2',
+        'content': '',
+        'channel_id': 'ch-1',
+        'status': 'sending',
+        'created_at': DateTime.now().toIso8601String(),
+        'media': [
+          {'file_name': 'report.pdf', 'upload_progress': 0.4},
+          {'file_name': 'notes.txt'},
+        ],
+      },
+    ];
+
+    await pumpList(tester, const Success(<ChannelMessage>[]));
+
+    expect(find.text('report.pdf'), findsOneWidget);
+    expect(find.text('40%'), findsOneWidget);
+    // Progress isn't known for this one yet, so it shows without a bar.
+    expect(find.text('notes.txt'), findsOneWidget);
+    expect(find.byType(UploadProgressBar), findsOneWidget);
+  });
 }

@@ -9,3 +9,5 @@ export 'dm_profile_card.dart';
 export 'image_attachment_viewer.dart';
 export 'own_space_intro.dart';
 export 'conversation_files_dialog.dart';
+export 'upload_progress_bar.dart';
+export 'file_drop_zone.dart';

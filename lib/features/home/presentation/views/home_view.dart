@@ -337,11 +337,20 @@ class _AddChannelButton extends StatelessWidget {
 }
 
 /// The Home pane for the channel picked in the sidebar.
-class HomeChatArea extends ConsumerWidget {
+class HomeChatArea extends ConsumerStatefulWidget {
   const HomeChatArea({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<HomeChatArea> createState() => _HomeChatAreaState();
+}
+
+class _HomeChatAreaState extends ConsumerState<HomeChatArea> {
+  // One per channel, so files dropped on the conversation reach its composer
+  // while each channel still gets a fresh composer.
+  final _composerKeys = <String, GlobalKey<DmMessageComposerState>>{};
+
+  @override
+  Widget build(BuildContext context) {
     // Shows the channel picked in the sidebar: its messages, or the welcome
     // text while it has none.
     final chat = ref.watch(activeChatProvider);
@@ -396,27 +405,37 @@ class HomeChatArea extends ConsumerWidget {
       );
     }
 
-    return Column(
-      children: [
-        _buildChatHeader(context, channelName, selected),
-        Expanded(
-          child: channelId.isEmpty
-              ? welcome
-              : ChannelMessageList(
-                  key: ValueKey(channelId),
-                  channelId: channelId,
-                  empty: welcome,
-                  unreadCount: selected?.unreadCount ?? 0,
-                ),
-        ),
-        DmMessageComposer(
-          key: ValueKey(selected?.id ?? channelName),
-          recipientName: '#$channelName',
-          channelId: selected?.id ?? '',
-          participants: members,
-          isChannel: true,
-        ),
-      ],
+    final composerKey = _composerKeys.putIfAbsent(
+      selected?.id ?? channelName,
+      GlobalKey<DmMessageComposerState>.new,
+    );
+
+    return FileDropZone(
+      onDrop: (files) => composerKey.currentState?.addFiles(files),
+      child: Column(
+        children: [
+          _buildChatHeader(context, channelName, selected),
+          Expanded(
+            child: channelId.isEmpty
+                ? welcome
+                : ChannelMessageList(
+                    key: ValueKey(channelId),
+                    channelId: channelId,
+                    empty: welcome,
+                    unreadCount: selected?.unreadCount ?? 0,
+                  ),
+          ),
+          DmMessageComposer(
+            key: composerKey,
+            recipientName: '#$channelName',
+            channelId: selected?.id ?? '',
+            participants: members,
+            isChannel: true,
+            // The whole conversation takes drops, composer included.
+            acceptDrops: false,
+          ),
+        ],
+      ),
     );
   }
 

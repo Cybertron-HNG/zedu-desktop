@@ -66,6 +66,14 @@ class _ChannelMessageListState extends ConsumerState<ChannelMessageList> {
               m['created_at']?.toString() ?? '',
             )?.toLocal(),
             status: m['status']?.toString(),
+            pendingFiles: [
+              for (final file in (m['media'] as List?) ?? const [])
+                if (file is Map)
+                  (
+                    name: (file['file_name'] ?? 'Attachment').toString(),
+                    progress: (file['upload_progress'] as num?)?.toDouble(),
+                  ),
+            ],
           ),
         )
         .toList();
@@ -296,6 +304,8 @@ class ChannelMessageTile extends StatelessWidget {
                     ),
                   ),
                 ),
+                for (final file in message.pendingFiles)
+                  _PendingFileRow(name: file.name, progress: file.progress),
                 if (status != null)
                   Padding(
                     padding: const EdgeInsets.only(top: 4),
@@ -334,6 +344,54 @@ class ChannelMessageTile extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// A file on a channel message that hasn't been sent yet, with its upload
+/// progress while it uploads.
+class _PendingFileRow extends StatelessWidget {
+  const _PendingFileRow({required this.name, this.progress});
+
+  final String name;
+  final double? progress;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final progress = this.progress;
+    return Padding(
+      padding: const EdgeInsets.only(top: 6),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 260),
+        child: Row(
+          children: [
+            Icon(
+              Icons.insert_drive_file_rounded,
+              size: 16,
+              color: colors.textSecondary,
+            ),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 13, color: colors.textPrimary),
+                  ),
+                  if (progress != null) ...[
+                    const SizedBox(height: 4),
+                    UploadProgressBar(progress: progress),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
