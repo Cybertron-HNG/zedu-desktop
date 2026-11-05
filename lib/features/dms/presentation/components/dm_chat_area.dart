@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:zedu/core/core.dart';
 import 'package:zedu/features/features.dart';
 
@@ -15,6 +17,78 @@ class DmChatArea extends ConsumerStatefulWidget {
 class _DmChatAreaState extends ConsumerState<DmChatArea> {
   bool _isDragging = false;
   final _composerKey = GlobalKey<DmMessageComposerState>();
+
+  // Unread messages when the DM was opened. Opening it marks it read, so the
+  // count is kept here once, like ChannelMessageList does for channels.
+  late int _unreadAtOpen = widget.conversation.unreadCount;
+  // The id of the first unread message, found once the history has loaded.
+  String? _firstUnreadId;
+  bool _unreadResolved = false;
+  bool _jumped = false;
+  final _firstUnreadKey = GlobalKey();
+  final _scroll = ScrollController();
+
+  @override
+  void didUpdateWidget(covariant DmChatArea oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // The same area shows the next conversation: start its unread state over.
+    if (oldWidget.conversation.channelId != widget.conversation.channelId) {
+      _unreadAtOpen = widget.conversation.unreadCount;
+      _firstUnreadId = null;
+      _unreadResolved = false;
+      _jumped = false;
+    }
+  }
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  /// Remembers which loaded message starts the unread run. [messages] is
+  /// newest first; local sends (with a status) are not part of it. When more
+  /// are unread than loaded, the oldest loaded message is used.
+  void _resolveFirstUnread(List<Map<String, dynamic>> messages, bool loading) {
+    if (_unreadResolved || loading) return;
+    final serverMessages = [
+      for (final m in messages)
+        if (m['status'] == null) m,
+    ];
+    if (_unreadAtOpen > 0 && serverMessages.isNotEmpty) {
+      final unread = math.min(_unreadAtOpen, serverMessages.length);
+      _firstUnreadId = serverMessages[unread - 1]['id']?.toString();
+    }
+    _unreadResolved = true;
+  }
+
+  /// Scrolls to the first unread message. It may not be built yet, so this
+  /// steps toward older messages until it is, then centres it.
+  Future<void> _jumpToFirstUnread() async {
+    setState(() => _jumped = true);
+    for (var i = 0; i < 100 && _firstUnreadKey.currentContext == null; i++) {
+      if (!_scroll.hasClients) return;
+      final position = _scroll.position;
+      if (position.pixels >= position.maxScrollExtent) break;
+      _scroll.jumpTo(
+        math.min(
+          position.pixels + position.viewportDimension,
+          position.maxScrollExtent,
+        ),
+      );
+      await WidgetsBinding.instance.endOfFrame;
+      if (!mounted) return;
+    }
+    final target = _firstUnreadKey.currentContext;
+    if (target != null && target.mounted) {
+      await Scrollable.ensureVisible(
+        target,
+        alignment: 0.5,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOutCubic,
+      );
+    }
+  }
 
   String get _recipientHandle {
     final parts = widget.conversation.displayName
@@ -271,8 +345,13 @@ class _DmChatAreaState extends ConsumerState<DmChatArea> {
                                 )
                                 .toList()
                           : historyState.messages;
+                      _resolveFirstUnread(messages, historyState.isLoading);
+                      final offerJump =
+                          _firstUnreadId != null &&
+                          !_jumped &&
+                          _unreadAtOpen >= ChannelMessageList.manyUnread;
 
-                      return NotificationListener<ScrollNotification>(
+                      final list = NotificationListener<ScrollNotification>(
                         onNotification: (ScrollNotification scrollInfo) {
                           if (!historyState.isLoading &&
                               historyState.hasMore &&
@@ -292,6 +371,7 @@ class _DmChatAreaState extends ConsumerState<DmChatArea> {
                         },
                         child: CustomScrollView(
                           reverse: true,
+                          controller: _scroll,
                           slivers: [
                             SliverPadding(
                               padding: const EdgeInsets.symmetric(
@@ -304,13 +384,23 @@ class _DmChatAreaState extends ConsumerState<DmChatArea> {
                                   index,
                                 ) {
                                   final msg = messages[index];
-                                  return _MessageBubble(
+                                  final bubble = _MessageBubble(
                                     message: msg,
                                     conversation: widget.conversation,
                                     channelId: widget.conversation.channelId,
                                     onEdit: (id, text) => _composerKey
                                         .currentState
                                         ?.enterEditMode(id, text),
+                                  );
+                                  if (_firstUnreadId == null ||
+                                      msg['id']?.toString() != _firstUnreadId) {
+                                    return bubble;
+                                  }
+                                  return Column(
+                                    key: _firstUnreadKey,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
+                                    children: [const UnreadDivider(), bubble],
                                   );
                                 }, childCount: messages.length),
                               ),
@@ -357,6 +447,36 @@ class _DmChatAreaState extends ConsumerState<DmChatArea> {
                               ),
                           ],
                         ),
+                      );
+
+                      // Always a Stack, so hiding the button never rebuilds
+                      // the list underneath.
+                      return Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          list,
+                          if (offerJump)
+                            Positioned(
+                              top: 8,
+                              left: 0,
+                              right: 0,
+                              child: Center(
+                                child: FilledButton.tonalIcon(
+                                  key: const ValueKey(
+                                    'dm-jump-to-first-unread',
+                                  ),
+                                  onPressed: _jumpToFirstUnread,
+                                  icon: const Icon(
+                                    Icons.arrow_upward,
+                                    size: 16,
+                                  ),
+                                  label: Text(
+                                    'Jump to first unread · $_unreadAtOpen new',
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
                       );
                     },
                   ),

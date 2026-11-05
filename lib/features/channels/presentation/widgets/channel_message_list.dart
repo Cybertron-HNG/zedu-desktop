@@ -169,7 +169,7 @@ class _ChannelMessageListState extends ConsumerState<ChannelMessageList> {
         return Column(
           key: _firstUnreadKey,
           crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [const _UnreadDivider(), tile],
+          children: [const UnreadDivider(), tile],
         );
       },
     );
@@ -199,9 +199,9 @@ class _ChannelMessageListState extends ConsumerState<ChannelMessageList> {
 }
 
 /// The line shown above the first message that was unread when the channel
-/// was opened.
-class _UnreadDivider extends StatelessWidget {
-  const _UnreadDivider();
+/// or DM was opened.
+class UnreadDivider extends StatelessWidget {
+  const UnreadDivider({super.key});
 
   @override
   Widget build(BuildContext context) {
