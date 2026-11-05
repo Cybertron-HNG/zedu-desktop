@@ -402,15 +402,18 @@ class UserProfileNotifier extends Notifier<UserProfileState> {
     return null;
   }
 
-  Future<String> _getRoleId(String? orgId) async {
+  /// The role a general invite link grants: the organisation's default
+  /// "User" role, the one the backend gives new members and the web invite
+  /// picks. Null when the organisation has no such role, so no link is made
+  /// with whichever role happens to be listed last.
+  Future<String?> _defaultInviteRoleId(String? orgId) async {
     final roles = await _fetchOrganisationRoles(orgId);
-    if (roles.isNotEmpty) {
-      final id = roles.last['id']?.toString();
-      if (id != null && id.isNotEmpty) {
-        return id;
-      }
+    for (final role in roles) {
+      if (role['name']?.toString().trim().toLowerCase() != 'user') continue;
+      final id = role['id']?.toString();
+      if (id != null && id.isNotEmpty) return id;
     }
-    return '019700d8-9085-7f7b-839a-fcbd08b9e26d';
+    return null;
   }
 
   Future<String?> generateInviteLink() async {
@@ -421,7 +424,8 @@ class UserProfileNotifier extends Notifier<UserProfileState> {
           (orgId == null || orgId.length < 36)) {
         orgId = '019700db-4e22-7f90-a20e-f9116291ef24';
       }
-      final roleId = await _getRoleId(orgId);
+      final roleId = await _defaultInviteRoleId(orgId);
+      if (roleId == null) return null;
       final response = await api.post<Map<String, dynamic>>(
         path: '/invite/general',
         data: {'organisation_id': orgId, 'role_id': roleId},

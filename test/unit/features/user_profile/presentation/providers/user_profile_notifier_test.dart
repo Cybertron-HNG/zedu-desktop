@@ -637,5 +637,48 @@ void main() {
       expect(state.isSaving, isFalse);
       expect(state.error, isNotNull);
     });
+
+    group('Copy Invite Link (Ziki #2796)', () {
+      List<RequestOptions> inviteRequests() => recorder.requests
+          .where((r) => r.path.endsWith('invite/general'))
+          .toList();
+
+      test(
+        "binds the link to the organisation's User role, wherever it is listed",
+        () async {
+          stubRoles(const [
+            {'id': 'role-user', 'name': 'User'},
+            {'id': 'role-admin', 'name': 'Administrator'},
+            {'id': 'role-owner', 'name': 'Owner'},
+          ]);
+          final container = makeContainer();
+          await waitForLoad(container);
+
+          await container
+              .read(userProfileNotifierProvider.notifier)
+              .generateInviteLink();
+
+          final body = inviteRequests().single.data as Map<String, dynamic>;
+          expect(body['role_id'], 'role-user');
+          expect(body['organisation_id'], 'org-1');
+        },
+      );
+
+      test('makes no link when the organisation has no User role', () async {
+        stubRoles(const [
+          {'id': 'role-admin', 'name': 'Administrator'},
+          {'id': 'role-owner', 'name': 'Owner'},
+        ]);
+        final container = makeContainer();
+        await waitForLoad(container);
+
+        final link = await container
+            .read(userProfileNotifierProvider.notifier)
+            .generateInviteLink();
+
+        expect(link, isNull);
+        expect(inviteRequests(), isEmpty);
+      });
+    });
   });
 }
