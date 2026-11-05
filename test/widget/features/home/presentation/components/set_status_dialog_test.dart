@@ -257,6 +257,41 @@ void main() {
     });
   });
 
+  group('SetStatusDialog keeps a timed status expiry (Ziki #2765)', () {
+    Future<_FakeAuthNotifier> saveUnchanged(
+      WidgetTester tester,
+      StatusTimeout savedWith,
+    ) async {
+      final notifier = _FakeAuthNotifier(
+        _signedInWith(
+          UserStatus(
+            emoji: '🤒',
+            text: 'Out sick',
+            expiresAt: savedWith.expiryFrom(DateTime.now()),
+          ),
+        ),
+      );
+      await _pumpDialog(tester, notifier: () => notifier);
+      await tester.tap(find.text('Save'));
+      await tester.pumpAndSettle();
+      return notifier;
+    }
+
+    for (final timeout in [
+      StatusTimeout.today,
+      StatusTimeout.thisWeek,
+      StatusTimeout.oneHour,
+    ]) {
+      testWidgets(
+        'a "${timeout.label}" status is saved again as "${timeout.label}"',
+        (tester) async {
+          final notifier = await saveUnchanged(tester, timeout);
+          expect(notifier.savedTimeout, timeout);
+        },
+      );
+    }
+  });
+
   group('SetStatusDialog cursors', () {
     testWidgets('clickable parts show the click cursor on hover', (
       tester,
