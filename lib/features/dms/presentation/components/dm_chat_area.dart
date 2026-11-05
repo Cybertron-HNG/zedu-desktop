@@ -689,19 +689,20 @@ class _DmChatHeader extends StatelessWidget {
           CircleAvatar(
             radius: 20,
             backgroundColor: colors.primary,
-            backgroundImage: conversation.effectiveAvatarUrl != null
+            foregroundImage: conversation.effectiveAvatarUrl != null
                 ? NetworkImage(conversation.effectiveAvatarUrl!)
                 : null,
-            child: conversation.effectiveAvatarUrl == null
-                ? Text(
-                    participantInitial,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 13,
-                    ),
-                  )
+            onForegroundImageError: conversation.effectiveAvatarUrl != null
+                ? ignoreAvatarError
                 : null,
+            child: Text(
+              participantInitial,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 13,
+              ),
+            ),
           ),
           const SizedBox(width: 12),
           if (isOwnSpace)
@@ -968,20 +969,22 @@ class _MessageBubble extends ConsumerWidget {
             CircleAvatar(
               radius: 15,
               backgroundColor: colors.primary,
-              backgroundImage:
+              foregroundImage:
                   senderAvatarUrl != null && senderAvatarUrl.isNotEmpty
                   ? NetworkImage(senderAvatarUrl)
                   : null,
-              child: senderAvatarUrl == null || senderAvatarUrl.isEmpty
-                  ? Text(
-                      senderInitial,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 12,
-                      ),
-                    )
+              onForegroundImageError:
+                  senderAvatarUrl != null && senderAvatarUrl.isNotEmpty
+                  ? ignoreAvatarError
                   : null,
+              child: Text(
+                senderInitial,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 12,
+                ),
+              ),
             ),
             const SizedBox(width: 12),
           ],
