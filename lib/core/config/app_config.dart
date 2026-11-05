@@ -15,6 +15,10 @@ const String kDefaultDesktopGoogleClientId =
 /// The website's Contact Sales page, opened from the Enterprise plan.
 const String kDefaultContactSalesUrl = 'https://zedu.chat/contact-sales';
 
+/// Default Centrifugo realtime websocket endpoint.
+const String kDefaultRealtimeUrl =
+    'wss://realtime.staging.zedu.chat/connection/websocket';
+
 class AppConfig {
   const AppConfig({
     required this.apiBaseUrl,
@@ -22,6 +26,7 @@ class AppConfig {
     this.googleClientId = kDefaultDesktopGoogleClientId,
     this.googleClientSecret = '',
     this.contactSalesUrl = kDefaultContactSalesUrl,
+    this.realtimeUrl = kDefaultRealtimeUrl,
   });
 
   /// Resolves config after [loadAppEnv] has run in [main] (root `.env` /
@@ -34,11 +39,13 @@ class AppConfig {
     const defineUsesMock = String.fromEnvironment('USE_MOCK_DATA');
     const defineClientId = String.fromEnvironment('GOOGLE_CLIENT_ID');
     const defineClientSecret = String.fromEnvironment('GOOGLE_CLIENT_SECRET');
+    const defineRealtimeUrl = String.fromEnvironment('REALTIME_URL');
 
     final envApiBaseUrl = dotenv.maybeGet('API_BASE_URL')?.trim();
     final envUsesMock = dotenv.maybeGet('USE_MOCK_DATA')?.trim();
     final envClientId = dotenv.maybeGet('GOOGLE_CLIENT_ID')?.trim();
     final envClientSecret = dotenv.maybeGet('GOOGLE_CLIENT_SECRET')?.trim();
+    final envRealtimeUrl = dotenv.maybeGet('REALTIME_URL')?.trim();
 
     // Teams point the app at their own backend via --dart-define or .env; Zedu staging is the default.
     String apiBaseUrl = defineApiBaseUrl.isNotEmpty
@@ -71,11 +78,18 @@ class AppConfig {
         ? envClientSecret!
         : '';
 
+    final realtimeUrl = defineRealtimeUrl.isNotEmpty
+        ? defineRealtimeUrl
+        : (envRealtimeUrl?.isNotEmpty ?? false)
+        ? envRealtimeUrl!
+        : kDefaultRealtimeUrl;
+
     return AppConfig(
       apiBaseUrl: apiBaseUrl,
       usesMockData: usesMockData,
       googleClientId: googleClientId,
       googleClientSecret: googleClientSecret,
+      realtimeUrl: realtimeUrl,
     );
   }
 
@@ -84,6 +98,7 @@ class AppConfig {
   final String googleClientId;
   final String googleClientSecret;
   final String contactSalesUrl;
+  final String realtimeUrl;
 }
 
 bool _parseBool(String raw, {required bool defaultValue}) {
