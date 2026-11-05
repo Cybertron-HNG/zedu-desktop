@@ -97,6 +97,10 @@ class FilesRepositoryImpl implements FilesRepository {
   }
 
   @override
+  Future<Result<void>> restoreFile(String fileId) =>
+      _guard(() => remoteDataSource.restoreFile(fileId));
+
+  @override
   Future<Result<void>> renameFile(String fileId, String name) async {
     try {
       await remoteDataSource.renameFile(fileId, name);

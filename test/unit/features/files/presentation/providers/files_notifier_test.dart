@@ -164,6 +164,9 @@ class _UploadRepository implements FilesRepository {
   }) async => const Success(null);
 
   @override
+  Future<Result<void>> restoreFile(String fileId) async => const Success(null);
+
+  @override
   Future<Result<void>> renameFile(String fileId, String name) async =>
       const Success(null);
 

@@ -48,6 +48,11 @@ final fileDeletionsProvider =
       FileDeletionsNotifier.new,
     );
 
+final fileRestoresProvider =
+    NotifierProvider<FileRestoresNotifier, Set<String>>(
+      FileRestoresNotifier.new,
+    );
+
 final fileRenamesProvider = NotifierProvider<FileRenamesNotifier, Set<String>>(
   FileRenamesNotifier.new,
 );
