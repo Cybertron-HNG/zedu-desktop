@@ -134,6 +134,38 @@ void main() {
       }
     });
 
+    test('a message keeps asterisks that are not formatting (#2879)', () {
+      for (final text in ['2 ** 3 = 8', '**', 'glob: **/*.dart']) {
+        final span = buildInlineMarkdownSpan(text, _base);
+        expect(_visibleText(span), text, reason: text);
+        expect(_visible(span).any((r) => _isBold(r.$2)), isFalse);
+      }
+    });
+
+    test('escaped markers show as themselves (#2879)', () {
+      final message = buildInlineMarkdownSpan(
+        r'\*\*not bold\*\* 2 \* 3',
+        _base,
+      );
+      expect(_visibleText(message), '**not bold** 2 * 3');
+      expect(_visible(message).any((r) => _isBold(r.$2)), isFalse);
+      expect(_visible(message).any((r) => _isItalic(r.$2)), isFalse);
+
+      // In the composer the raw text stays, with only the backslash hidden.
+      final composer = buildInlineMarkdownSpan(
+        r'2 \* 3',
+        _base,
+        keepMarkers: true,
+      );
+      expect(composer.toPlainText(), r'2 \* 3');
+      expect(_visibleText(composer), '2 * 3');
+    });
+
+    test('asterisks inside inline code stay as they are (#2879)', () {
+      final span = buildInlineMarkdownSpan('use `**/*.dart` here', _base);
+      expect(_visibleText(span), 'use **/*.dart here');
+    });
+
     test('empty text gives an empty span', () {
       expect(buildInlineMarkdownSpan('', _base).toPlainText(), '');
     });
