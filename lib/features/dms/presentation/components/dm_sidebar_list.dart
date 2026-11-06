@@ -106,6 +106,9 @@ class _DmSidebarListState extends ConsumerState<DmSidebarList> {
                   ),
                   data: (conversations) {
                     final actions = ref.watch(dmConversationActionsProvider);
+                    final loadMoreFailed = ref
+                        .read(dmListProvider.notifier)
+                        .loadMoreFailed;
                     final visibleConversations =
                         conversations
                             .where(
@@ -161,8 +164,17 @@ class _DmSidebarListState extends ConsumerState<DmSidebarList> {
                         type: MaterialType.transparency,
                         child: ListView.builder(
                           padding: EdgeInsets.zero,
-                          itemCount: visibleConversations.length,
+                          itemCount:
+                              visibleConversations.length +
+                              (loadMoreFailed ? 1 : 0),
                           itemBuilder: (context, index) {
+                            if (index == visibleConversations.length) {
+                              return _LoadMoreFailedRow(
+                                onRetry: () => ref
+                                    .read(dmListProvider.notifier)
+                                    .loadMore(),
+                              );
+                            }
                             return DmListTile(
                               conversation: visibleConversations[index],
                             );
@@ -172,6 +184,39 @@ class _DmSidebarListState extends ConsumerState<DmSidebarList> {
                     );
                   },
                 ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Shown under the loaded DMs when the next page failed to load.
+class _LoadMoreFailedRow extends StatelessWidget {
+  const _LoadMoreFailedRow({required this.onRetry});
+
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              "Couldn't load more chats",
+              style: TextStyle(
+                color: colors.onPrimary.withValues(alpha: 0.72),
+                fontSize: 12,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: onRetry,
+            style: TextButton.styleFrom(foregroundColor: colors.onPrimary),
+            child: const Text('Retry'),
           ),
         ],
       ),

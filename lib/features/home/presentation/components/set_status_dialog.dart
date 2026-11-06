@@ -43,11 +43,28 @@ class _SetStatusDialogState extends ConsumerState<SetStatusDialog> {
     _selectedEmoji = current?.emoji;
     _pauseNotifications = current?.pauseNotifications ?? false;
     // A status saved with "Don't remove" is the only one without an expiry.
-    if (current != null &&
-        current.hasCustomStatus &&
-        current.expiresAt == null) {
-      _timeout = StatusTimeout.dontRemove;
+    if (current != null && current.hasCustomStatus) {
+      final expiresAt = current.expiresAt;
+      _timeout = expiresAt == null
+          ? StatusTimeout.dontRemove
+          : _timeoutEndingAt(expiresAt, DateTime.now());
     }
+  }
+
+  /// The "Clear after" choice a status ending at [expiresAt] was saved with,
+  /// so saving it again keeps it. "Today" and "This week" end at fixed times
+  /// and match exactly; a shorter one gets the choice nearest the time left.
+  static StatusTimeout _timeoutEndingAt(DateTime expiresAt, DateTime now) {
+    bool endsAt(StatusTimeout timeout) {
+      final end = timeout.expiryFrom(now);
+      return end != null && expiresAt.difference(end).inMinutes.abs() < 1;
+    }
+
+    if (endsAt(StatusTimeout.today)) return StatusTimeout.today;
+    if (endsAt(StatusTimeout.thisWeek)) return StatusTimeout.thisWeek;
+    return expiresAt.difference(now) > const Duration(minutes: 30)
+        ? StatusTimeout.oneHour
+        : StatusTimeout.thirtyMinutes;
   }
 
   @override

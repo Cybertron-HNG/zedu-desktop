@@ -119,6 +119,9 @@ class PeopleActionsNotifier extends Notifier<String?> {
           .read(dmRepositoryProvider)
           .openConversation(orgId: orgId, participantId: member.id);
       if (!ref.mounted) return false;
+      // The workspace changed while the DM was opening: it belongs to the old
+      // one, so it must not be selected or switch the new one to DMs.
+      if (ref.read(currentOrgIdProvider) != orgId) return false;
       ref
           .read(selectedDmProvider.notifier)
           .select(

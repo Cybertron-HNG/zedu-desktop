@@ -108,47 +108,54 @@ class _InviteTeammatesModalState extends ConsumerState<InviteTeammatesModal> {
 
     // People picked from the list already have a Zedu account: add them to
     // this channel. Only an email that matches nobody gets a workspace invite.
-    final pickedIds = [
-      for (final invite in _invites)
-        if ((invite['userId'] ?? '').isNotEmpty) invite['userId']!,
+    final batch = List.of(_invites);
+    final picked = [
+      for (final invite in batch)
+        if ((invite['userId'] ?? '').isNotEmpty) invite,
     ];
     final emailOnly = [
-      for (final invite in _invites)
-        if ((invite['userId'] ?? '').isEmpty) invite['email']!,
+      for (final invite in batch)
+        if ((invite['userId'] ?? '').isEmpty) invite,
     ];
+    final failed = <Map<String, String?>>[];
+    String? firstError;
 
     var added = 0;
     var alreadyInChannel = false;
-    String? error;
-    if (pickedIds.isNotEmpty) {
-      final result = await ref.read(addPeopleToChannelProvider).call(pickedIds);
+    if (picked.isNotEmpty) {
+      final result = await ref.read(addPeopleToChannelProvider).call([
+        for (final invite in picked) invite['userId']!,
+      ]);
       switch (result) {
         case AddEveryoneAdded(:final count):
           added = count;
         case AddEveryoneNobodyToAdd():
           alreadyInChannel = true;
         case AddEveryoneFailed(:final message):
-          error = message;
+          failed.addAll(picked);
+          firstError ??= message;
       }
     }
 
     final notifier = ref.read(userProfileNotifierProvider.notifier);
     var invited = 0;
-    for (final email in emailOnly) {
-      await notifier.inviteMember(email: email, role: 'User');
-      final state = ref.read(userProfileNotifierProvider);
-      if (state.error != null) {
-        error ??= state.error;
+    for (final invite in emailOnly) {
+      // Assuming 'User' role by default since there's no dropdown in UI
+      await notifier.inviteMember(
+        email: invite['email']!,
+        role: 'User',
+        userId: invite['userId'],
+      );
+      final error = ref.read(userProfileNotifierProvider).error;
+      if (error != null) {
+        failed.add(invite);
+        firstError ??= error;
       } else {
         invited++;
       }
     }
 
     if (!mounted) return;
-    // Whatever happened, the button must not stay in its loading state.
-    setState(() {
-      _isLoading = false;
-    });
 
     final channelName = openChannelName(ref.read(activeChatProvider));
     final done = [
@@ -157,11 +164,6 @@ class _InviteTeammatesModalState extends ConsumerState<InviteTeammatesModal> {
       if (invited > 0)
         'Successfully invited $invited ${invited == 1 ? 'teammate' : 'teammates'}.',
     ];
-
-    if (error != null) {
-      AppToastService.show(context, type: AppToastType.error, message: error);
-      return;
-    }
     if (done.isNotEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -169,16 +171,42 @@ class _InviteTeammatesModalState extends ConsumerState<InviteTeammatesModal> {
           backgroundColor: context.colors.success,
         ),
       );
-      Navigator.pop(context);
+    }
+
+    if (failed.isEmpty) {
+      if (done.isNotEmpty) {
+        Navigator.pop(context);
+        return;
+      }
+      // Whatever happened, the button must not stay in its loading state.
+      setState(() {
+        _isLoading = false;
+      });
+      if (alreadyInChannel) {
+        AppToastService.show(
+          context,
+          type: AppToastType.info,
+          message: 'Everyone you picked is already in #$channelName.',
+        );
+      }
       return;
     }
-    if (alreadyInChannel) {
-      AppToastService.show(
-        context,
-        type: AppToastType.info,
-        message: 'Everyone you picked is already in #$channelName.',
-      );
-    }
+
+    // Keep only the people that failed, so sending again retries them.
+    setState(() {
+      _isLoading = false;
+      _invites
+        ..clear()
+        ..addAll(failed);
+    });
+    final failedEmails = failed.map((invite) => invite['email']).join(', ');
+    AppToastService.show(
+      context,
+      type: AppToastType.error,
+      message: done.isNotEmpty || alreadyInChannel
+          ? "Couldn't ${emailOnly.any(failed.contains) && !picked.any(failed.contains) ? 'invite' : 'add'} $failedEmails: $firstError"
+          : firstError!,
+    );
   }
 
   Future<void> _addEveryone() async {

@@ -73,4 +73,34 @@ void main() {
 
     expect(repo.requestedPages, [1, 2, 3]);
   });
+
+  test('a failed page keeps the loaded DMs and reports it instead of throwing '
+      '(Ziki #2793)', () async {
+    final repo = _Repo();
+    final container = ProviderContainer(
+      overrides: [
+        dmRepositoryProvider.overrideWithValue(repo),
+        currentOrgIdProvider.overrideWithValue('org-a'),
+      ],
+    );
+    addTearDown(container.dispose);
+    await container.read(dmListProvider.future);
+    final notifier = container.read(dmListProvider.notifier);
+
+    await notifier.loadMore(); // page 2 fails: must not throw
+
+    expect(notifier.loadMoreFailed, isTrue);
+    expect(
+      container.read(dmListProvider).value,
+      hasLength(DmRepository.pageSize),
+    );
+
+    await notifier.loadMore(); // retry succeeds
+
+    expect(notifier.loadMoreFailed, isFalse);
+    expect(
+      container.read(dmListProvider).value,
+      hasLength(DmRepository.pageSize * 2),
+    );
+  });
 }

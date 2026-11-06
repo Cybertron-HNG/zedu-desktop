@@ -523,6 +523,14 @@ Future<void> showEditMemberDialog(
   ValueChanged<TeamMember> onUpdate,
 ) async {
   String role = member.role;
+  const supportedRoles = ['Administrator', 'Manager', 'User'];
+  // A member can already hold a role this editor doesn't offer. List it too,
+  // or the dropdown has no item for its value and fails to build; saving
+  // without a change then keeps it.
+  final roles = [
+    if (!supportedRoles.contains(member.role)) member.role,
+    ...supportedRoles,
+  ];
 
   await showDialog<void>(
     context: context,
@@ -561,13 +569,9 @@ Future<void> showEditMemberDialog(
                     vertical: 14,
                   ),
                 ),
-                items: const [
-                  DropdownMenuItem(
-                    value: 'Administrator',
-                    child: Text('Administrator'),
-                  ),
-                  DropdownMenuItem(value: 'Manager', child: Text('Manager')),
-                  DropdownMenuItem(value: 'User', child: Text('User')),
+                items: [
+                  for (final option in roles)
+                    DropdownMenuItem(value: option, child: Text(option)),
                 ],
                 onChanged: (v) => setDialogState(() => role = v ?? member.role),
               ),

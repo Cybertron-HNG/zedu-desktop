@@ -25,6 +25,8 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
   bool _showMentions = false;
   final List<String> _attachedFiles = [];
   final AudioRecorder _audioRecorder = AudioRecorder();
+  final Stopwatch _recordingClock = Stopwatch();
+  Timer? _recordingTicker;
 
   @override
   void initState() {
@@ -40,12 +42,20 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
   void dispose() {
     _controller.dispose();
     _focusNode.dispose();
+    _stopRecordingClock();
     _audioRecorder.dispose();
     super.dispose();
   }
 
   Future<void> _startRecording() async {
     if (await _audioRecorder.hasPermission()) {
+      _recordingClock
+        ..reset()
+        ..start();
+      _recordingTicker?.cancel();
+      _recordingTicker = Timer.periodic(const Duration(seconds: 1), (_) {
+        if (mounted) setState(() {});
+      });
       setState(() => _isRecording = true);
       // In a real app we'd specify a path. Using default temp path for mock.
       await _audioRecorder.start(const RecordConfig(), path: '');
@@ -54,12 +64,21 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
 
   Future<void> _stopRecording() async {
     final path = await _audioRecorder.stop();
+    final length = _recordingClock.elapsed;
+    _stopRecordingClock();
+    if (!mounted) return;
     setState(() {
       _isRecording = false;
       if (path != null) {
-        _controller.text = '[Voice Note Attached]';
+        _controller.text = voiceNoteMarker(length);
       }
     });
+  }
+
+  void _stopRecordingClock() {
+    _recordingTicker?.cancel();
+    _recordingTicker = null;
+    _recordingClock.stop();
   }
 
   Future<bool> handlePaste({DataReader? reader}) async {
@@ -161,6 +180,7 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
     _controller.clear();
     setState(() {
       _attachedFiles.clear();
+      _stopRecordingClock();
       _isRecording = false;
       _showMentions = false;
     });
@@ -431,7 +451,8 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
                   Row(
                     children: [
                       Text(
-                        'Recording... 0:05',
+                        'Recording... '
+                        '${formatClockDuration(_recordingClock.elapsed)}',
                         style: TextStyle(color: colors.error, fontSize: 12),
                       ),
                       IconButton(
