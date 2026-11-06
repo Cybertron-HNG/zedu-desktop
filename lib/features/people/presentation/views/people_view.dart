@@ -314,7 +314,7 @@ class _MemberCard extends StatelessWidget {
                         width: 8,
                         height: 8,
                         decoration: BoxDecoration(
-                          color: member.online
+                          color: member.online && !member.deactivated
                               ? colors.presenceActive
                               : colors.divider,
                           shape: BoxShape.circle,
@@ -322,7 +322,11 @@ class _MemberCard extends StatelessWidget {
                       ),
                       const SizedBox(width: 6),
                       Text(
-                        member.online ? 'Online' : 'Offline',
+                        member.deactivated
+                            ? 'Deactivated'
+                            : member.online
+                            ? 'Online'
+                            : 'Offline',
                         style: context.textTheme.bodySmall?.copyWith(
                           color: colors.textSecondary,
                         ),

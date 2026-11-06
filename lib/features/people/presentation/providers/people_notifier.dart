@@ -110,7 +110,7 @@ class PeopleActionsNotifier extends Notifier<String?> {
   /// Opens (or creates) the DM with [member] and shows it in the DMs tab.
   /// Returns false when it could not be opened.
   Future<bool> openChat(OrgMember member) async {
-    if (state != null) return false;
+    if (state != null || member.deactivated) return false;
     final orgId = ref.read(currentOrgIdProvider);
     if (orgId.isEmpty) return false;
     state = member.id;

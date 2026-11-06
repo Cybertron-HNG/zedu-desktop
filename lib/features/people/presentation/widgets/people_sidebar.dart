@@ -214,6 +214,15 @@ Future<void> openMemberChat(
   WidgetRef ref,
   OrgMember member,
 ) async {
+  // A deactivated account can't read or answer a message.
+  if (member.deactivated) {
+    AppToastService.show(
+      context,
+      type: AppToastType.info,
+      message: "${member.displayName}'s account is deactivated.",
+    );
+    return;
+  }
   // A chat is already opening; let it finish.
   if (ref.read(peopleActionsProvider) != null) return;
   final opened = await ref

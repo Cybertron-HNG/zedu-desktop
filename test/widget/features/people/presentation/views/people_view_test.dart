@@ -13,9 +13,10 @@ class _FakeWorkspaceNotifier extends WorkspaceNotifier {
 }
 
 class _FakePeopleRepository implements PeopleRepository {
-  _FakePeopleRepository({this.fail = false});
+  _FakePeopleRepository({this.fail = false, this.extra = const []});
 
   final bool fail;
+  final List<OrgMember> extra;
   final searches = <String>[];
 
   static const _everyone = [
@@ -37,7 +38,7 @@ class _FakePeopleRepository implements PeopleRepository {
   }) async {
     searches.add(search);
     if (fail) return const Failure(ApiFailure(message: 'offline'));
-    final members = _everyone
+    final members = [..._everyone, ...extra]
         .where((m) => m.name.toLowerCase().contains(search.toLowerCase()))
         .toList();
     return Success(
@@ -152,5 +153,43 @@ void main() {
     expect(find.text('Could not load people'), findsOneWidget);
     expect(find.text('Could not load members.'), findsOneWidget);
     expect(find.text('Retry'), findsNWidgets(2));
+  });
+
+  testWidgets('a deactivated member reads Deactivated and opens no DM', (
+    tester,
+  ) async {
+    final dms = await _pump(
+      tester,
+      _FakePeopleRepository(
+        extra: const [
+          OrgMember(
+            id: 'u-3',
+            name: 'Alan Turing',
+            email: 'alan@zedu.test',
+            online: true,
+            deactivated: true,
+          ),
+        ],
+      ),
+    );
+
+    // Ada is the only Online member; Alan is marked Deactivated, not Online.
+    expect(find.text('Online'), findsOneWidget);
+    expect(find.text('Deactivated'), findsOneWidget);
+
+    await tester.tap(find.text('Alan Turing').last);
+    await tester.pump();
+    expect(find.text("Alan Turing's account is deactivated."), findsOneWidget);
+    await tester.tap(find.text('Alan Turing').first);
+    await tester.pump();
+
+    verifyNever(
+      () => dms.openConversation(
+        orgId: any(named: 'orgId'),
+        participantId: any(named: 'participantId'),
+      ),
+    );
+    await tester.pump(const Duration(seconds: 4));
+    await tester.pumpAndSettle();
   });
 }
