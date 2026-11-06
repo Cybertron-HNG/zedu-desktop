@@ -213,14 +213,40 @@ void main() {
     final repository = _FakeFilesRepository();
     await _pump(tester, repository);
 
+    await tester.tap(find.text('Files').last);
+    await tester.pumpAndSettle();
     await tester.tap(find.text('File Type'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Images').last);
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Files').last);
-    await tester.pumpAndSettle();
 
     expect(repository.queries.last.category, FileCategory.images);
+  });
+
+  testWidgets('the file filters show on the Files tab only', (tester) async {
+    await _pump(tester, _FakeFilesRepository());
+
+    // The Folders tab: the folders endpoint takes no search, type, date or
+    // sort, so the toolbar would filter nothing there.
+    expect(find.byType(FilesToolbar), findsNothing);
+    expect(find.text('File Type'), findsNothing);
+
+    await tester.tap(find.text('Files').last);
+    await tester.pumpAndSettle();
+    expect(find.byType(FilesToolbar), findsOneWidget);
+    final toolbar = find.byType(FilesToolbar);
+    expect(
+      find.descendant(of: toolbar, matching: find.text('File Type')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: toolbar, matching: find.text('Date Modified')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.text('Folders').first);
+    await tester.pumpAndSettle();
+    expect(find.byType(FilesToolbar), findsNothing);
   });
 
   testWidgets('shows a retry when folders fail to load', (tester) async {

@@ -64,7 +64,9 @@ class FilesView extends ConsumerWidget {
             child: ListView(
               padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
               children: [
-                const FilesToolbar(),
+                // Search, File Type, Date Modified and Sort only narrow the
+                // files list: the folders endpoint takes none of them.
+                if (state.tab == FilesTab.files) const FilesToolbar(),
                 if (state.folderPath.isNotEmpty) ...[
                   const SizedBox(height: 16),
                   _Breadcrumbs(state: state),
