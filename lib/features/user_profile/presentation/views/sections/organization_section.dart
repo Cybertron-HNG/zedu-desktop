@@ -5,14 +5,12 @@ class OrganizationSection extends StatelessWidget {
   const OrganizationSection({
     super.key,
     required this.organization,
-    required this.isSaving,
     required this.onSave,
     required this.onDelete,
     required this.onLeave,
   });
 
   final OrganizationProfile organization;
-  final bool isSaving;
   final ValueChanged<OrganizationProfile> onSave;
   final Future<void> Function() onDelete;
   final Future<void> Function() onLeave;
@@ -84,34 +82,81 @@ class OrganizationSection extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 48),
-        Row(
-          children: [
-            AppButton.outlined(
-              label: 'Sign out of workspace',
-              expand: false,
-              height: 44,
-              style: OutlinedButton.styleFrom(
-                foregroundColor: context.colors.textPrimary,
-                side: BorderSide(color: context.colors.divider),
-                padding: const EdgeInsets.symmetric(horizontal: 18),
-              ),
-              loading: isSaving,
-              onPressed: () => _confirmLeave(context, onLeave),
-            ),
-            const SizedBox(width: 16),
-            AppButton.outlined(
-              label: 'Delete organization',
-              expand: false,
-              height: 44,
-              style: OutlinedButton.styleFrom(
-                foregroundColor: const Color(0xFFEF4444),
-                side: const BorderSide(color: Color(0xFFEF4444)),
-                padding: const EdgeInsets.symmetric(horizontal: 18),
-              ),
-              loading: isSaving,
-              onPressed: () => _confirmDelete(context, onDelete),
-            ),
-          ],
+        _OrganizationActions(onLeave: onLeave, onDelete: onDelete),
+      ],
+    );
+  }
+}
+
+/// Sign out of workspace and Delete organization. Each button spins only
+/// while its own action runs, not whenever another settings save does
+/// (Ziki #2925).
+class _OrganizationActions extends StatefulWidget {
+  const _OrganizationActions({required this.onLeave, required this.onDelete});
+
+  final Future<void> Function() onLeave;
+  final Future<void> Function() onDelete;
+
+  @override
+  State<_OrganizationActions> createState() => _OrganizationActionsState();
+}
+
+enum _OrganizationAction { leave, delete }
+
+class _OrganizationActionsState extends State<_OrganizationActions> {
+  _OrganizationAction? _running;
+
+  /// Runs [action] as [which], showing that button's spinner meanwhile.
+  Future<void> Function() _tracked(
+    _OrganizationAction which,
+    Future<void> Function() action,
+  ) => () async {
+    setState(() => _running = which);
+    try {
+      await action();
+    } finally {
+      if (mounted) setState(() => _running = null);
+    }
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        AppButton.outlined(
+          label: 'Sign out of workspace',
+          expand: false,
+          height: 44,
+          style: OutlinedButton.styleFrom(
+            foregroundColor: context.colors.textPrimary,
+            side: BorderSide(color: context.colors.divider),
+            padding: const EdgeInsets.symmetric(horizontal: 18),
+          ),
+          loading: _running == _OrganizationAction.leave,
+          onPressed: _running != null
+              ? null
+              : () => _confirmLeave(
+                  context,
+                  _tracked(_OrganizationAction.leave, widget.onLeave),
+                ),
+        ),
+        const SizedBox(width: 16),
+        AppButton.outlined(
+          label: 'Delete organization',
+          expand: false,
+          height: 44,
+          style: OutlinedButton.styleFrom(
+            foregroundColor: const Color(0xFFEF4444),
+            side: const BorderSide(color: Color(0xFFEF4444)),
+            padding: const EdgeInsets.symmetric(horizontal: 18),
+          ),
+          loading: _running == _OrganizationAction.delete,
+          onPressed: _running != null
+              ? null
+              : () => _confirmDelete(
+                  context,
+                  _tracked(_OrganizationAction.delete, widget.onDelete),
+                ),
         ),
       ],
     );
