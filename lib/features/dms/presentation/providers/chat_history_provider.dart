@@ -485,6 +485,10 @@ class ChatHistoryNotifier extends ChangeNotifier {
   Future<void> retryMessage(String messageId) async {
     final idx = messages.indexWhere((m) => m['id'] == messageId);
     if (idx == -1) return;
+    // Only a failed message is retried. Its status turns 'sending' below,
+    // before the request starts, so a second tap (or a retry of a message
+    // still sending) can't post it twice (Ziki #2916).
+    if (messages[idx]['status'] != 'failed') return;
 
     final failedMsg = Map<String, dynamic>.from(messages[idx]);
     final content = failedMsg['content'] as String? ?? '';

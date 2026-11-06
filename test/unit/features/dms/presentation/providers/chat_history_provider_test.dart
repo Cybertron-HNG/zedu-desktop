@@ -720,6 +720,76 @@ void _retryTests() {
       },
     );
 
+    test(
+      'two quick retries of a failed message send it once (#2916)',
+      () async {
+        final send = Completer<String>();
+        when(
+          () => mockRepository.sendMessage(
+            any(),
+            any(),
+            media: any(named: 'media'),
+            mentions: any(named: 'mentions'),
+            isChannel: any(named: 'isChannel'),
+          ),
+        ).thenAnswer((_) => send.future);
+
+        notifier.messages = [
+          {
+            'id': 'failed-msg-2',
+            'content': 'Sent once',
+            'channel_id': 'channel-xyz',
+            'status': 'failed',
+          },
+        ];
+
+        // Both taps land before the first request answers.
+        final first = notifier.retryMessage('failed-msg-2');
+        final second = notifier.retryMessage('failed-msg-2');
+        send.complete('thread-once');
+        await Future.wait([first, second]);
+
+        verify(
+          () => mockRepository.sendMessage(
+            any(),
+            any(),
+            media: any(named: 'media'),
+            mentions: any(named: 'mentions'),
+            isChannel: any(named: 'isChannel'),
+          ),
+        ).called(1);
+        expect(notifier.messages, hasLength(1));
+        expect(notifier.messages.first['status'], isNull);
+        expect(notifier.messages.first['thread_id'], 'thread-once');
+      },
+    );
+
+    test('a message that is not failed is not re-sent (#2916)', () async {
+      notifier.messages = [
+        {
+          'id': 'sending-msg',
+          'content': 'Still sending',
+          'channel_id': 'channel-xyz',
+          'status': 'sending',
+        },
+        {'id': 'sent-msg', 'content': 'Already sent', 'channel_id': 'x'},
+      ];
+
+      await notifier.retryMessage('sending-msg');
+      await notifier.retryMessage('sent-msg');
+
+      verifyNever(
+        () => mockRepository.sendMessage(
+          any(),
+          any(),
+          media: any(named: 'media'),
+          mentions: any(named: 'mentions'),
+          isChannel: any(named: 'isChannel'),
+        ),
+      );
+      expect(notifier.messages.first['status'], 'sending');
+    });
+
     test('auto-disposes ChatHistoryNotifier when listener closes', () async {
       final sub = container.listen(chatHistoryProvider('ch-auto'), (_, _) {});
       final autoNotifier = sub.read();
