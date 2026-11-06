@@ -129,4 +129,55 @@ void main() {
     );
     verifyZeroInteractions(repository);
   });
+
+  group('load errors (#2908)', () {
+    const usage = CreditUsage(balance: 5, totalPurchased: 5, totalConsumed: 0);
+    const notFound = ApiFailure(
+      message: 'Not found',
+      kind: ApiFailureKind.notFound,
+    );
+
+    void stubLoad({
+      Result<List<CreditPackage>> packages = const Success([_pro]),
+      Result<CreditUsage> usageResult = const Success(usage),
+      Result<CreditUsageReport>? report,
+      Result<List<CreditTransaction>> transactions = const Success([]),
+    }) {
+      when(() => repository.getPackages()).thenAnswer((_) async => packages);
+      when(
+        () => repository.getUsage(any()),
+      ).thenAnswer((_) async => usageResult);
+      when(
+        () => repository.getUsageReport(any()),
+      ).thenAnswer((_) async => report ?? const Failure(notFound));
+      when(
+        () => repository.getTransactions(any()),
+      ).thenAnswer((_) async => transactions);
+    }
+
+    test(
+      'a failing usage report or transaction list raises no error',
+      () async {
+        stubLoad(transactions: const Failure(notFound));
+
+        await notifier.load(orgId: 'org-1');
+
+        final state = container.read(creditsNotifierProvider);
+        expect(state.error, isNull);
+        expect(state.status, CreditsStatus.ready);
+        expect(state.packages, [_pro]);
+      },
+    );
+
+    test('a failing packages or usage load still raises the error', () async {
+      stubLoad(usageResult: const Failure(notFound));
+
+      await notifier.load(orgId: 'org-1');
+
+      expect(
+        container.read(creditsNotifierProvider).error,
+        notFound.friendlyMessage,
+      );
+    });
+  });
 }

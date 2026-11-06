@@ -54,17 +54,26 @@ class CreditsNotifier extends Notifier<CreditsState> {
       case Failure<CreditUsage>():
         error ??= usageResult.error.friendlyMessage;
     }
+    // No screen shows the usage report or the transaction history yet, so
+    // their failures are logged and don't raise the page's error toast
+    // (Ziki #2908).
     switch (reportResult) {
       case Success<CreditUsageReport>():
         report = reportResult.value;
       case Failure<CreditUsageReport>():
-        error ??= reportResult.error.friendlyMessage;
+        AppLogger.w(
+          'Usage report failed - ${reportResult.error.message}',
+          tag: _tag,
+        );
     }
     switch (transactionsResult) {
       case Success<List<CreditTransaction>>():
         transactions = transactionsResult.value;
       case Failure<List<CreditTransaction>>():
-        error ??= transactionsResult.error.friendlyMessage;
+        AppLogger.w(
+          'Transactions failed - ${transactionsResult.error.message}',
+          tag: _tag,
+        );
     }
 
     state = state.copyWith(
