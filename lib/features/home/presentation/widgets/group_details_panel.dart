@@ -30,6 +30,14 @@ class _GroupDetailsPanelState extends State<GroupDetailsPanel> {
   }
 
   @override
+  void didUpdateWidget(GroupDetailsPanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.group.name != oldWidget.group.name) {
+      _nameController.text = widget.group.name;
+    }
+  }
+
+  @override
   void dispose() {
     _nameController.dispose();
     super.dispose();
