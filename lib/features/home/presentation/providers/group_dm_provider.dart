@@ -64,12 +64,15 @@ class GroupDmNotifier extends Notifier<List<GroupDM>> {
     _generation++;
     _listenToWebsockets();
     _listenToNetwork();
+    ref.onDispose(() => _wsSubscription?.cancel());
     return [];
   }
 
   void _listenToWebsockets() {
     _wsSubscription?.cancel();
     final ws = ref.read(chatWebsocketProvider);
+    // Store the subscription so it can be cancelled when the provider is disposed.
+    // Without this, the WebSocket listener leaks after the provider is removed.
     _wsSubscription = ws.messageStream.listen((msg) {
       if (!ref.mounted) return;
       _handleIncomingMessage(msg.groupDmId, msg.text);

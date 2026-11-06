@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:zedu/core/core.dart';
 import 'package:zedu/features/features.dart';
 
@@ -159,8 +161,8 @@ class PersonalProfilePanel extends ConsumerWidget {
                   ),
                   const SizedBox(height: 4),
 
-                  // Time icon
-                  Icon(Icons.access_time, size: 14, color: colors.textHint),
+                  // Local time
+                  const LocalTimeLabel(),
                   const SizedBox(height: 16),
 
                   // Your own profile: no Favourite (that's for other people).
@@ -339,6 +341,58 @@ class PersonalProfilePanel extends ConsumerWidget {
         await ref.read(userProfileNotifierProvider.notifier).removeAvatar();
         return ref.read(userProfileNotifierProvider).error;
       },
+    );
+  }
+}
+
+/// A clock icon with the current time, e.g. "10:02 AM local time". The
+/// panel is always your own profile, so the device clock is your local time.
+class LocalTimeLabel extends StatefulWidget {
+  const LocalTimeLabel({super.key, this.now = DateTime.now});
+
+  /// The clock to read; tests pass a fake one.
+  final DateTime Function() now;
+
+  @override
+  State<LocalTimeLabel> createState() => _LocalTimeLabelState();
+}
+
+class _LocalTimeLabelState extends State<LocalTimeLabel> {
+  late DateTime _shown = widget.now();
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    // Check often, rebuild only when the minute changes.
+    _timer = Timer.periodic(const Duration(seconds: 15), (_) {
+      final now = widget.now();
+      if (now.minute != _shown.minute || now.hour != _shown.hour) {
+        setState(() => _shown = now);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final time = TimeOfDay.fromDateTime(_shown).format(context);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(Icons.access_time, size: 14, color: colors.textHint),
+        const SizedBox(width: 4),
+        Text(
+          '$time local time',
+          style: context.textTheme.bodySmall?.copyWith(color: colors.textHint),
+        ),
+      ],
     );
   }
 }
