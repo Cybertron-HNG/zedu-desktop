@@ -877,8 +877,15 @@ class _DmChatHeader extends StatelessWidget {
             onSelected: onMenuAction,
             itemBuilder: (context) => [
               menuItem('view_profile', 'View profile'),
-              menuItem('mute_notifications', 'Mute notifications'),
-              menuItem('pin_conversation', 'Pin conversation'),
+              // Both actions toggle, so say what they'll do now (#2950).
+              menuItem(
+                'mute_notifications',
+                isMuted ? 'Unmute notifications' : 'Mute notifications',
+              ),
+              menuItem(
+                'pin_conversation',
+                isPinned ? 'Unpin conversation' : 'Pin conversation',
+              ),
               menuItem('pinned_messages', 'Pinned messages'),
               menuItem('search_in_conversation', 'Search in conversation'),
               menuItem('view_files', 'View files'),
