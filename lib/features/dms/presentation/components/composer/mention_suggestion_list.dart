@@ -55,9 +55,7 @@ class MentionSuggestionList extends StatelessWidget {
               itemCount: suggestions.length,
               itemBuilder: (context, index) {
                 final p = suggestions[index];
-                final initial = p.username.isNotEmpty
-                    ? p.username[0].toUpperCase()
-                    : '?';
+                final initial = initialOf(p.username);
                 return InkWell(
                   onTap: () => onSelect(p),
                   hoverColor: colors.primary.withValues(alpha: 0.07),
@@ -87,27 +85,33 @@ class MentionSuggestionList extends StatelessWidget {
                               : null,
                         ),
                         const SizedBox(width: 10),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              p.username,
-                              style: TextStyle(
-                                color: colors.textPrimary,
-                                fontWeight: FontWeight.w600,
-                                fontSize: 13,
-                              ),
-                            ),
-                            if (p.email.isNotEmpty)
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
                               Text(
-                                p.email,
+                                p.username,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
-                                  color: colors.textHint,
-                                  fontSize: 11,
+                                  color: colors.textPrimary,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 13,
                                 ),
                               ),
-                          ],
+                              if (p.email.isNotEmpty)
+                                Text(
+                                  p.email,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: colors.textHint,
+                                    fontSize: 11,
+                                  ),
+                                ),
+                            ],
+                          ),
                         ),
                       ],
                     ),

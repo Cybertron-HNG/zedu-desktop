@@ -45,9 +45,7 @@ class _MessageBubbleState extends State<MessageBubble> {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    final initial = widget.author.isNotEmpty
-        ? widget.author.substring(0, 1).toUpperCase()
-        : '?';
+    final initial = initialOf(widget.author);
 
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovering = true),
@@ -140,60 +138,82 @@ class _MessageBubbleState extends State<MessageBubble> {
                             );
                           }),
                           if (_isHovering)
-                            InkWell(
-                              onTap: () async {
-                                final emoji = await showMenu<String>(
-                                  context: context,
-                                  position: const RelativeRect.fromLTRB(
-                                    100,
-                                    100,
-                                    0,
-                                    0,
-                                  ), // Adjust this or use a button's render box
-                                  items: const [
-                                    PopupMenuItem(
-                                      value: '👍',
-                                      child: Text('👍'),
-                                    ),
-                                    PopupMenuItem(
-                                      value: '❤️',
-                                      child: Text('❤️'),
-                                    ),
-                                    PopupMenuItem(
-                                      value: '😂',
-                                      child: Text('😂'),
-                                    ),
-                                    PopupMenuItem(
-                                      value: '🎉',
-                                      child: Text('🎉'),
-                                    ),
-                                    PopupMenuItem(
-                                      value: '👎',
-                                      child: Text('👎'),
-                                    ),
-                                  ],
-                                );
-                                if (emoji != null) {
-                                  _addReaction(emoji);
-                                }
-                              },
-                              borderRadius: BorderRadius.circular(12),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 6,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: colors.background,
-                                  border: Border.all(color: colors.divider),
+                            Builder(
+                              builder: (buttonContext) {
+                                return InkWell(
+                                  onTap: () async {
+                                    final button = buttonContext
+                                        .findRenderObject();
+                                    final overlay = Overlay.of(buttonContext)
+                                        .context
+                                        .findRenderObject();
+                                    if (button is! RenderBox ||
+                                        overlay is! RenderBox ||
+                                        !button.hasSize) {
+                                      return;
+                                    }
+                                    final position = RelativeRect.fromRect(
+                                      Rect.fromPoints(
+                                        button.localToGlobal(
+                                          Offset.zero,
+                                          ancestor: overlay,
+                                        ),
+                                        button.localToGlobal(
+                                          button.size.bottomRight(Offset.zero),
+                                          ancestor: overlay,
+                                        ),
+                                      ),
+                                      Offset.zero & overlay.size,
+                                    );
+                                    final emoji = await showMenu<String>(
+                                      context: buttonContext,
+                                      position: position,
+                                      items: const [
+                                        PopupMenuItem(
+                                          value: '👍',
+                                          child: Text('👍'),
+                                        ),
+                                        PopupMenuItem(
+                                          value: '❤️',
+                                          child: Text('❤️'),
+                                        ),
+                                        PopupMenuItem(
+                                          value: '😂',
+                                          child: Text('😂'),
+                                        ),
+                                        PopupMenuItem(
+                                          value: '🎉',
+                                          child: Text('🎉'),
+                                        ),
+                                        PopupMenuItem(
+                                          value: '👎',
+                                          child: Text('👎'),
+                                        ),
+                                      ],
+                                    );
+                                    if (emoji != null && mounted) {
+                                      _addReaction(emoji);
+                                    }
+                                  },
                                   borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Icon(
-                                  Icons.add_reaction_outlined,
-                                  size: 14,
-                                  color: colors.textHint,
-                                ),
-                              ),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 6,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: colors.background,
+                                      border: Border.all(color: colors.divider),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Icon(
+                                      Icons.add_reaction_outlined,
+                                      size: 14,
+                                      color: colors.textHint,
+                                    ),
+                                  ),
+                                );
+                              },
                             ),
                         ],
                       ),

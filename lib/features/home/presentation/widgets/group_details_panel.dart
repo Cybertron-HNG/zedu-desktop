@@ -30,6 +30,19 @@ class _GroupDetailsPanelState extends State<GroupDetailsPanel> {
   }
 
   @override
+  void didUpdateWidget(covariant GroupDetailsPanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final groupChanged = oldWidget.group.id != widget.group.id;
+    final nameChanged = oldWidget.group.name != widget.group.name;
+    if (groupChanged || (nameChanged && !_isEditingName)) {
+      _nameController.text = widget.group.name;
+    }
+    if (groupChanged) {
+      _isEditingName = false;
+    }
+  }
+
+  @override
   void dispose() {
     _nameController.dispose();
     super.dispose();
@@ -141,8 +154,10 @@ class _GroupDetailsPanelState extends State<GroupDetailsPanel> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                ...widget.group.members.map(
-                  (member) => Padding(
+                ...widget.group.members.map((member) {
+                  final name = member.name?.trim() ?? '';
+                  final label = name.isNotEmpty ? name : member.email;
+                  return Padding(
                     padding: const EdgeInsets.symmetric(vertical: 8),
                     child: Row(
                       children: [
@@ -152,7 +167,7 @@ class _GroupDetailsPanelState extends State<GroupDetailsPanel> {
                             alpha: 0.1,
                           ),
                           child: Text(
-                            (member.name ?? member.email)[0],
+                            initialOf(label),
                             style: TextStyle(
                               fontSize: 12,
                               color: colors.primary,
@@ -160,14 +175,18 @@ class _GroupDetailsPanelState extends State<GroupDetailsPanel> {
                           ),
                         ),
                         const SizedBox(width: 12),
-                        Text(
-                          member.name ?? member.email,
-                          style: TextStyle(color: colors.textPrimary),
+                        Expanded(
+                          child: Text(
+                            label,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(color: colors.textPrimary),
+                          ),
                         ),
                       ],
                     ),
-                  ),
-                ),
+                  );
+                }),
                 const SizedBox(height: 24),
                 Text(
                   'Pinned Messages',

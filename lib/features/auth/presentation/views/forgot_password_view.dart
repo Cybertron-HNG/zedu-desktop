@@ -71,15 +71,20 @@ class _ForgotPasswordViewState extends ConsumerState<ForgotPasswordView> {
                     fontFamily: FontFamily.roboto,
                   ),
                   children: [
-                    TextSpan(
-                      text: 'Sign in',
-                      style: context.textTheme.bodyLarge?.copyWith(
-                        fontWeight: FontWeight.w400,
-                        color: context.colors.primary,
-                        fontFamily: FontFamily.roboto,
+                    WidgetSpan(
+                      alignment: PlaceholderAlignment.baseline,
+                      baseline: TextBaseline.alphabetic,
+                      child: GestureDetector(
+                        onTap: () => context.go(AppRouter.login),
+                        child: Text(
+                          'Sign in',
+                          style: context.textTheme.bodyLarge?.copyWith(
+                            fontWeight: FontWeight.w400,
+                            color: context.colors.primary,
+                            fontFamily: FontFamily.roboto,
+                          ),
+                        ),
                       ),
-                      recognizer: TapGestureRecognizer()
-                        ..onTap = () => context.go(AppRouter.login),
                     ),
                   ],
                 ),

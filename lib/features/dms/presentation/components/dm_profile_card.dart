@@ -28,7 +28,7 @@ class DmProfileCard extends StatelessWidget {
                 : null,
             child: conversation.effectiveAvatarUrl == null
                 ? Text(
-                    name.isNotEmpty ? name[0].toUpperCase() : '?',
+                    initialOf(name),
                     style: const TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,

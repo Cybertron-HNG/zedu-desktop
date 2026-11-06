@@ -97,6 +97,7 @@ class _CreateChannelModalState extends ConsumerState<CreateChannelModal> {
             const SizedBox(height: 8),
             TextField(
               controller: _nameController,
+              onChanged: (_) => setState(() {}),
               decoration: InputDecoration(
                 hintText: 'e.g. plan-budget',
                 border: OutlineInputBorder(
@@ -205,7 +206,9 @@ class _CreateChannelModalState extends ConsumerState<CreateChannelModal> {
                 ),
                 const SizedBox(width: 16),
                 ElevatedButton(
-                  onPressed: isLoading ? null : _createChannel,
+                  onPressed: isLoading || _nameController.text.trim().isEmpty
+                      ? null
+                      : _createChannel,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: colors.primary,
                     padding: const EdgeInsets.symmetric(

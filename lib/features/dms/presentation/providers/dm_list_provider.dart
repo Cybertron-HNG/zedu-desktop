@@ -103,19 +103,6 @@ class DmListNotifier extends AsyncNotifier<List<DmConversation>> {
       _hasMore = false;
     }
 
-    if (results.isEmpty && page == 1) {
-      return [
-        DmConversation(
-          channelId: 'mock-channel-id-123',
-          username: 'Test User',
-          participantId: 'mock-user-id',
-          previewMessage:
-              'This is a test conversation. Tap to test the composer.',
-          unreadCount: 0,
-        ),
-      ];
-    }
-
     return results;
   }
 
@@ -125,8 +112,11 @@ class DmListNotifier extends AsyncNotifier<List<DmConversation>> {
     if (orgId.isEmpty) return;
 
     final current = state.value ?? [];
-    _currentPage++;
-    final next = await _fetchPage(orgId, _currentPage);
+    final nextPage = _currentPage + 1;
+    final next = await _fetchPage(orgId, nextPage);
+    // Only advance once the page actually arrived, so a failed request is
+    // retried instead of silently skipping a page of conversations.
+    _currentPage = nextPage;
     state = AsyncValue.data([...current, ...next]);
   }
 

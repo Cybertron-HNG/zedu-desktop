@@ -178,6 +178,51 @@ void main() {
     expect(find.descendant(of: sidebar, matching: material), findsOneWidget);
   });
 
+  testWidgets('filters the sidebar by conversation name or preview', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          workspaceProvider.overrideWith(FakeWorkspaceNotifier.new),
+          dmDraftStoreProvider.overrideWith(
+            (ref) => DmDraftStore(
+              FakeSecureStorageService(),
+              userId: 'user-1',
+              orgId: 'org-1',
+            ),
+          ),
+          dmListProvider.overrideWith(
+            () => FakeDmListNotifier([
+              buildConversation(
+                channelId: 'channel-1',
+                username: 'Ada Okafor',
+                previewMessage: 'See you at standup',
+              ),
+              buildConversation(
+                channelId: 'channel-2',
+                username: 'Bola Adeyemi',
+                previewMessage: 'Lunch tomorrow?',
+              ),
+            ]),
+          ),
+        ],
+        child: buildTestMaterialApp(const Scaffold(body: DmSidebarList())),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Ada Okafor'), findsOneWidget);
+    expect(find.text('Bola Adeyemi'), findsOneWidget);
+
+    await tester.enterText(find.byType(TextField), 'bola');
+    await tester.pump();
+
+    expect(find.text('Ada Okafor'), findsNothing);
+    expect(find.text('Bola Adeyemi'), findsOneWidget);
+    expect(find.text('No conversations found'), findsNothing);
+  });
+
   group('DmListTile time', () {
     DmConversation conversation({
       List<DmPreviewThread> previewThreads = const [],

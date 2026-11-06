@@ -1,11 +1,37 @@
 import 'package:zedu/core/core.dart';
 import 'package:zedu/features/features.dart';
 
-class DmSidebarList extends ConsumerWidget {
+class DmSidebarList extends ConsumerStatefulWidget {
   const DmSidebarList({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<DmSidebarList> createState() => _DmSidebarListState();
+}
+
+class _DmSidebarListState extends ConsumerState<DmSidebarList> {
+  final _searchController = TextEditingController();
+  String _query = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  bool _matches(DmConversation conversation) {
+    final query = _query.trim().toLowerCase();
+    if (query.isEmpty) return true;
+    return conversation.displayName.toLowerCase().contains(query) ||
+        conversation.previewMessage.toLowerCase().contains(query);
+  }
+
+  void _clearSearch() {
+    _searchController.clear();
+    setState(() => _query = '');
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final colors = context.colors;
 
     return Container(
@@ -17,39 +43,64 @@ class DmSidebarList extends ConsumerWidget {
           const WorkspaceSwitcherHeader(),
           Padding(
             padding: const EdgeInsets.fromLTRB(10, 0, 10, 16),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Container(
-                    height: 34,
-                    decoration: BoxDecoration(
-                      color: Colors.transparent,
-                      borderRadius: BorderRadius.circular(5),
-                      border: Border.all(
-                        color: colors.onPrimary.withValues(alpha: 0.68),
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        const SizedBox(width: 8),
-                        Icon(
-                          Icons.search,
+            child: TextField(
+              controller: _searchController,
+              onChanged: (value) => setState(() => _query = value),
+              textInputAction: TextInputAction.search,
+              style: TextStyle(color: colors.onPrimary, fontSize: 12),
+              cursorColor: colors.onPrimary,
+              decoration: InputDecoration(
+                isDense: true,
+                filled: true,
+                fillColor: Colors.transparent,
+                hintText: 'Find a Conversation',
+                hintStyle: TextStyle(
+                  color: colors.onPrimary.withValues(alpha: 0.9),
+                  fontSize: 12,
+                ),
+                prefixIcon: Icon(
+                  Icons.search,
+                  color: colors.onPrimary.withValues(alpha: 0.9),
+                  size: 16,
+                ),
+                prefixIconConstraints: const BoxConstraints(
+                  minWidth: 32,
+                  minHeight: 32,
+                ),
+                suffixIcon: _query.isEmpty
+                    ? null
+                    : IconButton(
+                        onPressed: _clearSearch,
+                        icon: Icon(
+                          Icons.close,
                           color: colors.onPrimary.withValues(alpha: 0.9),
                           size: 16,
                         ),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Find a Conversation',
-                          style: TextStyle(
-                            color: colors.onPrimary.withValues(alpha: 0.9),
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
+                        splashRadius: 16,
+                        tooltip: 'Clear search',
+                      ),
+                suffixIconConstraints: const BoxConstraints(
+                  minWidth: 32,
+                  minHeight: 32,
+                ),
+                contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(5),
+                  borderSide: BorderSide(
+                    color: colors.onPrimary.withValues(alpha: 0.68),
                   ),
                 ),
-              ],
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(5),
+                  borderSide: BorderSide(
+                    color: colors.onPrimary.withValues(alpha: 0.68),
+                  ),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(5),
+                  borderSide: BorderSide(color: colors.primary),
+                ),
+              ),
             ),
           ),
           Expanded(
@@ -70,9 +121,11 @@ class DmSidebarList extends ConsumerWidget {
                     final visibleConversations =
                         conversations
                             .where(
-                              (conversation) => !actions.deletedIds.contains(
-                                conversation.channelId,
-                              ),
+                              (conversation) =>
+                                  !actions.deletedIds.contains(
+                                    conversation.channelId,
+                                  ) &&
+                                  _matches(conversation),
                             )
                             .toList()
                           ..sort((a, b) {
@@ -88,7 +141,9 @@ class DmSidebarList extends ConsumerWidget {
                     if (visibleConversations.isEmpty) {
                       return Center(
                         child: Text(
-                          'No recent chats',
+                          _query.trim().isEmpty
+                              ? 'No recent chats'
+                              : 'No conversations found',
                           style: TextStyle(
                             color: colors.onPrimary.withValues(alpha: 0.5),
                           ),
