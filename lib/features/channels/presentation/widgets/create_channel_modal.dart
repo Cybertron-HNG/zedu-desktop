@@ -106,6 +106,10 @@ class _CreateChannelModalState extends ConsumerState<CreateChannelModal> {
             const SizedBox(height: 8),
             TextField(
               controller: _nameController,
+              // Ready to type on open, and Enter creates the channel.
+              autofocus: true,
+              textInputAction: TextInputAction.done,
+              onSubmitted: (_) => _createChannel(),
               onChanged: (_) {
                 if (_errorMessage != null) {
                   setState(() => _errorMessage = null);

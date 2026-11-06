@@ -172,6 +172,51 @@ void main() {
       expect(notifier.createCalls, 0);
     });
 
+    testWidgets('focuses the name field when it opens', (tester) async {
+      await openModal(tester);
+
+      final editable = tester.widget<EditableText>(
+        find.descendant(
+          of: find.byType(TextField).first,
+          matching: find.byType(EditableText),
+        ),
+      );
+      expect(editable.focusNode.hasFocus, isTrue);
+    });
+
+    testWidgets('pressing Enter in the name field creates the channel', (
+      tester,
+    ) async {
+      await openModal(tester);
+      notifier.result = Success<Channel>(
+        Channel(
+          id: 'c1',
+          name: 'general',
+          description: '',
+          organisationId: 'org-1',
+          ownerId: 'user-1',
+        ),
+      );
+
+      await tester.enterText(find.byType(TextField).first, 'general');
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pumpAndSettle();
+
+      expect(notifier.createCalls, 1);
+      expect(find.text('Create a channel'), findsNothing);
+      await drainToastTimer(tester);
+    });
+
+    testWidgets('pressing Enter with no name asks for one', (tester) async {
+      await openModal(tester);
+
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Channel name is required'), findsOneWidget);
+      expect(notifier.createCalls, 0);
+    });
+
     testWidgets('clears the name error once a name is typed', (tester) async {
       await openModal(tester);
       await tester.tap(find.text('Create'));
