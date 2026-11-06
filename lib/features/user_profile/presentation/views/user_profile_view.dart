@@ -72,8 +72,24 @@ class _ProfileContent extends StatelessWidget {
     // Notifications scrolls on its own so its unsaved-changes bar can stay
     // pinned below the scrolling content.
     if (state.section == UserProfileSection.notifications) {
+      final notifications = state.notifications;
+      // Defaults shown as if saved would be written back on the first
+      // toggle, overwriting the real settings: offer a retry instead.
+      if (notifications == null) {
+        return Padding(
+          padding: padding,
+          child: Align(
+            alignment: Alignment.topLeft,
+            child: _SectionLoadError(
+              title: "We couldn't load your notification settings.",
+              isLoading: state.isLoading,
+              onRetry: notifier.load,
+            ),
+          ),
+        );
+      }
       return NotificationsSection(
-        preferences: state.notifications ?? NotificationPreferences.empty(),
+        preferences: notifications,
         isSaving: state.isSaving,
         onSave: notifier.updateNotificationPreferences,
         workspaceName: workspaceName,
@@ -109,7 +125,8 @@ class _ProfileContent extends StatelessWidget {
             ),
             UserProfileSection.organization =>
               organization == null
-                  ? _OrganizationLoadError(
+                  ? _SectionLoadError(
+                      title: "We couldn't load your organization details.",
                       isLoading: state.isLoading,
                       onRetry: notifier.load,
                     )
@@ -141,14 +158,15 @@ class _ProfileContent extends StatelessWidget {
   }
 }
 
-/// Shown instead of made-up values when the organization details can't be
-/// loaded.
-class _OrganizationLoadError extends StatelessWidget {
-  const _OrganizationLoadError({
+/// Shown instead of made-up values when a section's data can't be loaded.
+class _SectionLoadError extends StatelessWidget {
+  const _SectionLoadError({
+    required this.title,
     required this.isLoading,
     required this.onRetry,
   });
 
+  final String title;
   final bool isLoading;
   final VoidCallback onRetry;
 
@@ -160,8 +178,8 @@ class _OrganizationLoadError extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          "We couldn't load your organization details.",
+        Text(
+          title,
           style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
         ),
         const SizedBox(height: 8),
