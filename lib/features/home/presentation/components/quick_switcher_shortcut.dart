@@ -13,6 +13,12 @@ class QuickSwitcherShortcut extends ConsumerStatefulWidget {
 
   const QuickSwitcherShortcut({super.key, required this.child, this.router});
 
+  /// Opens the switcher from a click, as Ctrl+K does, with the same checks:
+  /// signed in, and not already open.
+  static void open(BuildContext context) => context
+      .findAncestorStateOfType<_QuickSwitcherShortcutState>()
+      ?._showSwitcher();
+
   @override
   ConsumerState<QuickSwitcherShortcut> createState() =>
       _QuickSwitcherShortcutState();

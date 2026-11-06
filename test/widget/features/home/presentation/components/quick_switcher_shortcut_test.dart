@@ -78,6 +78,12 @@ GoRouter _router({required bool withTextField}) => GoRouter(
             : const Text('settings screen'),
       ),
     ),
+    GoRoute(
+      path: '/search-bar',
+      builder: (_, _) => const Scaffold(
+        body: Align(alignment: Alignment.topLeft, child: TopBarSearchBox()),
+      ),
+    ),
   ],
 );
 
@@ -135,6 +141,51 @@ Future<void> _pressCtrlSlash(WidgetTester tester) async {
 }
 
 void main() {
+  group('Top bar search box', () {
+    Future<ProviderContainer> pumpOnSearchBar(
+      WidgetTester tester, {
+      AuthStatus status = AuthStatus.authenticated,
+    }) async {
+      final container = await _pump(tester, status: status);
+      final router = GoRouter.of(tester.element(find.byType(Scaffold).first));
+      router.go('/search-bar');
+      await tester.pumpAndSettle();
+      return container;
+    }
+
+    testWidgets('clicking it opens the quick switcher', (tester) async {
+      await pumpOnSearchBar(tester);
+
+      await tester.tap(find.byType(TopBarSearchBox));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(QuickSwitcherDialog), findsOneWidget);
+      expect(find.text('general'), findsOneWidget);
+    });
+
+    testWidgets('a second click does not stack another switcher', (
+      tester,
+    ) async {
+      await pumpOnSearchBar(tester);
+
+      final box = tester.element(find.byType(TopBarSearchBox));
+      QuickSwitcherShortcut.open(box);
+      QuickSwitcherShortcut.open(box);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(QuickSwitcherDialog), findsOneWidget);
+    });
+
+    testWidgets('does nothing when signed out', (tester) async {
+      await pumpOnSearchBar(tester, status: AuthStatus.unauthenticated);
+
+      await tester.tap(find.byType(TopBarSearchBox));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(QuickSwitcherDialog), findsNothing);
+    });
+  });
+
   group('Keyboard shortcuts list', () {
     testWidgets('Ctrl+/ opens it, even with a text field focused', (
       tester,

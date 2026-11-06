@@ -12,4 +12,5 @@ export 'sidebar_channel_list.dart';
 export 'keyboard_shortcuts_dialog.dart';
 export 'quick_switcher.dart';
 export 'quick_switcher_shortcut.dart';
+export 'top_bar_search_box.dart';
 export 'desktop_window_title_listener.dart';
