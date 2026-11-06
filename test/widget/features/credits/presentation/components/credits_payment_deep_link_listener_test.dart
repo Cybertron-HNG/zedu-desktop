@@ -213,7 +213,91 @@ void main() {
       expect(session, 'cs-2');
       expect(org, 'org-9');
     });
+
+    testWidgets(
+      'a payment link opened before sign-in is verified once a workspace is known',
+      (tester) async {
+        final verified = <(String, String)>[];
+        when(() => mockAppLinks.getInitialLink()).thenAnswer(
+          (_) async =>
+              Uri.parse('zedu://credits/payment-success?session_id=cs-3'),
+        );
+        final router = GoRouter(
+          initialLocation: AppRouter.login,
+          navigatorKey: AppRouter.navigatorKey,
+          routes: [
+            GoRoute(
+              path: AppRouter.login,
+              builder: (context, state) =>
+                  const Scaffold(body: Text('Login screen')),
+            ),
+            GoRoute(
+              path: AppRouter.buyCredits,
+              builder: (context, state) =>
+                  const Scaffold(body: Text('Credits screen')),
+            ),
+          ],
+        );
+
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              creditsOrgIdProvider.overrideWith((ref) => ref.watch(_orgId)),
+              creditsNotifierProvider.overrideWith(
+                () => _SpyCreditsNotifier(
+                  onVerify: (sessionId, orgId) =>
+                      verified.add((sessionId, orgId)),
+                ),
+              ),
+            ],
+            child: MaterialApp.router(
+              routerConfig: router,
+              builder: (context, child) => CreditsPaymentDeepLinkListener(
+                appLinks: mockAppLinks,
+                child: child ?? const SizedBox.shrink(),
+              ),
+            ),
+          ),
+        );
+        await tester.pump();
+        await tester.pump();
+
+        // Cold start: no workspace yet, so nothing can be verified.
+        expect(verified, isEmpty);
+
+        // Signing in makes the workspace known: the held link is verified.
+        final container = ProviderScope.containerOf(
+          tester.element(find.byType(CreditsPaymentDeepLinkListener)),
+        );
+        container.read(_orgId.notifier).set('org-1');
+        await tester.pump();
+        await tester.pump();
+        expect(verified, [('cs-3', 'org-1')]);
+
+        // The same link again, or another workspace change, is not
+        // verified twice.
+        linkController.add(
+          Uri.parse('zedu://credits/payment-success?session_id=cs-3'),
+        );
+        container.read(_orgId.notifier).set('org-2');
+        await tester.pump();
+        await tester.pump();
+        expect(verified, [('cs-3', 'org-1')]);
+
+        await tester.pump(const Duration(seconds: 5));
+        await tester.pumpAndSettle();
+      },
+    );
   });
+}
+
+final _orgId = NotifierProvider<_OrgId, String>(_OrgId.new);
+
+class _OrgId extends Notifier<String> {
+  @override
+  String build() => '';
+
+  void set(String value) => state = value;
 }
 
 class _SpyCreditsNotifier extends CreditsNotifier {

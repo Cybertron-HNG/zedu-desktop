@@ -24,12 +24,22 @@ class _CreditsPaymentDeepLinkListenerState
   StreamSubscription<Uri>? _linkSubscription;
   String? _lastProcessedSessionId;
 
+  /// A payment link that arrived before any workspace was known, as on a
+  /// cold start from the link. It is verified once a workspace is.
+  String? _pendingSessionId;
+
   static const _tag = 'CreditsPaymentDeepLinkListener';
 
   @override
   void initState() {
     super.initState();
     _appLinks = widget.appLinks ?? AppLinks();
+    ref.listenManual<String>(creditsOrgIdProvider, (_, orgId) {
+      final pending = _pendingSessionId;
+      if (pending != null && orgId.isNotEmpty) {
+        unawaited(_verifySession(pending));
+      }
+    });
     _initDeepLinks();
   }
 
@@ -53,12 +63,22 @@ class _CreditsPaymentDeepLinkListenerState
 
   Future<void> _handleUri(Uri uri) async {
     final sessionId = CreditsPaymentDeepLinkParser.extractSessionId(uri);
-    if (sessionId == null || sessionId == _lastProcessedSessionId) return;
-    _lastProcessedSessionId = sessionId;
+    if (sessionId == null) return;
+    await _verifySession(sessionId);
+  }
+
+  Future<void> _verifySession(String sessionId) async {
+    if (sessionId == _lastProcessedSessionId) return;
 
     // The purchase was made for the workspace selected in the sidebar.
     final orgId = ref.read(creditsOrgIdProvider);
-    if (orgId.isEmpty) return;
+    if (orgId.isEmpty) {
+      // Not signed in yet: keep the link instead of dropping the purchase.
+      _pendingSessionId = sessionId;
+      return;
+    }
+    _pendingSessionId = null;
+    _lastProcessedSessionId = sessionId;
 
     AppLogger.i('Verifying credit payment session', tag: _tag);
     final verified = await ref
