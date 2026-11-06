@@ -55,9 +55,24 @@ void main() {
 
     Future<void> submit(WidgetTester tester) async {
       await tester.enterText(find.byType(TextField).first, 'general');
+      // Let the name field's onChanged rebuild the dialog so Create is enabled.
+      await tester.pump();
       await tester.tap(find.text('Create'));
       await tester.pumpAndSettle();
     }
+
+    testWidgets('keeps Create disabled until a channel name is entered', (
+      tester,
+    ) async {
+      await openModal(tester);
+      final create = find.widgetWithText(ElevatedButton, 'Create');
+      expect(tester.widget<ElevatedButton>(create).onPressed, isNull);
+
+      await tester.enterText(find.byType(TextField).first, 'general');
+      await tester.pump();
+
+      expect(tester.widget<ElevatedButton>(create).onPressed, isNotNull);
+    });
 
     testWidgets('shows the server message when creating fails', (tester) async {
       await openModal(tester);
