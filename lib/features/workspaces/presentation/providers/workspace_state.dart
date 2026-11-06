@@ -18,12 +18,16 @@ class WorkspaceState {
     Workspace? selectedWorkspace,
     bool? isLoading,
     String? errorMessage,
+    bool clearSelectedWorkspace = false,
+    bool clearError = false,
   }) {
     return WorkspaceState(
       workspaces: workspaces ?? this.workspaces,
-      selectedWorkspace: selectedWorkspace ?? this.selectedWorkspace,
+      selectedWorkspace: clearSelectedWorkspace
+          ? null
+          : (selectedWorkspace ?? this.selectedWorkspace),
       isLoading: isLoading ?? this.isLoading,
-      errorMessage: errorMessage ?? this.errorMessage,
+      errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
     );
   }
 }

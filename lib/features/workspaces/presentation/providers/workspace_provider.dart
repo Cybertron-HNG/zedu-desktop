@@ -115,13 +115,14 @@ class WorkspaceNotifier extends Notifier<WorkspaceState> {
     state = state.copyWith(
       workspaces: updated,
       selectedWorkspace: switchTo ? workspace : state.selectedWorkspace,
+      clearError: true,
     );
   }
 
   Future<void> switchWorkspace(Workspace workspace) async {
     if (state.selectedWorkspace?.id == workspace.id) return;
 
-    state = state.copyWith(isLoading: true);
+    state = state.copyWith(isLoading: true, clearError: true);
 
     await Future<void>.delayed(const Duration(milliseconds: 300));
 
@@ -141,6 +142,8 @@ class WorkspaceNotifier extends Notifier<WorkspaceState> {
     state = state.copyWith(
       workspaces: updatedWorkspaces,
       selectedWorkspace: nextSelected,
+      clearSelectedWorkspace: nextSelected == null,
+      clearError: true,
     );
   }
 }
