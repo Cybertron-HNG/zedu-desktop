@@ -33,6 +33,10 @@ class NotificationSettingsNotifier extends Notifier<NotificationSettings> {
   /// Where this user's mutes are remembered (null while signed out).
   String? _mutedKey;
 
+  /// Unmuted while the saved mutes were still loading, so the restore must
+  /// not bring them back.
+  final Set<String> _unmutedWhileRestoring = {};
+
   @override
   NotificationSettings build() {
     ref.onDispose(() => _dndExpiry?.cancel());
@@ -42,16 +46,24 @@ class NotificationSettingsNotifier extends Notifier<NotificationSettings> {
         ? null
         : DmPreferencesStore.mutedKey(userId);
     final key = _mutedKey;
+    _unmutedWhileRestoring.clear();
     if (key != null) _restoreMuted(key);
     return const NotificationSettings();
   }
 
   Future<void> _restoreMuted(String key) async {
     final saved = await ref.read(dmPreferencesStoreProvider).read(key);
-    if (!ref.mounted || _mutedKey != key || saved.isEmpty) return;
-    // Keep anything muted while the saved list was loading.
+    if (!ref.mounted || _mutedKey != key) return;
+    final unmuted = Set<String>.of(_unmutedWhileRestoring);
+    _unmutedWhileRestoring.clear();
+    if (saved.isEmpty) return;
+    // Keep anything muted while the saved list was loading, and leave out
+    // anything unmuted meanwhile: the latest action wins.
     state = state.copyWith(
-      mutedParticipantIds: {...saved, ...state.mutedParticipantIds},
+      mutedParticipantIds: {
+        ...saved.difference(unmuted),
+        ...state.mutedParticipantIds,
+      },
     );
   }
 
@@ -84,6 +96,7 @@ class NotificationSettingsNotifier extends Notifier<NotificationSettings> {
   void muteParticipant(String participantId) {
     final newMuted = Set<String>.from(state.mutedParticipantIds)
       ..add(participantId);
+    _unmutedWhileRestoring.remove(participantId);
     state = state.copyWith(mutedParticipantIds: newMuted);
     _saveMuted();
   }
@@ -91,6 +104,7 @@ class NotificationSettingsNotifier extends Notifier<NotificationSettings> {
   void unmuteParticipant(String participantId) {
     final newMuted = Set<String>.from(state.mutedParticipantIds)
       ..remove(participantId);
+    _unmutedWhileRestoring.add(participantId);
     state = state.copyWith(mutedParticipantIds: newMuted);
     _saveMuted();
   }

@@ -684,11 +684,8 @@ class DmMessageComposerState extends ConsumerState<DmMessageComposer> {
     } catch (_) {}
   }
 
-  String _formatSeconds(int total) {
-    final minutes = total ~/ 60;
-    final seconds = (total % 60).toString().padLeft(2, '0');
-    return '$minutes:$seconds';
-  }
+  String _formatSeconds(int total) =>
+      formatClockDuration(Duration(seconds: total));
 
   Widget _buildRecordingBar(AppPalette colors) {
     return Padding(

@@ -228,6 +228,9 @@ class FilesActionsNotifier extends Notifier<FilesActionsState> {
       uploadsLeft: state.uploadsLeft,
       busyFileIds: state.busyFileIds,
     );
+    // The workspace changed while the folder was being created: the result
+    // belongs to the old one, so it must not change the new one's Files.
+    if (ref.read(currentOrgIdProvider) != orgId) return null;
     switch (result) {
       case Success():
         ref.read(filesProvider.notifier).setTab(FilesTab.folders);
