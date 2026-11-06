@@ -13,6 +13,40 @@ class _BuzzMeetingViewState extends ConsumerState<BuzzMeetingView> {
   bool _isVideoOff = false;
   bool _isHandRaised = false;
 
+  // These buttons drive the call itself, not just their icons: the icon only
+  // changes once the engine has muted or unmuted (Ziki #2935).
+  Future<void> _toggleMute() async {
+    final mute = !_isMuted;
+    if (await _apply(() => ref.read(buzzEngineProvider).toggleMic(mute))) {
+      setState(() => _isMuted = mute);
+    }
+  }
+
+  Future<void> _toggleCamera() async {
+    final off = !_isVideoOff;
+    if (await _apply(() => ref.read(buzzEngineProvider).toggleVideo(off))) {
+      setState(() => _isVideoOff = off);
+    }
+  }
+
+  /// Runs [change] on the call engine. Returns whether it worked and this view
+  /// is still on screen; tells the user when it didn't work.
+  Future<bool> _apply(Future<void> Function() change) async {
+    try {
+      await change();
+    } catch (_) {
+      if (mounted) {
+        AppToastService.show(
+          context,
+          type: AppToastType.error,
+          message: "Couldn't change that on the call. Please try again.",
+        );
+      }
+      return false;
+    }
+    return mounted;
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
@@ -128,7 +162,7 @@ class _BuzzMeetingViewState extends ConsumerState<BuzzMeetingView> {
                         color: _isMuted
                             ? Colors.red
                             : colors.primary.withValues(alpha: 0.2),
-                        onTap: () => setState(() => _isMuted = !_isMuted),
+                        onTap: _toggleMute,
                         small: true,
                       ),
                       const SizedBox(width: 8),
@@ -140,7 +174,7 @@ class _BuzzMeetingViewState extends ConsumerState<BuzzMeetingView> {
                         color: _isVideoOff
                             ? Colors.red
                             : colors.primary.withValues(alpha: 0.2),
-                        onTap: () => setState(() => _isVideoOff = !_isVideoOff),
+                        onTap: _toggleCamera,
                         small: true,
                       ),
                       const SizedBox(width: 8),
@@ -256,7 +290,7 @@ class _BuzzMeetingViewState extends ConsumerState<BuzzMeetingView> {
                   color: _isMuted
                       ? Colors.red
                       : colors.primary.withValues(alpha: 0.2),
-                  onTap: () => setState(() => _isMuted = !_isMuted),
+                  onTap: _toggleMute,
                   small: false,
                 ),
                 if (kUnfinishedFeaturesEnabled) ...[
@@ -280,7 +314,7 @@ class _BuzzMeetingViewState extends ConsumerState<BuzzMeetingView> {
                   color: _isVideoOff
                       ? Colors.red
                       : colors.primary.withValues(alpha: 0.2),
-                  onTap: () => setState(() => _isVideoOff = !_isVideoOff),
+                  onTap: _toggleCamera,
                   small: false,
                 ),
                 const SizedBox(width: 16),

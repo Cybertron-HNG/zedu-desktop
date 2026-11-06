@@ -16,12 +16,38 @@ class FakeActiveCallNotifier extends ActiveCallNotifier {
   ActiveCallState get state => _fakeState;
 }
 
-Widget buildBuzzMeetingViewUnderTest({required bool isFullPage}) {
+/// Records what the call buttons ask the engine to do.
+class FakeBuzzEngine implements BuzzEngineService {
+  final mic = <bool>[];
+  final video = <bool>[];
+  bool fail = false;
+
+  @override
+  Future<void> toggleMic(bool mute) async {
+    if (fail) throw Exception('engine not ready');
+    mic.add(mute);
+  }
+
+  @override
+  Future<void> toggleVideo(bool mute) async {
+    if (fail) throw Exception('engine not ready');
+    video.add(mute);
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+Widget buildBuzzMeetingViewUnderTest({
+  required bool isFullPage,
+  FakeBuzzEngine? engine,
+}) {
   return ProviderScope(
     overrides: [
       activeCallProvider.overrideWith(
         (ref) => FakeActiveCallNotifier(ref, isFullPage: isFullPage),
       ),
+      buzzEngineProvider.overrideWithValue(engine ?? FakeBuzzEngine()),
     ],
     // The compact view is a Positioned, so it needs a Stack ancestor.
     child: MaterialApp(
@@ -74,6 +100,67 @@ void main() {
 
       // Let the toast's auto-dismiss timer finish.
       await tester.pump(const Duration(seconds: 10));
+    });
+  });
+
+  group('BuzzMeetingView mute and camera (#2935)', () {
+    for (final isFullPage in [true, false]) {
+      final view = isFullPage ? 'full-page' : 'compact';
+
+      testWidgets('$view: mute and unmute reach the call engine', (
+        tester,
+      ) async {
+        final engine = FakeBuzzEngine();
+        await tester.pumpWidget(
+          buildBuzzMeetingViewUnderTest(isFullPage: isFullPage, engine: engine),
+        );
+
+        await tester.tap(find.byTooltip('Mute'));
+        await tester.pump();
+        expect(engine.mic, [true]);
+        expect(find.byTooltip('Unmute'), findsOneWidget);
+
+        await tester.tap(find.byTooltip('Unmute'));
+        await tester.pump();
+        expect(engine.mic, [true, false]);
+        expect(find.byTooltip('Mute'), findsOneWidget);
+      });
+
+      testWidgets('$view: the camera button reaches the call engine', (
+        tester,
+      ) async {
+        final engine = FakeBuzzEngine();
+        await tester.pumpWidget(
+          buildBuzzMeetingViewUnderTest(isFullPage: isFullPage, engine: engine),
+        );
+
+        await tester.tap(find.byTooltip('Turn camera off'));
+        await tester.pump();
+        expect(engine.video, [true]);
+        expect(find.byTooltip('Turn camera on'), findsOneWidget);
+      });
+    }
+
+    testWidgets('a mute the engine refuses leaves the button as it was', (
+      tester,
+    ) async {
+      final engine = FakeBuzzEngine()..fail = true;
+      await tester.pumpWidget(
+        buildBuzzMeetingViewUnderTest(isFullPage: true, engine: engine),
+      );
+
+      await tester.tap(find.byTooltip('Mute'));
+      await tester.pump();
+
+      expect(find.byTooltip('Mute'), findsOneWidget);
+      expect(find.byTooltip('Unmute'), findsNothing);
+      expect(
+        find.text("Couldn't change that on the call. Please try again."),
+        findsOneWidget,
+      );
+      // Let the toast's dismiss timer run out.
+      await tester.pump(const Duration(seconds: 5));
+      await tester.pumpAndSettle();
     });
   });
 }
