@@ -10,9 +10,15 @@ class PeopleSearchField extends StatefulWidget {
     required this.hintText,
     required this.onChanged,
     this.onDark = false,
+    this.text,
   });
 
   final String hintText;
+
+  /// The search in force, when another box can change it too. The field
+  /// shows it unless the user is still typing here.
+  final String? text;
+
   final ValueChanged<String> onChanged;
   final bool onDark;
 
@@ -21,8 +27,16 @@ class PeopleSearchField extends StatefulWidget {
 }
 
 class _PeopleSearchFieldState extends State<PeopleSearchField> {
-  final _controller = TextEditingController();
+  late final _controller = TextEditingController(text: widget.text);
   Timer? _debounce;
+
+  @override
+  void didUpdateWidget(PeopleSearchField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final text = widget.text;
+    if (text == null || _debounce?.isActive == true) return;
+    if (_controller.text.trim() != text) _controller.text = text;
+  }
 
   @override
   void dispose() {

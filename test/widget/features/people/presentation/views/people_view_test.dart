@@ -107,7 +107,7 @@ void main() {
     await _pump(tester, people);
 
     await tester.enterText(
-      find.widgetWithText(TextField, 'Search for people'),
+      find.widgetWithText(TextField, 'Search for people').last,
       'grace',
     );
     await tester.pump(const Duration(milliseconds: 350));
@@ -115,15 +115,45 @@ void main() {
 
     expect(people.searches, contains('grace'));
     expect(find.text('Showing 1 of 1 members'), findsOneWidget);
-    // The sidebar keeps its own list.
-    expect(find.text('Ada Lovelace'), findsOneWidget);
+    // One search for the whole tab: the sidebar filters too.
+    expect(find.text('Ada Lovelace'), findsNothing);
+    expect(find.text('Grace Hopper'), findsNWidgets(2));
+  });
+
+  testWidgets('the sidebar search filters the grid and fills its box', (
+    tester,
+  ) async {
+    final people = _FakePeopleRepository();
+    await _pump(tester, people);
+
+    final boxes = find.widgetWithText(TextField, 'Search for people');
+    expect(boxes, findsNWidgets(2));
+    expect(find.text('Find a conversation'), findsNothing);
+
+    await tester.enterText(boxes.first, 'ada');
+    await tester.pump(const Duration(milliseconds: 350));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Showing 1 of 1 members'), findsOneWidget);
+    expect(find.text('Grace Hopper'), findsNothing);
+    expect(find.text('Ada Lovelace'), findsNWidgets(2));
+    // Both boxes show the search in force.
+    final fields = tester.widgetList<TextField>(find.byType(TextField));
+    expect(fields.map((f) => f.controller!.text), everyElement('ada'));
+    // One request per search, not one per box.
+    expect(people.searches.where((s) => s == 'ada'), hasLength(1));
+
+    await tester.tap(find.byTooltip('Clear search').last);
+    await tester.pumpAndSettle();
+    expect(find.text('Showing 2 of 60 members'), findsOneWidget);
+    expect(find.text('Grace Hopper'), findsNWidgets(2));
   });
 
   testWidgets('a search with no match says so', (tester) async {
     await _pump(tester, _FakePeopleRepository());
 
     await tester.enterText(
-      find.widgetWithText(TextField, 'Search for people'),
+      find.widgetWithText(TextField, 'Search for people').last,
       'zzz',
     );
     await tester.pump(const Duration(milliseconds: 350));

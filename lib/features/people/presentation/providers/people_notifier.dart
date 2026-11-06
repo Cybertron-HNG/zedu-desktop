@@ -148,3 +148,14 @@ class PeopleActionsNotifier extends Notifier<String?> {
     }
   }
 }
+
+/// What the People tab is searching for; '' lists everyone.
+class PeopleSearchNotifier extends Notifier<String> {
+  @override
+  String build() {
+    ref.watch(currentOrgIdProvider);
+    return '';
+  }
+
+  void set(String value) => state = value.trim();
+}

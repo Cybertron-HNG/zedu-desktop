@@ -11,12 +11,11 @@ class PeopleSidebar extends ConsumerStatefulWidget {
 }
 
 class _PeopleSidebarState extends ConsumerState<PeopleSidebar> {
-  String _search = '';
-
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    final members = ref.watch(peopleListProvider(_search));
+    final search = ref.watch(peopleSearchProvider);
+    final members = ref.watch(peopleListProvider(search));
 
     return Container(
       width: 320,
@@ -28,9 +27,10 @@ class _PeopleSidebarState extends ConsumerState<PeopleSidebar> {
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
             child: PeopleSearchField(
-              hintText: 'Find a conversation',
+              hintText: 'Search for people',
               onDark: true,
-              onChanged: (value) => setState(() => _search = value.trim()),
+              text: search,
+              onChanged: ref.read(peopleSearchProvider.notifier).set,
             ),
           ),
           Expanded(
@@ -40,11 +40,11 @@ class _PeopleSidebarState extends ConsumerState<PeopleSidebar> {
               ),
               error: (_, _) => _SidebarMessage(
                 text: 'Could not load people',
-                onRetry: () => ref.invalidate(peopleListProvider(_search)),
+                onRetry: () => ref.invalidate(peopleListProvider(search)),
               ),
               data: (list) => list.members.isEmpty
                   ? const _SidebarMessage(text: 'No available member')
-                  : _MemberList(search: _search, list: list),
+                  : _MemberList(search: search, list: list),
             ),
           ),
         ],

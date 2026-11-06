@@ -18,6 +18,13 @@ final peopleListProvider = AsyncNotifierProvider.autoDispose
       PeopleListNotifier.new,
     );
 
+/// The People tab's one search, shared by the sidebar and the member grid
+/// so a name typed in either box filters both. Clears on a workspace switch.
+final peopleSearchProvider =
+    NotifierProvider.autoDispose<PeopleSearchNotifier, String>(
+      PeopleSearchNotifier.new,
+    );
+
 final peopleActionsProvider = NotifierProvider<PeopleActionsNotifier, String?>(
   PeopleActionsNotifier.new,
 );

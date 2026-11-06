@@ -11,12 +11,11 @@ class PeopleView extends ConsumerStatefulWidget {
 }
 
 class _PeopleViewState extends ConsumerState<PeopleView> {
-  String _search = '';
-
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    final members = ref.watch(peopleListProvider(_search));
+    final search = ref.watch(peopleSearchProvider);
+    final members = ref.watch(peopleListProvider(search));
 
     return Container(
       color: colors.onPrimary,
@@ -28,7 +27,8 @@ class _PeopleViewState extends ConsumerState<PeopleView> {
             padding: const EdgeInsets.fromLTRB(24, 20, 24, 16),
             child: PeopleSearchField(
               hintText: 'Search for people',
-              onChanged: (value) => setState(() => _search = value.trim()),
+              text: search,
+              onChanged: ref.read(peopleSearchProvider.notifier).set,
             ),
           ),
           Expanded(
@@ -38,15 +38,15 @@ class _PeopleViewState extends ConsumerState<PeopleView> {
               ),
               error: (_, _) => _Message(
                 text: 'Could not load members.',
-                onRetry: () => ref.invalidate(peopleListProvider(_search)),
+                onRetry: () => ref.invalidate(peopleListProvider(search)),
               ),
               data: (list) => list.members.isEmpty
                   ? _Message(
-                      text: _search.isEmpty
+                      text: search.isEmpty
                           ? 'No members yet.'
                           : 'No members found matching your search.',
                     )
-                  : _MemberGrid(search: _search, list: list),
+                  : _MemberGrid(search: search, list: list),
             ),
           ),
         ],
