@@ -206,6 +206,39 @@ void main() {
       expect(await pending, isNull);
       expect(container.read(filesProvider).tab, FilesTab.folders);
     });
+
+    test(
+      'a folder created from a later page goes back to page 1, where it is',
+      () async {
+        container.read(filesProvider.notifier)
+          ..setTab(FilesTab.folders)
+          ..setFolderPage(3);
+
+        final pending = container
+            .read(filesActionsProvider.notifier)
+            .createFolder('Plans');
+        repository.done.complete(const Success(null));
+
+        expect(await pending, isNull);
+        expect(container.read(filesProvider).folderPage, 1);
+      },
+    );
+
+    test('a failed create leaves the folders page alone', () async {
+      container.read(filesProvider.notifier)
+        ..setTab(FilesTab.folders)
+        ..setFolderPage(3);
+
+      final pending = container
+          .read(filesActionsProvider.notifier)
+          .createFolder('Plans');
+      repository.done.complete(
+        const Failure(ApiFailure(message: 'Folder name already exists')),
+      );
+
+      expect(await pending, 'Folder name already exists');
+      expect(container.read(filesProvider).folderPage, 3);
+    });
   });
 }
 

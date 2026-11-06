@@ -211,7 +211,11 @@ class FilesActionsNotifier extends Notifier<FilesActionsState> {
     if (ref.read(currentOrgIdProvider) != orgId) return null;
     switch (result) {
       case Success():
-        ref.read(filesProvider.notifier).setTab(FilesTab.folders);
+        // Folders are listed newest first, so the new one is on page 1:
+        // reloading the page the user had paged to would not show it.
+        ref.read(filesProvider.notifier)
+          ..setTab(FilesTab.folders)
+          ..setFolderPage(1);
         ref.invalidate(foldersListProvider);
         return null;
       case Failure(:final error):
