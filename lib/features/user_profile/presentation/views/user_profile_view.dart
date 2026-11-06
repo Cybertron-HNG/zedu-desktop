@@ -110,7 +110,7 @@ class _ProfileContent extends StatelessWidget {
             UserProfileSection.organization =>
               organization == null
                   ? _SectionLoadError(
-                      message: "We couldn't load your organization details.",
+                      title: "We couldn't load your organization details.",
                       isLoading: state.isLoading,
                       onRetry: notifier.load,
                     )
@@ -125,7 +125,7 @@ class _ProfileContent extends StatelessWidget {
             UserProfileSection.userManagement =>
               state.teamMembersLoadFailed && state.teamMembers.isEmpty
                   ? _SectionLoadError(
-                      message: "We couldn't load your team members.",
+                      title: "We couldn't load your team members.",
                       isLoading: state.isLoading,
                       onRetry: notifier.load,
                     )
@@ -150,16 +150,15 @@ class _ProfileContent extends StatelessWidget {
   }
 }
 
-/// Shown instead of made-up values when the organization details can't be
-/// loaded.
+/// Shown instead of made-up values when a section's data can't be loaded.
 class _SectionLoadError extends StatelessWidget {
   const _SectionLoadError({
-    required this.message,
+    required this.title,
     required this.isLoading,
     required this.onRetry,
   });
 
-  final String message;
+  final String title;
   final bool isLoading;
   final VoidCallback onRetry;
 
@@ -172,8 +171,8 @@ class _SectionLoadError extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          message,
-          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+          title,
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
         ),
         const SizedBox(height: 8),
         const Text('Check your connection and try again.'),
