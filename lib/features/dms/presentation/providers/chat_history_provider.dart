@@ -607,6 +607,16 @@ class ChatHistoryNotifier extends ChangeNotifier {
     notifyListeners();
 
     try {
+      ref
+          .read(laterMessagesProvider.notifier)
+          .handleMessageDeleted(
+            channelId: channelId,
+            messageId: messageId,
+            threadId: threadId,
+          );
+    } catch (_) {}
+
+    try {
       final repository = ref.read(dmRepositoryProvider);
       await repository.deleteMessage(threadId: threadId, channelId: channelId);
     } catch (_) {
@@ -653,6 +663,17 @@ class ChatHistoryNotifier extends ChangeNotifier {
       editingMessageId = null;
     }
     notifyListeners();
+
+    try {
+      ref
+          .read(laterMessagesProvider.notifier)
+          .handleMessageEdited(
+            channelId: channelId,
+            messageId: messageId,
+            threadId: threadId,
+            newContent: newContent,
+          );
+    } catch (_) {}
 
     _editsInFlight.add(messageId);
     try {

@@ -728,13 +728,34 @@ class _SavedLaterCard extends StatelessWidget {
                       ),
                     ),
                   ],
+                  if (item.isDeleted) ...[
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: colors.error.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        'Deleted',
+                        style: context.textTheme.bodySmall?.copyWith(
+                          color: colors.error,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
                   const Spacer(),
-                  TextButton.icon(
-                    key: ValueKey('later-open-${item.id}'),
-                    onPressed: onOpenConversation,
-                    icon: const Icon(Icons.open_in_new, size: 15),
-                    label: const Text('Open in conversation'),
-                  ),
+                  if (!item.isDeleted)
+                    TextButton.icon(
+                      key: ValueKey('later-open-${item.id}'),
+                      onPressed: onOpenConversation,
+                      icon: const Icon(Icons.open_in_new, size: 15),
+                      label: const Text('Open in conversation'),
+                    ),
                   IconButton(
                     key: ValueKey('later-complete-${item.id}'),
                     tooltip: item.isCompleted
@@ -816,7 +837,12 @@ class _SavedLaterCard extends StatelessWidget {
                               item.content,
                               TextStyle(
                                 fontSize: 15,
-                                color: colors.textPrimary,
+                                color: item.isDeleted
+                                    ? colors.textSecondary
+                                    : colors.textPrimary,
+                                fontStyle: item.isDeleted
+                                    ? FontStyle.italic
+                                    : FontStyle.normal,
                               ),
                             ),
                           ),

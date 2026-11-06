@@ -182,6 +182,7 @@ class _ChannelMessageListState extends ConsumerState<ChannelMessageList> {
                   SavedLaterItem(
                     id: savedId,
                     messageId: message.id ?? messageKey,
+                    threadId: message.id,
                     channelId: channelId,
                     conversationName: channelName,
                     isChannel: true,

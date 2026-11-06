@@ -89,6 +89,8 @@ void main() {
         'access_token': 'token',
         'dm_draft_u1_org-1_ch-a': '{"text":"secret","updatedAt":1}',
         'dm_draft_u2_org-1_ch-a': '{"text":"other user","updatedAt":2}',
+        'zedu_later_u1_org-1': '[{"id":"1"}]',
+        'zedu_later_u2_org-1': '[{"id":"2"}]',
       };
       final repo = MockAuthRepository();
       locator.registerSingleton<SecureStorageService>(_storageOver(disk));
@@ -108,8 +110,10 @@ void main() {
       await notifier.logout();
 
       expect(disk.containsKey('dm_draft_u1_org-1_ch-a'), isFalse);
+      expect(disk.containsKey('zedu_later_u1_org-1'), isFalse);
       expect(disk.containsKey('access_token'), isFalse);
       expect(disk.containsKey('dm_draft_u2_org-1_ch-a'), isTrue);
+      expect(disk.containsKey('zedu_later_u2_org-1'), isTrue);
       expect(
         container.read(authNotifierProvider).status,
         AuthStatus.unauthenticated,

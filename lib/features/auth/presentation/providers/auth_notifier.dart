@@ -365,13 +365,21 @@ class AuthNotifier extends Notifier<AuthState> {
 
   Future<void> logout() async {
     AppLogger.i('Logout — clearing session', tag: _tag);
-    // Unsent DM drafts are private: don't leave them on a shared computer.
+    // Unsent DM drafts and saved messages are private: don't leave them on a shared computer.
     final userId = state.user?.id;
     if (userId != null && userId.isNotEmpty) {
       try {
         await DmDraftStore.deleteAllForUser(_storage, userId);
       } catch (error) {
         AppLogger.w('Could not remove drafts on logout - $error', tag: _tag);
+      }
+      try {
+        await LaterMessagesStore.deleteAllForUser(_storage, userId);
+      } catch (error) {
+        AppLogger.w(
+          'Could not remove saved messages on logout - $error',
+          tag: _tag,
+        );
       }
     }
     await _storage.deleteAccessToken();

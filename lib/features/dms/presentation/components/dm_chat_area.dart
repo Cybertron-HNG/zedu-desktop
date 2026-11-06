@@ -1053,12 +1053,14 @@ class _MessageBubble extends ConsumerWidget {
     );
 
     Future<void> toggleSaveForLater() async {
+      final threadId = (message['thread_id'] ?? message['id'])?.toString();
       final nowSaved = await ref
           .read(laterMessagesProvider.notifier)
           .toggleSaved(
             SavedLaterItem(
               id: savedId,
               messageId: messageKey,
+              threadId: threadId,
               channelId: channelId,
               conversationName: conversation.displayName,
               isChannel: false,
