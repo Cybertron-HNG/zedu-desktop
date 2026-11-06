@@ -79,6 +79,24 @@ void main() {
       expect(find.text('Create a channel'), findsOneWidget);
     });
 
+    testWidgets(
+      'a failure with an empty message still says it failed (#2938)',
+      (tester) async {
+        await openModal(tester);
+        notifier.result = const Failure<Channel>(
+          ApiFailure(message: '  ', kind: ApiFailureKind.client),
+        );
+
+        await submit(tester);
+
+        expect(
+          find.text('Could not create the channel. Please try again.'),
+          findsOneWidget,
+        );
+        expect(find.text('Create a channel'), findsOneWidget);
+      },
+    );
+
     testWidgets('does not show an old error when opened again', (tester) async {
       await openModal(tester);
       await submit(tester);

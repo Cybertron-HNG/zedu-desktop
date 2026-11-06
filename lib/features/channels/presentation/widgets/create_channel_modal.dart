@@ -57,9 +57,14 @@ class _CreateChannelModalState extends ConsumerState<CreateChannelModal> {
           message: 'Channel created',
         );
       case Failure<Channel>(:final error):
+        // A 4xx comes back with the server's message as is, which can be
+        // empty: show a readable line instead of a blank one (Ziki #2938).
+        final message = error.message.trim();
         setState(() {
           _isCreating = false;
-          _errorMessage = error.message;
+          _errorMessage = message.isEmpty
+              ? 'Could not create the channel. Please try again.'
+              : message;
         });
     }
   }
