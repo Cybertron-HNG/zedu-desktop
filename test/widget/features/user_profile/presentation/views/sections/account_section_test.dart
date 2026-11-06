@@ -120,4 +120,32 @@ void main() {
     expect(container.read(reduceMotionProvider), isTrue);
     expect(tester.widget<Switch>(find.byType(Switch)).value, isTrue);
   });
+
+  testWidgets('keeps a long email on one line with its tooltip (#2921)', (
+    tester,
+  ) async {
+    const email = 'henryuks129.longer.address@gmail.com';
+    await _pump(tester, account.copyWith(email: email));
+    // Narrow enough that the address can't fit in its card.
+    tester.view.physicalSize = const Size(700, 1000);
+    await tester.pumpAndSettle();
+
+    final text = tester.widget<Text>(find.text(email));
+    expect(text.maxLines, 1);
+    expect(text.softWrap, isFalse);
+    expect(text.overflow, TextOverflow.ellipsis);
+    expect(tester.getSize(find.text(email)).height, lessThan(30));
+    expect(
+      find.ancestor(of: find.text(email), matching: find.byType(Tooltip)),
+      findsOneWidget,
+    );
+    expect(
+      tester
+          .widget<Tooltip>(
+            find.ancestor(of: find.text(email), matching: find.byType(Tooltip)),
+          )
+          .message,
+      email,
+    );
+  });
 }
