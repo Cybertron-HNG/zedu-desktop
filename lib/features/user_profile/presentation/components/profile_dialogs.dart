@@ -46,30 +46,72 @@ Future<void> showEditAccountDialog(
   BuildContext context,
   ProfileAccount account,
   ValueChanged<ProfileAccount> onSave,
-) async {
-  final nameCtrl = TextEditingController(text: account.name);
-  final emailCtrl = TextEditingController(text: account.email);
-  final timezoneCtrl = TextEditingController(text: account.timezone);
-  final formKey = GlobalKey<FormState>();
+) => showDialog<void>(
+  context: context,
+  builder: (_) => _EditAccountDialog(account: account, onSave: onSave),
+);
 
-  await showDialog<void>(
-    context: context,
-    builder: (ctx) => AlertDialog(
+/// Owns its text controllers, so they are disposed only once the dialog is
+/// gone: disposing them when showDialog returned broke the close animation.
+class _EditAccountDialog extends StatefulWidget {
+  const _EditAccountDialog({required this.account, required this.onSave});
+
+  final ProfileAccount account;
+  final ValueChanged<ProfileAccount> onSave;
+
+  @override
+  State<_EditAccountDialog> createState() => _EditAccountDialogState();
+}
+
+class _EditAccountDialogState extends State<_EditAccountDialog> {
+  late final _nameCtrl = TextEditingController(text: widget.account.name);
+  late final _emailCtrl = TextEditingController(text: widget.account.email);
+  final _formKey = GlobalKey<FormState>();
+
+  // Picked from the same list as Edit profile, so only a real IANA zone can
+  // be saved (Ziki #2923). A zone saved before that isn't in the list stays
+  // selectable, so saving other fields doesn't change it.
+  late String _timezone = normalizeProfileTimezone(widget.account.timezone);
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _emailCtrl.dispose();
+    super.dispose();
+  }
+
+  void _save() {
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+    widget.onSave(
+      widget.account.copyWith(
+        name: _nameCtrl.text.trim(),
+        email: _emailCtrl.text.trim(),
+        timezone: _timezone,
+      ),
+    );
+    Navigator.pop(context);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       title: Text(
         'Edit Account',
-        style: ctx.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+        style: context.textTheme.titleMedium?.copyWith(
+          fontWeight: FontWeight.w700,
+        ),
       ),
       content: SizedBox(
         width: 480,
         child: Form(
-          key: formKey,
+          key: _formKey,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               AppTextField(
                 label: 'Name',
-                controller: nameCtrl,
+                controller: _nameCtrl,
                 hint: 'Enter your full name',
                 validator: (v) =>
                     (v == null || v.trim().isEmpty) ? 'Name is required' : null,
@@ -77,7 +119,7 @@ Future<void> showEditAccountDialog(
               const SizedBox(height: 16),
               AppTextField(
                 label: 'Email Address',
-                controller: emailCtrl,
+                controller: _emailCtrl,
                 hint: 'Enter your email',
                 keyboardType: TextInputType.emailAddress,
                 validator: (v) {
@@ -86,10 +128,28 @@ Future<void> showEditAccountDialog(
                 },
               ),
               const SizedBox(height: 16),
-              AppTextField(
-                label: 'Timezone',
-                controller: timezoneCtrl,
-                hint: 'e.g. Africa/Lagos',
+              Align(
+                alignment: Alignment.centerLeft,
+                child: ProfileFieldLabel('Timezone'),
+              ),
+              const SizedBox(height: 6),
+              DropdownButtonFormField<String>(
+                initialValue: _timezone,
+                isExpanded: true,
+                items: [
+                  if (!kProfileTimezones.containsKey(_timezone))
+                    DropdownMenuItem(
+                      value: _timezone,
+                      child: Text(_timezone, overflow: TextOverflow.ellipsis),
+                    ),
+                  for (final zone in kProfileTimezones.entries)
+                    DropdownMenuItem(
+                      value: zone.key,
+                      child: Text(zone.value, overflow: TextOverflow.ellipsis),
+                    ),
+                ],
+                onChanged: (value) =>
+                    setState(() => _timezone = value ?? _timezone),
               ),
             ],
           ),
@@ -97,33 +157,18 @@ Future<void> showEditAccountDialog(
       ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.pop(ctx),
+          onPressed: () => Navigator.pop(context),
           child: const Text('Cancel'),
         ),
         AppButton(
           label: 'Save changes',
           expand: false,
           height: 40,
-          onPressed: () {
-            if (formKey.currentState?.validate() ?? false) {
-              onSave(
-                account.copyWith(
-                  name: nameCtrl.text.trim(),
-                  email: emailCtrl.text.trim(),
-                  timezone: timezoneCtrl.text.trim(),
-                ),
-              );
-              Navigator.pop(ctx);
-            }
-          },
+          onPressed: _save,
         ),
       ],
-    ),
-  );
-
-  nameCtrl.dispose();
-  emailCtrl.dispose();
-  timezoneCtrl.dispose();
+    );
+  }
 }
 
 /// Dialog for changing password. It stays open while [onSave] runs and closes

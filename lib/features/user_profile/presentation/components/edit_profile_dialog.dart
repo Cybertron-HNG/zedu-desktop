@@ -34,6 +34,9 @@ const Map<String, String> _kTimezones = {
   'Pacific/Auckland': '(UTC+12:00) Auckland, Wellington, Fiji',
 };
 
+/// The timezones both profile dialogs offer, by IANA id.
+const Map<String, String> kProfileTimezones = _kTimezones;
+
 /// Used when the account has no timezone (matches the profile default).
 const String _kDefaultTimezone = 'Africa/Lagos';
 
