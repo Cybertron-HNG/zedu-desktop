@@ -391,6 +391,32 @@ void main() {
       }
     }
 
+    test('a failed members load is flagged, not shown as no members', () async {
+      when(
+        () => repository.getTeamMembers(orgId: any(named: 'orgId')),
+      ).thenAnswer(
+        (_) async => const Failure(ApiFailure(message: 'Network down')),
+      );
+      final container = makeContainer();
+      container.read(userProfileNotifierProvider);
+      await waitForLoad(container);
+
+      final state = container.read(userProfileNotifierProvider);
+      expect(state.teamMembersLoadFailed, isTrue);
+      expect(state.teamMembers, isEmpty);
+    });
+
+    test('a members load that works is not flagged (Ziki #2918)', () async {
+      final container = makeContainer();
+      container.read(userProfileNotifierProvider);
+      await waitForLoad(container);
+
+      expect(
+        container.read(userProfileNotifierProvider).teamMembersLoadFailed,
+        isFalse,
+      );
+    });
+
     void stubRoles(List<Map<String, dynamic>> roleRecords) {
       recorder = _RecordingApi(
         config: locator<AppConfig>(),

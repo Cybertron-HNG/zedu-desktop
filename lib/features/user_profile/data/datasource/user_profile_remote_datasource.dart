@@ -475,8 +475,15 @@ class UserProfileRemoteDataSourceImpl implements UserProfileRemoteDataSource {
           avatarUrl: user['avatar_url'] as String?,
         );
       }).toList();
-    } catch (e) {
-      return [];
+    } on ApiFailure {
+      // A failed request must not look like an organisation with no members
+      // (Ziki #2918): let it through, like the other loaders here.
+      rethrow;
+    } catch (error) {
+      throw ApiFailure.fromParsingError(
+        error,
+        path: '/organisations/$orgId/users',
+      );
     }
   }
 

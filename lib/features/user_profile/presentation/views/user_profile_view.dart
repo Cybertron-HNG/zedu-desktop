@@ -109,7 +109,8 @@ class _ProfileContent extends StatelessWidget {
             ),
             UserProfileSection.organization =>
               organization == null
-                  ? _OrganizationLoadError(
+                  ? _SectionLoadError(
+                      message: "We couldn't load your organization details.",
                       isLoading: state.isLoading,
                       onRetry: notifier.load,
                     )
@@ -120,13 +121,21 @@ class _ProfileContent extends StatelessWidget {
                       onDelete: notifier.deleteOrganization,
                       onLeave: notifier.leaveOrganization,
                     ),
-            UserProfileSection.userManagement => UserManagementSection(
-              members: state.teamMembers,
-              isSaving: state.isSaving,
-              onInvite: notifier.inviteMember,
-              onUpdate: notifier.updateMember,
-              onRemove: notifier.removeMember,
-            ),
+            // A failed load would otherwise read as "No members found."
+            UserProfileSection.userManagement =>
+              state.teamMembersLoadFailed && state.teamMembers.isEmpty
+                  ? _SectionLoadError(
+                      message: "We couldn't load your team members.",
+                      isLoading: state.isLoading,
+                      onRetry: notifier.load,
+                    )
+                  : UserManagementSection(
+                      members: state.teamMembers,
+                      isSaving: state.isSaving,
+                      onInvite: notifier.inviteMember,
+                      onUpdate: notifier.updateMember,
+                      onRemove: notifier.removeMember,
+                    ),
             UserProfileSection.rolesAndPermissions =>
               RolesAndPermissionsSection(roles: state.rolesAndPermissions),
             UserProfileSection.webhooks => const WebhooksSection(),
@@ -143,12 +152,14 @@ class _ProfileContent extends StatelessWidget {
 
 /// Shown instead of made-up values when the organization details can't be
 /// loaded.
-class _OrganizationLoadError extends StatelessWidget {
-  const _OrganizationLoadError({
+class _SectionLoadError extends StatelessWidget {
+  const _SectionLoadError({
+    required this.message,
     required this.isLoading,
     required this.onRetry,
   });
 
+  final String message;
   final bool isLoading;
   final VoidCallback onRetry;
 
@@ -160,9 +171,9 @@ class _OrganizationLoadError extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          "We couldn't load your organization details.",
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+        Text(
+          message,
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
         ),
         const SizedBox(height: 8),
         const Text('Check your connection and try again.'),
