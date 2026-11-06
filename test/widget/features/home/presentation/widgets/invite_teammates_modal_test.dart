@@ -46,6 +46,32 @@ class FakeUserProfileNotifier extends UserProfileNotifier {
   }
 }
 
+// Fails the invites for the addresses in [failing]; records every attempt.
+class PartlyFailingUserProfileNotifier extends UserProfileNotifier {
+  PartlyFailingUserProfileNotifier(this.failing);
+
+  final Set<String> failing;
+  final List<String> attempts = [];
+
+  @override
+  UserProfileState build() => const UserProfileState();
+
+  @override
+  Future<List<Map<String, dynamic>>> fetchRegisteredUsers() async => [];
+
+  @override
+  Future<void> inviteMember({
+    required String email,
+    required String role,
+    String? userId,
+  }) async {
+    attempts.add(email);
+    state = failing.contains(email)
+        ? const UserProfileState(error: 'Already a member')
+        : const UserProfileState();
+  }
+}
+
 class FakeAddEveryoneToChannel extends AddEveryoneToChannel {
   FakeAddEveryoneToChannel(super.ref, this._result);
 
@@ -74,10 +100,11 @@ class FakeActiveChatNotifier extends ActiveChatNotifier {
 Widget buildModalUnderTest(
   Future<AddEveryoneResult> Function() result, {
   ActiveChatState chat = ActiveChatState.generalChannel,
+  UserProfileNotifier Function() profile = FakeUserProfileNotifier.new,
 }) {
   return ProviderScope(
     overrides: [
-      userProfileNotifierProvider.overrideWith(FakeUserProfileNotifier.new),
+      userProfileNotifierProvider.overrideWith(profile),
       activeChatProvider.overrideWith(() => FakeActiveChatNotifier(chat)),
       addEveryoneToChannelProvider.overrideWith(
         (ref) => fakeAddEveryone = FakeAddEveryoneToChannel(ref, result),
@@ -141,6 +168,64 @@ void main() {
       expect(find.byType(InviteTeammatesModal), findsNothing);
     });
   }
+
+  group('some invites fail (Ziki #1460)', () {
+    Future<PartlyFailingUserProfileNotifier> inviteGoodAndBad(
+      WidgetTester tester,
+    ) async {
+      final notifier = PartlyFailingUserProfileNotifier({'bad@example.com'});
+      await tester.pumpWidget(
+        buildModalUnderTest(
+          () async => const AddEveryoneNobodyToAdd('general'),
+          profile: () => notifier,
+        ),
+      );
+      await openModal(tester);
+      for (final email in ['good@example.com', 'bad@example.com']) {
+        await tester.enterText(find.byType(TextField), email);
+        await tester.testTextInput.receiveAction(TextInputAction.done);
+        await tester.pump();
+      }
+      await tester.tap(find.widgetWithText(ElevatedButton, 'Add'));
+      await tester.pump();
+      await tester.pump();
+      return notifier;
+    }
+
+    testWidgets('keeps the dialog open with only the failed address', (
+      tester,
+    ) async {
+      await inviteGoodAndBad(tester);
+
+      expect(find.text('Successfully invited 1 teammate.'), findsOneWidget);
+      expect(find.byType(InviteTeammatesModal), findsOneWidget);
+      expect(find.text('bad@example.com'), findsOneWidget);
+      expect(find.text('good@example.com'), findsNothing);
+      expect(
+        find.text("Couldn't invite bad@example.com: Already a member"),
+        findsOneWidget,
+      );
+      await drainToastTimer(tester);
+    });
+
+    testWidgets('sending again retries only the failed address', (
+      tester,
+    ) async {
+      final notifier = await inviteGoodAndBad(tester);
+      await drainToastTimer(tester);
+
+      notifier.failing.clear();
+      await tester.tap(find.widgetWithText(ElevatedButton, 'Add'));
+      await tester.pumpAndSettle();
+
+      expect(notifier.attempts, [
+        'good@example.com',
+        'bad@example.com',
+        'bad@example.com',
+      ]);
+      expect(find.byType(InviteTeammatesModal), findsNothing);
+    });
+  });
 
   testWidgets('shows the invite hint without a leading pipe', (tester) async {
     await tester.pumpWidget(

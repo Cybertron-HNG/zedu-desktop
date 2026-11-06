@@ -108,6 +108,36 @@ Future<void> _tapAndExpectToast(
 }
 
 void main() {
+  testWidgets('shows your local time next to the clock (Ziki #180)', (t) async {
+    await _pump(t);
+
+    final clockRow = find.ancestor(
+      of: find.byIcon(Icons.access_time),
+      matching: find.byType(Row),
+    );
+    expect(
+      find.descendant(
+        of: clockRow,
+        matching: find.textContaining('local time'),
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('the local time follows the clock', (t) async {
+    var now = DateTime(2026, 11, 4, 10, 2);
+    await t.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: LocalTimeLabel(now: () => now)),
+      ),
+    );
+    expect(find.text('10:02 AM local time'), findsOneWidget);
+
+    now = DateTime(2026, 11, 4, 10, 3);
+    await t.pump(const Duration(minutes: 1));
+    expect(find.text('10:03 AM local time'), findsOneWidget);
+  });
+
   testWidgets('shows Mute, Hide, View Files and Copy, but no Favourite', (
     t,
   ) async {

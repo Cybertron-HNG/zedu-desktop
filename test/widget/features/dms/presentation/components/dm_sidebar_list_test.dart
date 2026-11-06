@@ -40,10 +40,24 @@ DmConversation _conversation(String channelId, String username) {
   );
 }
 
+/// A list whose last "load more" failed, counting the retries.
+class _FailedLoadMoreNotifier extends _FakeDmListNotifier {
+  _FailedLoadMoreNotifier(super.conversations);
+
+  int retries = 0;
+
+  @override
+  bool get loadMoreFailed => true;
+
+  @override
+  Future<void> loadMore() async => retries++;
+}
+
 Future<void> _pumpSidebar(
   WidgetTester tester,
-  List<DmConversation> conversations,
-) async {
+  List<DmConversation> conversations, {
+  DmListNotifier Function()? notifier,
+}) async {
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
@@ -55,7 +69,9 @@ Future<void> _pumpSidebar(
             orgId: 'org-1',
           ),
         ),
-        dmListProvider.overrideWith(() => _FakeDmListNotifier(conversations)),
+        dmListProvider.overrideWith(
+          notifier ?? () => _FakeDmListNotifier(conversations),
+        ),
       ],
       child: buildTestMaterialApp(const Scaffold(body: DmSidebarList())),
     ),
@@ -147,5 +163,27 @@ void main() {
     await _pumpSidebar(tester, const []);
 
     expect(find.text('No recent chats'), findsOneWidget);
+  });
+
+  testWidgets('a failed "load more" shows a retry under the DMs (Ziki #2793)', (
+    tester,
+  ) async {
+    final failed = _FailedLoadMoreNotifier(conversations);
+    await _pumpSidebar(tester, conversations, notifier: () => failed);
+
+    expect(find.byType(DmListTile), findsNWidgets(3));
+    expect(find.text("Couldn't load more chats"), findsOneWidget);
+
+    await tester.tap(find.text('Retry'));
+    await tester.pump();
+
+    expect(failed.retries, 1);
+  });
+
+  testWidgets('no retry row while loading more works', (tester) async {
+    await _pumpSidebar(tester, conversations);
+
+    expect(find.text("Couldn't load more chats"), findsNothing);
+    expect(find.text('Retry'), findsNothing);
   });
 }

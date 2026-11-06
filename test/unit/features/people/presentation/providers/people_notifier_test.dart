@@ -1,9 +1,21 @@
+import 'dart:async';
+
 import 'package:zedu/core/core.dart';
 import 'package:zedu/features/features.dart';
 
 import '../../../../../helpers/helpers.dart';
 
 class MockDmRepository extends Mock implements DmRepository {}
+
+/// The open workspace, switchable mid-test.
+class _Org extends Notifier<String> {
+  @override
+  String build() => 'org-1';
+
+  void select(String id) => state = id;
+}
+
+final _orgProvider = NotifierProvider<_Org, String>(_Org.new);
 
 class _FakePeopleRepository implements PeopleRepository {
   final requests = <(int, String)>[];
@@ -138,6 +150,35 @@ void main() {
       expect(container.read(selectedDmProvider), isNull);
       expect(container.read(homeSidebarProvider), HomeSidebarType.people);
       expect(container.read(peopleActionsProvider), isNull);
+    });
+
+    test('a DM that opens after a workspace switch is ignored', () async {
+      final switching = ProviderContainer(
+        overrides: [
+          currentOrgIdProvider.overrideWith((ref) => ref.watch(_orgProvider)),
+          peopleRepositoryProvider.overrideWithValue(people),
+          dmRepositoryProvider.overrideWithValue(dms),
+        ],
+      );
+      addTearDown(switching.dispose);
+      final reply = Completer<({String channelId, String participantId})>();
+      when(
+        () => dms.openConversation(orgId: 'org-1', participantId: 'u-1'),
+      ).thenAnswer((_) => reply.future);
+      switching
+          .read(homeSidebarProvider.notifier)
+          .setType(HomeSidebarType.people);
+
+      final pending = switching
+          .read(peopleActionsProvider.notifier)
+          .openChat(ada);
+      switching.read(_orgProvider.notifier).select('org-2');
+      reply.complete((channelId: 'c-1', participantId: 'u-1'));
+
+      expect(await pending, isFalse);
+      expect(switching.read(selectedDmProvider), isNull);
+      expect(switching.read(homeSidebarProvider), HomeSidebarType.people);
+      expect(switching.read(peopleActionsProvider), isNull);
     });
   });
 }

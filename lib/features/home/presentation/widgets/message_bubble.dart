@@ -215,7 +215,8 @@ class _MessageBody extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.colors;
 
-    if (text.contains('[Voice Note Attached]')) {
+    if (hasVoiceNoteMarker(text)) {
+      final length = voiceNoteLength(text);
       return Container(
         margin: const EdgeInsets.only(top: 4),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -229,14 +230,18 @@ class _MessageBody extends StatelessWidget {
             Icon(Icons.play_circle_fill, color: colors.primary, size: 28),
             const SizedBox(width: 8),
             _VoiceWaveform(color: colors.primary),
-            const SizedBox(width: 8),
-            Text(
-              '0:05',
-              style: TextStyle(
-                color: colors.primary,
-                fontWeight: FontWeight.bold,
+            // Older voice notes don't carry their length: show none rather
+            // than a made-up one.
+            if (length != null) ...[
+              const SizedBox(width: 8),
+              Text(
+                formatClockDuration(length),
+                style: TextStyle(
+                  color: colors.primary,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
-            ),
+            ],
           ],
         ),
       );

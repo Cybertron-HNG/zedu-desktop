@@ -49,6 +49,10 @@ class DmConversationActionsNotifier extends Notifier<DmConversationActions> {
   /// Where this user's pins are remembered (null while signed out).
   String? _pinnedKey;
 
+  /// Unpinned while the saved pins were still loading, so the restore must
+  /// not bring them back.
+  final Set<String> _unpinnedWhileRestoring = {};
+
   @override
   DmConversationActions build() {
     // Rebuilt for each signed-in user, so one account never sees another's pins.
@@ -57,20 +61,32 @@ class DmConversationActionsNotifier extends Notifier<DmConversationActions> {
         ? null
         : DmPreferencesStore.pinnedKey(userId);
     final key = _pinnedKey;
+    _unpinnedWhileRestoring.clear();
     if (key != null) _restorePinned(key);
     return const DmConversationActions();
   }
 
   Future<void> _restorePinned(String key) async {
     final saved = await ref.read(dmPreferencesStoreProvider).read(key);
-    if (!ref.mounted || _pinnedKey != key || saved.isEmpty) return;
-    // Keep anything pinned while the saved list was loading.
-    state = state.copyWith(pinnedIds: {...saved, ...state.pinnedIds});
+    if (!ref.mounted || _pinnedKey != key) return;
+    final unpinned = Set<String>.of(_unpinnedWhileRestoring);
+    _unpinnedWhileRestoring.clear();
+    if (saved.isEmpty) return;
+    // Keep anything pinned while the saved list was loading, and leave out
+    // anything unpinned meanwhile: the latest action wins.
+    state = state.copyWith(
+      pinnedIds: {...saved.difference(unpinned), ...state.pinnedIds},
+    );
   }
 
   void togglePinned(String channelId) {
     final ids = Set<String>.from(state.pinnedIds);
-    ids.contains(channelId) ? ids.remove(channelId) : ids.add(channelId);
+    if (ids.remove(channelId)) {
+      _unpinnedWhileRestoring.add(channelId);
+    } else {
+      ids.add(channelId);
+      _unpinnedWhileRestoring.remove(channelId);
+    }
     state = state.copyWith(pinnedIds: ids);
     final key = _pinnedKey;
     if (key != null) {
@@ -115,10 +131,17 @@ class DmListNotifier extends AsyncNotifier<List<DmConversation>> {
 
   bool get hasMore => _hasMore;
 
+  /// The last "load more" failed (offline, expired session). The DMs already
+  /// loaded stay, and the sidebar offers a retry, which asks for the same
+  /// page again.
+  bool get loadMoreFailed => _loadMoreFailed;
+  bool _loadMoreFailed = false;
+
   @override
   Future<List<DmConversation>> build() async {
     final orgId = ref.watch(currentOrgIdProvider);
     _listVersion++;
+    _loadMoreFailed = false;
     if (orgId.isEmpty) return const [];
 
     _currentPage = 1;
@@ -146,9 +169,20 @@ class DmListNotifier extends AsyncNotifier<List<DmConversation>> {
     // Only count the page once it has loaded, so a failed load is asked for
     // again on the next scroll instead of being skipped.
     final page = _currentPage + 1;
-    final next = await _fetchPage(orgId, page);
+    final List<DmConversation> next;
+    try {
+      next = await _fetchPage(orgId, page);
+    } catch (error) {
+      if (version != _listVersion) return;
+      AppLogger.w('Could not load DM page $page - $error', tag: 'DmList');
+      _loadMoreFailed = true;
+      // A new list, so the sidebar rebuilds and shows the retry.
+      state = AsyncValue.data([...current]);
+      return;
+    }
     if (version != _listVersion) return;
     _currentPage = page;
+    _loadMoreFailed = false;
     state = AsyncValue.data([...current, ...next]);
   }
 
@@ -157,6 +191,7 @@ class DmListNotifier extends AsyncNotifier<List<DmConversation>> {
     if (orgId.isEmpty) return;
 
     _listVersion++;
+    _loadMoreFailed = false;
     _currentPage = 1;
     _hasMore = true;
     state = const AsyncValue.loading();

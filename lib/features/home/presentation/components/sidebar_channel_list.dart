@@ -2,12 +2,22 @@ import 'package:zedu/core/core.dart';
 import 'package:zedu/features/features.dart';
 
 /// The workspace's channels in the home sidebar. Tapping a row opens it.
-class SidebarChannelList extends ConsumerWidget {
+/// Private channels are listed apart, under a "Private" heading that can be
+/// collapsed.
+class SidebarChannelList extends ConsumerStatefulWidget {
   const SidebarChannelList({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<SidebarChannelList> createState() => _SidebarChannelListState();
+}
+
+class _SidebarChannelListState extends ConsumerState<SidebarChannelList> {
+  bool _privateExpanded = true;
+
+  @override
+  Widget build(BuildContext context) {
     final channelState = ref.watch(channelProvider);
+    final colors = context.colors;
     final orgId = ref.watch(
       workspaceProvider.select((s) => s.selectedWorkspace?.id),
     );
@@ -26,6 +36,18 @@ class SidebarChannelList extends ConsumerWidget {
             )
             .toList();
     final activeChat = ref.watch(activeChatProvider);
+    final privateChannels = channels.where((c) => c.isPrivate).toList();
+
+    Widget item(Channel channel) => _SidebarChannelItem(
+      label: channel.name,
+      isPrivate: channel.isPrivate,
+      selected:
+          activeChat.type == ActiveChatType.channel &&
+          activeChat.id == channel.name,
+      onTap: () => ref
+          .read(activeChatProvider.notifier)
+          .selectChannel(channel.name, channelId: channel.id),
+    );
 
     return ConstrainedBox(
       constraints: const BoxConstraints(maxHeight: 240),
@@ -33,17 +55,85 @@ class SidebarChannelList extends ConsumerWidget {
         shrinkWrap: true,
         padding: EdgeInsets.zero,
         children: [
-          for (final channel in channels)
-            _SidebarChannelItem(
-              label: channel.name,
-              selected:
-                  activeChat.type == ActiveChatType.channel &&
-                  activeChat.id == channel.name,
-              onTap: () => ref
-                  .read(activeChatProvider.notifier)
-                  .selectChannel(channel.name, channelId: channel.id),
+          if (channelState.hasError)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Unable to load channels.',
+                      style: TextStyle(
+                        color: colors.error,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: channelState.isLoading
+                        ? null
+                        : () => ref.read(channelProvider.notifier).retryLoad(),
+                    child: const Text('Retry'),
+                  ),
+                ],
+              ),
             ),
+          for (final channel in channels)
+            if (!channel.isPrivate) item(channel),
+          if (privateChannels.isNotEmpty) ...[
+            _PrivateHeading(
+              expanded: _privateExpanded,
+              onToggle: () =>
+                  setState(() => _privateExpanded = !_privateExpanded),
+            ),
+            if (_privateExpanded) ...privateChannels.map(item),
+          ],
         ],
+      ),
+    );
+  }
+}
+
+/// The "Private" heading; clicking it collapses or expands the private
+/// channels under it.
+class _PrivateHeading extends StatelessWidget {
+  final bool expanded;
+  final VoidCallback onToggle;
+
+  const _PrivateHeading({required this.expanded, required this.onToggle});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+
+    return Semantics(
+      button: true,
+      expanded: expanded,
+      label: expanded ? 'Collapse private channels' : 'Expand private channels',
+      excludeSemantics: true,
+      child: InkWell(
+        onTap: onToggle,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
+          child: Row(
+            children: [
+              Icon(
+                expanded ? Icons.arrow_drop_down : Icons.arrow_right,
+                color: colors.onPrimary,
+                size: 20,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Private',
+                style: TextStyle(
+                  color: colors.onPrimary,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 15,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -51,11 +141,13 @@ class SidebarChannelList extends ConsumerWidget {
 
 class _SidebarChannelItem extends StatelessWidget {
   final String label;
+  final bool isPrivate;
   final bool selected;
   final VoidCallback onTap;
 
   const _SidebarChannelItem({
     required this.label,
+    required this.isPrivate,
     required this.selected,
     required this.onTap,
   });
@@ -81,13 +173,21 @@ class _SidebarChannelItem extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
             child: Row(
               children: [
-                Text(
-                  '#',
-                  style: TextStyle(
+                if (isPrivate)
+                  Icon(
+                    Icons.lock_outline,
+                    semanticLabel: 'Private channel',
                     color: colors.onPrimary.withValues(alpha: 0.54),
-                    fontSize: 18,
+                    size: 16,
+                  )
+                else
+                  Text(
+                    '#',
+                    style: TextStyle(
+                      color: colors.onPrimary.withValues(alpha: 0.54),
+                      fontSize: 18,
+                    ),
                   ),
-                ),
                 const SizedBox(width: 12),
                 Flexible(
                   child: Text(

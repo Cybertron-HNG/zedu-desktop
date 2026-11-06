@@ -64,6 +64,7 @@ class GroupDmNotifier extends Notifier<List<GroupDM>> {
     _generation++;
     _listenToWebsockets();
     _listenToNetwork();
+    ref.onDispose(() => _wsSubscription?.cancel());
     // Groups live on the server, so they come back after a restart and the
     // list starts over when the workspace or the signed-in user changes.
     final orgId = ref.watch(currentOrgIdProvider);
@@ -122,6 +123,8 @@ class GroupDmNotifier extends Notifier<List<GroupDM>> {
   void _listenToWebsockets() {
     _wsSubscription?.cancel();
     final ws = ref.read(chatWebsocketProvider);
+    // Store the subscription so it can be cancelled when the provider is disposed.
+    // Without this, the WebSocket listener leaks after the provider is removed.
     _wsSubscription = ws.messageStream.listen((msg) {
       if (!ref.mounted) return;
       _handleIncomingMessage(msg.groupDmId, msg.text);

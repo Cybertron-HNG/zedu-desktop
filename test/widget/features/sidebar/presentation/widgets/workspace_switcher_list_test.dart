@@ -43,6 +43,58 @@ Widget buildSwitcherUnderTest() {
   );
 }
 
+class FakeInviteUserProfileNotifier extends UserProfileNotifier {
+  @override
+  UserProfileState build() => const UserProfileState();
+
+  @override
+  Future<List<Map<String, dynamic>>> fetchRegisteredUsers() async => [];
+}
+
+class FakeInviteActiveChatNotifier extends ActiveChatNotifier {
+  @override
+  ActiveChatState build() => ActiveChatState.generalChannel;
+}
+
+Widget buildInviteSwitcherUnderTest() {
+  final router = GoRouter(
+    routes: [
+      GoRoute(
+        path: '/',
+        builder: (context, state) => Scaffold(
+          body: Builder(
+            builder: (context) => TextButton(
+              onPressed: () => showDialog<void>(
+                context: context,
+                builder: (_) => const Align(
+                  alignment: Alignment.topLeft,
+                  child: WorkspaceSwitcherList(),
+                ),
+              ),
+              child: const Text('Open menu'),
+            ),
+          ),
+        ),
+      ),
+      GoRoute(
+        path: AppRouter.profile,
+        builder: (context, state) => const Scaffold(body: Text('Profile page')),
+      ),
+    ],
+  );
+
+  return ProviderScope(
+    overrides: [
+      workspaceProvider.overrideWith(FakeWorkspaceNotifier.new),
+      userProfileNotifierProvider.overrideWith(
+        FakeInviteUserProfileNotifier.new,
+      ),
+      activeChatProvider.overrideWith(FakeInviteActiveChatNotifier.new),
+    ],
+    child: MaterialApp.router(routerConfig: router),
+  );
+}
+
 void main() {
   group('WorkspaceSwitcherList', () {
     testWidgets('Settings button opens the settings page', (tester) async {
@@ -58,6 +110,22 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Profile page'), findsOneWidget);
+      expect(find.text('Settings'), findsNothing);
+    });
+
+    testWidgets('Invite button opens the invite dialog', (tester) async {
+      // The test font is wider than Roboto and overflows the fixed-width menu.
+      tester.platformDispatcher.textScaleFactorTestValue = 0.5;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+
+      await tester.pumpWidget(buildInviteSwitcherUnderTest());
+      await tester.tap(find.text('Open menu'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Invite'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(InviteTeammatesModal), findsOneWidget);
       expect(find.text('Settings'), findsNothing);
     });
 

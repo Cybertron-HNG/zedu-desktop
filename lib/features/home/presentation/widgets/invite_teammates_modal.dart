@@ -107,27 +107,28 @@ class _InviteTeammatesModalState extends ConsumerState<InviteTeammatesModal> {
     });
 
     final notifier = ref.read(userProfileNotifierProvider.notifier);
-    int successCount = 0;
-    String? lastError;
+    final batch = List.of(_invites);
+    final failed = <Map<String, String?>>[];
+    String? firstError;
 
     // Loop through and invite all
-    for (final invite in _invites) {
+    for (final invite in batch) {
       // Assuming 'User' role by default since there's no dropdown in UI
       await notifier.inviteMember(
         email: invite['email']!,
         role: 'User',
         userId: invite['userId'],
       );
-      final state = ref.read(userProfileNotifierProvider);
-      if (state.error != null) {
-        lastError = state.error;
-      } else {
-        successCount++;
+      final error = ref.read(userProfileNotifierProvider).error;
+      if (error != null) {
+        failed.add(invite);
+        firstError ??= error;
       }
     }
 
     if (!mounted) return;
 
+    final successCount = batch.length - failed.length;
     if (successCount > 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -137,17 +138,27 @@ class _InviteTeammatesModalState extends ConsumerState<InviteTeammatesModal> {
           backgroundColor: context.colors.success,
         ),
       );
-      Navigator.pop(context);
-    } else if (lastError != null) {
-      setState(() {
-        _isLoading = false;
-      });
-      AppToastService.show(
-        context,
-        type: AppToastType.error,
-        message: lastError,
-      );
     }
+    if (failed.isEmpty) {
+      Navigator.pop(context);
+      return;
+    }
+
+    // Keep only the addresses that failed, so sending again retries them.
+    setState(() {
+      _isLoading = false;
+      _invites
+        ..clear()
+        ..addAll(failed);
+    });
+    final failedEmails = failed.map((invite) => invite['email']).join(', ');
+    AppToastService.show(
+      context,
+      type: AppToastType.error,
+      message: successCount > 0
+          ? "Couldn't invite $failedEmails: $firstError"
+          : firstError!,
+    );
   }
 
   Future<void> _addEveryone() async {
