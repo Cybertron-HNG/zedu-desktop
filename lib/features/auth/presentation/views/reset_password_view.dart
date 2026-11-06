@@ -107,6 +107,35 @@ class _ResetPasswordViewState extends ConsumerState<ResetPasswordView> {
     }
   }
 
+  /// Distributes a pasted code across the six boxes instead of keeping only
+  /// the first digit, and advances when a second digit is typed into a filled
+  /// box.
+  void _onOtpChanged(int index, String value) {
+    final digits = value.replaceAll(RegExp(r'\D'), '');
+    if (digits.isEmpty) {
+      if (index > 0) _focusNodes[index - 1].requestFocus();
+      return;
+    }
+
+    if (digits.length == 1) {
+      _tokenControllers[index].value = TextEditingValue(
+        text: digits,
+        selection: const TextSelection.collapsed(offset: 1),
+      );
+      if (index < 5) _focusNodes[index + 1].requestFocus();
+      return;
+    }
+
+    var cursor = index;
+    for (var i = 0; i < digits.length && cursor < 6; i++, cursor++) {
+      _tokenControllers[cursor].value = TextEditingValue(
+        text: digits[i],
+        selection: const TextSelection.collapsed(offset: 1),
+      );
+    }
+    _focusNodes[cursor < 6 ? cursor : 5].requestFocus();
+  }
+
   Widget _buildOTPInput() {
     final theme = Theme.of(context);
     return Row(
@@ -120,10 +149,7 @@ class _ResetPasswordViewState extends ConsumerState<ResetPasswordView> {
             focusNode: _focusNodes[index],
             textAlign: TextAlign.center,
             keyboardType: TextInputType.number,
-            inputFormatters: [
-              FilteringTextInputFormatter.digitsOnly,
-              LengthLimitingTextInputFormatter(1),
-            ],
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
             style: theme.textTheme.titleLarge?.copyWith(
               fontWeight: FontWeight.w600,
             ),
@@ -141,13 +167,7 @@ class _ResetPasswordViewState extends ConsumerState<ResetPasswordView> {
                 borderSide: BorderSide(color: context.colors.primary, width: 2),
               ),
             ),
-            onChanged: (value) {
-              if (value.isNotEmpty && index < 5) {
-                _focusNodes[index + 1].requestFocus();
-              } else if (value.isEmpty && index > 0) {
-                _focusNodes[index - 1].requestFocus();
-              }
-            },
+            onChanged: (value) => _onOtpChanged(index, value),
           ),
         );
       }),
@@ -192,15 +212,20 @@ class _ResetPasswordViewState extends ConsumerState<ResetPasswordView> {
                     fontFamily: FontFamily.roboto,
                   ),
                   children: [
-                    TextSpan(
-                      text: 'Sign in',
-                      style: context.textTheme.bodyLarge?.copyWith(
-                        fontWeight: FontWeight.w400,
-                        color: context.colors.primary,
-                        fontFamily: FontFamily.roboto,
+                    WidgetSpan(
+                      alignment: PlaceholderAlignment.baseline,
+                      baseline: TextBaseline.alphabetic,
+                      child: GestureDetector(
+                        onTap: () => context.go(AppRouter.login),
+                        child: Text(
+                          'Sign in',
+                          style: context.textTheme.bodyLarge?.copyWith(
+                            fontWeight: FontWeight.w400,
+                            color: context.colors.primary,
+                            fontFamily: FontFamily.roboto,
+                          ),
+                        ),
                       ),
-                      recognizer: TapGestureRecognizer()
-                        ..onTap = () => context.go(AppRouter.login),
                     ),
                   ],
                 ),
@@ -314,19 +339,25 @@ class _ResetPasswordViewState extends ConsumerState<ResetPasswordView> {
                               fontWeight: FontWeight.w400,
                             ),
                             children: [
-                              TextSpan(
-                                text: 'Use current password',
-                                style: context.textTheme.bodyMedium?.copyWith(
-                                  color: context.colors.primary,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                                recognizer: TapGestureRecognizer()
-                                  ..onTap = () {
+                              WidgetSpan(
+                                alignment: PlaceholderAlignment.baseline,
+                                baseline: TextBaseline.alphabetic,
+                                child: GestureDetector(
+                                  onTap: () {
                                     context.go(
                                       AppRouter.changePassword,
                                       extra: widget.email,
                                     );
                                   },
+                                  child: Text(
+                                    'Use current password',
+                                    style: context.textTheme.bodyMedium
+                                        ?.copyWith(
+                                          color: context.colors.primary,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                  ),
+                                ),
                               ),
                             ],
                           ),
@@ -334,28 +365,30 @@ class _ResetPasswordViewState extends ConsumerState<ResetPasswordView> {
                       ),
                       context.gapV(16),
                       Center(
-                        child: Text.rich(
-                          TextSpan(
-                            text: 'Resend code ',
-                            style: context.textTheme.bodyMedium?.copyWith(
-                              color: _secondsLeft > 0
-                                  ? context.colors.textPrimary
-                                  : context.colors.primary,
-                              fontWeight: FontWeight.w500,
-                            ),
-                            recognizer: TapGestureRecognizer()
-                              ..onTap = _onResendCodePressed,
-                            children: [
-                              if (_secondsLeft > 0)
-                                TextSpan(
-                                  text:
-                                      'after ${_secondsLeft ~/ 60}:${(_secondsLeft % 60).toString().padLeft(2, '0')} mins',
-                                  style: context.textTheme.bodyMedium?.copyWith(
-                                    color: context.colors.primary,
-                                    fontWeight: FontWeight.w500,
+                        child: GestureDetector(
+                          onTap: _onResendCodePressed,
+                          child: Text.rich(
+                            TextSpan(
+                              text: 'Resend code ',
+                              style: context.textTheme.bodyMedium?.copyWith(
+                                color: _secondsLeft > 0
+                                    ? context.colors.textPrimary
+                                    : context.colors.primary,
+                                fontWeight: FontWeight.w500,
+                              ),
+                              children: [
+                                if (_secondsLeft > 0)
+                                  TextSpan(
+                                    text:
+                                        'after ${_secondsLeft ~/ 60}:${(_secondsLeft % 60).toString().padLeft(2, '0')} mins',
+                                    style: context.textTheme.bodyMedium
+                                        ?.copyWith(
+                                          color: context.colors.primary,
+                                          fontWeight: FontWeight.w500,
+                                        ),
                                   ),
-                                ),
-                            ],
+                              ],
+                            ),
                           ),
                         ),
                       ),
