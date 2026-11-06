@@ -557,12 +557,12 @@ class _ChannelHeaderMenu extends ConsumerWidget {
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: Text('Leave #${channel.name}?'),
-        content: Text(
-          channel.isPrivate
-              ? 'You will stop getting its messages, and someone will need to '
-                    'add you again to rejoin.'
-              : 'You will stop getting its messages. You can join it again '
-                    'from the channel directory.',
+        // The channel directory only lists channels you're in and has no Join,
+        // so public channels can't promise a way back from there either
+        // (Ziki #2922).
+        content: const Text(
+          'You will stop getting its messages, and someone will need to '
+          'add you again to rejoin.',
         ),
         actions: [
           TextButton(

@@ -242,6 +242,24 @@ void main() {
       await tester.pumpAndSettle();
     }
 
+    testWidgets('leaving a public channel promises no way back from the '
+        'channel directory (#2922)', (tester) async {
+      await pumpSidebarAndChat(tester);
+
+      await leaveRandom(tester);
+
+      expect(find.textContaining('channel directory'), findsNothing);
+      expect(
+        find.text(
+          'You will stop getting its messages, and someone will need to '
+          'add you again to rejoin.',
+        ),
+        findsOneWidget,
+      );
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+    });
+
     testWidgets('leaving a channel removes it and opens another one', (
       tester,
     ) async {
